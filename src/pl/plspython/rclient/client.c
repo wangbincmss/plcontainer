@@ -68,19 +68,27 @@ main(int argc, char **argv) {
         lprintf(ERROR, "%s", strerror(errno));
     }
 
-    raddr_len = sizeof(raddr);
-    sock      = accept(fd, (struct sockaddr *)&raddr, &raddr_len);
-    if (sock == -1) {
-        lprintf(ERROR, "failed to accept connection: %s", strerror(errno));
+    while (true) {
+        raddr_len = sizeof(raddr);
+        sock      = accept(fd, (struct sockaddr *)&raddr, &raddr_len);
+        if (sock == -1) {
+            lprintf(ERROR, "failed to accept connection: %s", strerror(errno));
+        }
+
+        conn          = pq_min_connect_fd(sock);
+        //conn->Pfdebug = stdout;
+        plspython_channel_initialize(conn);
+
+        receive_loop();
+
+#ifndef _DEBUG_CLIENT
+        break;
+#endif
+
     }
 
-    conn = pq_min_connect_fd(sock);
-    /* conn->Pfdebug = stdout; */
-    plspython_channel_initialize(conn);
-
-    receive_loop();
-
-    lprintf(ERROR, "should not be here");
+    lprintf(NOTICE, "Client has finished execution");
+    return 0;
 }
 
 void
@@ -91,6 +99,10 @@ receive_loop() {
 
     while (true) {
         msg = plspython_channel_receive();
+
+        if (msg == NULL) {
+            break;
+        }
 
         switch (msg->msgtype) {
         case MT_CALLREQ:

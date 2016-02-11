@@ -33,7 +33,7 @@ $$ LANGUAGE plspython;
 
 CREATE FUNCTION concatall() RETURNS text AS $$
 # container: plspython
-res = plpy.execute('select fname from users')
+res = plpy.execute('select fname from users order by 1')
 names = map(lambda x: x['fname'], res)
 return reduce(lambda x,y: x + ',' + y, names)
 $$ LANGUAGE plspython;

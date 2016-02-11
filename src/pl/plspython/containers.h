@@ -1,7 +1,7 @@
 #ifndef __CONTAINERS_H__
 #define __CONTAINERS_H__
 
-#define CONTAINER_DEBUG
+//#define CONTAINER_DEBUG
 
 #include "common/libpq-mini.h"
 

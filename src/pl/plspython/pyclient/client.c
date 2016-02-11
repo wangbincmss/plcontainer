@@ -73,9 +73,9 @@ main(int argc, char **argv) {
         plspython_channel_initialize(conn);
 
         receive_loop();
-    
+
 #ifndef _DEBUG_CLIENT
-	break;
+        break;
 #endif
 
     }
@@ -95,7 +95,7 @@ receive_loop() {
 
         if (msg == NULL) {
             break;
-	}
+        }
 
         switch (msg->msgtype) {
         case MT_CALLREQ:

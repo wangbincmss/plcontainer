@@ -28,7 +28,7 @@ RUN cd /postgres && \
         make && \
         cp client /
 
-ENV R_HOME /usr/lib/R
+ENV R_HOME /usr/lib64/R
 
 EXPOSE 8080
 
