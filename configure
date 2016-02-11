@@ -711,7 +711,7 @@ krb_srvtab
 with_krb5
 with_gssapi
 with_python
-with_spython
+with_container
 with_perl
 with_tcl
 enable_thread_safety
@@ -835,7 +835,7 @@ with_tcl
 with_tclconfig
 with_perl
 with_python
-with_spython
+with_container
 with_gssapi
 with_krb5
 with_krb_srvnam
@@ -5674,11 +5674,11 @@ $as_echo "$with_python" >&6; }
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking whether to build Trusted Python modules" >&5
 $as_echo_n "checking whether to build Trusted Python modules... " >&6; }
 
-pgac_args="$pgac_args with_spython"
+pgac_args="$pgac_args with_container"
 
-# Check whether --with-spython was given.
-if test "${with_spython+set}" = set; then :
-  withval=$with_spython;
+# Check whether --with-container was given.
+if test "${with_container+set}" = set; then :
+  withval=$with_container;
   case $withval in
     yes)
       :
@@ -5687,17 +5687,16 @@ if test "${with_spython+set}" = set; then :
       :
       ;;
     *)
-      as_fn_error $? "no argument expected for --with-spython option" "$LINENO" 5
+      as_fn_error $? "no argument expected for --with-container option" "$LINENO" 5
       ;;
   esac
 
 else
-  with_spython=no
-
+  with_container=no
 fi
 
-{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $with_spython" >&5
-$as_echo "$with_spython" >&6; }
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $with_container" >&5
+$as_echo "$with_container" >&6; }
 
 
 #
@@ -7552,7 +7551,7 @@ fi
 
 fi
 
-if test "$with_python" = yes || "$with_spython" = yes; then
+if test "$with_python" = yes; then
   # Extract the first word of "python", so it can be a program name with args.
 set dummy python; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5

@@ -22,8 +22,8 @@ ifeq ($(with_python), yes)
 DIRS += plpython
 endif
 
-ifeq ($(with_spython), yes)
-DIRS += plspython
+ifeq ($(with_container), yes)
+DIRS += plcontainer
 endif
 
 ifeq ($(with_tcl), yes)

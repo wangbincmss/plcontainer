@@ -165,7 +165,7 @@ sqlmansect_dummy = l
 
 with_perl	= @with_perl@
 with_python	= @with_python@
-with_spython	= @with_spython@
+with_container	= @with_container@
 with_tcl	= @with_tcl@
 with_java   = @with_java@
 with_openssl	= @with_openssl@

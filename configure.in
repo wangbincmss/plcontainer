@@ -741,12 +741,12 @@ AC_MSG_RESULT([$with_python])
 AC_SUBST(with_python)
 
 #
-# Optionally build Trusted Python modules (PL/SPython)
+# Optionally build Trusted Container modules (PL/Container)
 #
-AC_MSG_CHECKING([whether to build Trusted Python modules])
-PGAC_ARG_BOOL(with, spython, no, [  --with-spython           build Trusted Python modules (PL/Python)])
-AC_MSG_RESULT([$with_spython])
-AC_SUBST(with_spython)
+AC_MSG_CHECKING([whether to build Trusted Container modules])
+PGAC_ARG_BOOL(with, container, no, [  --with-container        build Trusted Container modules (PL/Container)])
+AC_MSG_RESULT([$with_container])
+AC_SUBST(with_container)
 
 #
 # GSSAPI
@@ -998,7 +998,7 @@ if test "$with_perl" = yes; then
   PGAC_CHECK_PERL_EMBED_LDFLAGS
 fi
 
-if test "$with_python" = yes || "$with_spython" = yes; then
+if test "$with_python" = yes; then
   PGAC_PATH_PYTHON
   PGAC_CHECK_PYTHON_EMBED_SETUP
 fi

@@ -1,0 +1,52 @@
+-- first some tests of basic functionality
+--
+-- better succeed
+--
+select writeFile();
+        writefile         
+--------------------------
+ wrote foobar to /tmp/foo
+(1 row)
+
+-- make sure the file doesn't exist on the host filesystem
+\! ls -l /tmp/foo
+ls: cannot access /tmp/foo: No such file or directory
+select rlog100();
+ rlog100 
+---------
+ 2
+(1 row)
+
+select pylog100();
+ pylog100 
+----------
+        2
+(1 row)
+
+select pylog(10000, 10);
+ pylog 
+-------
+     4
+(1 row)
+
+select concat(fname, lname) from users;
+  concat   
+-----------
+ janedoe
+ willemdoe
+ johndoe
+ ricksmith
+(4 rows)
+
+select concatall();
+       concatall       
+-----------------------
+ jane,john,rick,willem
+(1 row)
+
+select invalid_function();
+ERROR:  exception occured: (plcontainer.c:276)
+DETAIL:  'module' object has no attribute 'foobar'
+select invalid_syntax();
+ERROR:  exception occured: (plcontainer.c:276)
+DETAIL:  ('invalid syntax', ('<string>', 7, 1, '\n'))
