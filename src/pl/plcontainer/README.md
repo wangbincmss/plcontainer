@@ -14,9 +14,11 @@ implement sandboxing.
 
 #### Building Greenplum
 
-1. `git clone https://github.com/greenplum-db/trusted-languages-poc.git`
-1. `cd vagrant/centos`
-1. `vagrant up`
+```shell
+git clone https://github.com/greenplum-db/trusted-languages-poc.git
+cd vagrant/centos
+vagrant up
+```
 
 That's it, Greenplum is built and installed, database is up and running
 
