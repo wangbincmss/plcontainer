@@ -2,32 +2,33 @@
 
 set -x
 
-cd /home/gpadmin
+cd ~
 rm ~/.bashrc
-printf '#!/bin/bash\n' >> ~/.bashrc
+printf '#!/bin/bash\n\n'                                     >> ~/.bashrc
+printf '. /etc/bashrc\n\n'                                   >> ~/.bashrc
 printf '\n# GPDB environment variables\nexport GPDB=/gpdb\n' >> ~/.bashrc
-printf 'export GPHOME=/home/gpadmin/gpdb_install\n' >> ~/.bashrc
-printf 'export GPDATA=/home/gpadmin/gpdb_data\n' >> ~/.bashrc
-printf 'if [ -e $GPHOME/greenplum_path.sh ]; then\n\t' >> ~/.bashrc
-printf 'source $GPHOME/greenplum_path.sh\nfi\n' >> ~/.bashrc
+printf 'export GPHOME=/usr/local/greenplum-db\n'             >> ~/.bashrc
+printf 'export GPDATA=/data\n'                               >> ~/.bashrc
+printf 'if [ -e $GPHOME/greenplum_path.sh ]; then\n\t'       >> ~/.bashrc
+printf 'source $GPHOME/greenplum_path.sh\nfi\n'              >> ~/.bashrc
 source ~/.bashrc
 
 killall postgres
 sleep 5
 killall postgres -s SIGKILL
-rm -rf $GPDATA/master
-rm -rf $GPDATA/segments
-
-mkdir -p $GPDATA/master
-mkdir -p $GPDATA/segments
+sudo rm -rf $GPDATA
+sudo mkdir -p $GPDATA
+sudo chown -R vagrant:vagrant $GPDATA
+mkdir $GPDATA/master
+mkdir $GPDATA/primary
 
 gpssh-exkeys -h `hostname`
 hostname > $GPDATA/hosts
 
 GPCFG=$GPDATA/gpinitsystem_config
 rm -f $GPCFG
-printf "declare -a DATA_DIRECTORY=($GPDATA/segments $GPDATA/segments)" >> $GPCFG
-printf "\nMASTER_HOSTNAME=`hostname`\n"                                >> $GPCFG
+printf "declare -a DATA_DIRECTORY=($GPDATA/primary $GPDATA/primary)\n" >> $GPCFG
+printf "MASTER_HOSTNAME=`hostname`\n"                                  >> $GPCFG
 printf "MACHINE_LIST_FILE=$GPDATA/hosts\n"                             >> $GPCFG
 printf "MASTER_DIRECTORY=$GPDATA/master\n"                             >> $GPCFG
 printf "ARRAY_NAME=\"GPDB\" \n"                                        >> $GPCFG

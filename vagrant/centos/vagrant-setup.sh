@@ -17,6 +17,7 @@ sudo yum -y install openssl-libs openssl-devel
 sudo yum -y install libyaml libyaml-devel
 sudo yum -y install epel-release
 sudo yum -y install htop
+sudo yum -y install perl-Env
 wget https://bootstrap.pypa.io/get-pip.py
 sudo python get-pip.py
 sudo pip install psi lockfile paramiko setuptools epydoc
@@ -28,12 +29,7 @@ sudo yum -y install docker-engine
 sudo systemctl start docker.service
 sudo systemctl enable docker.service
 
-# Create gpadmin user
-sudo useradd gpadmin -d /home/gpadmin -s /bin/bash
-echo changeme | sudo passwd gpadmin --stdin
-
-# Add gpadmin to Docker group
-sudo usermod -aG docker gpadmin
+# Add vagrant to Docker group
 sudo usermod -aG docker vagrant
 
 # Misc

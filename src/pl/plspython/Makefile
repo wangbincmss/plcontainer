@@ -53,7 +53,7 @@ uninstall: uninstall-lib
 .PHONY: containers
 containers:
 	docker build -f Dockerfile.R -t plr $(top_builddir)
-	#docker build -f Dockerfile.python -t plspython $(top_builddir)
+	docker build -f Dockerfile.python -t plspython $(top_builddir)
 
 .PHONY: installcheck
 installcheck:
