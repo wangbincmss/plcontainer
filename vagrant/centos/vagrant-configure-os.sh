@@ -10,11 +10,13 @@ sudo setenforce 0
 sudo sed -i 's/^SELINUX=.*$/SELINUX=disabled/' /etc/selinux/config 
 
 # Setting up hostname for host-private network
+sudo hostnamectl set-hostname gpdbvagrant.pivotal.io
 sudo hostname gpdbvagrant.pivotal.io
 sudo sed -i '/vagrant/d' /etc/hosts
 sudo bash -c 'echo "192.168.10.200 gpdbvagrant.pivotal.io gpdbvagrant" >> /etc/hosts'
 sudo sed -i '/HOSTNAME/d' /etc/sysconfig/network
 sudo bash -c 'echo "HOSTNAME=gpdbvagrant.pivotal.io" >> /etc/sysconfig/network'
+sudo bash -c 'echo "DHCP_HOSTNAME=gpdbvagrant.pivotal.io" >> /etc/sysconfig/network'
 
 # GPDB Kernel Settings
 sudo rm -f /etc/sysctl.d/gpdb.conf
