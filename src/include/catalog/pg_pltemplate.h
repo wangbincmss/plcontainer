@@ -92,6 +92,7 @@ DATA(insert ( "pltclu"		f "pltclu_call_handler" _null_ "$libdir/pltcl" _null_ ))
 DATA(insert ( "plperl"		t "plperl_call_handler" "plperl_validator" "$libdir/plperl" _null_ ));
 DATA(insert ( "plperlu"		f "plperl_call_handler" "plperl_validator" "$libdir/plperl" _null_ ));
 DATA(insert ( "plpythonu"	f "plpython_call_handler" _null_ "$libdir/plpython" _null_ ));
+DATA(insert ( "plspython"	f "plspython_call_handler" _null_ "$libdir/plspython" _null_ ));
 DATA(insert ( "plr"         f "plr_call_handler" _null_ "$libdir/plr" _null_ ));
 DATA(insert ( "pljava"      t "pljava_call_handler" _null_ "$libdir/pljava" _null_ ));
 DATA(insert ( "pljavau"     f "pljavau_call_handler" _null_ "$libdir/pljava" _null_ ));

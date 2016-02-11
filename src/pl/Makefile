@@ -22,6 +22,10 @@ ifeq ($(with_python), yes)
 DIRS += plpython
 endif
 
+ifeq ($(with_spython), yes)
+DIRS += plspython
+endif
+
 ifeq ($(with_tcl), yes)
 DIRS += tcl
 endif

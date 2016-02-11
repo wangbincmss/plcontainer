@@ -741,6 +741,14 @@ AC_MSG_RESULT([$with_python])
 AC_SUBST(with_python)
 
 #
+# Optionally build Trusted Python modules (PL/SPython)
+#
+AC_MSG_CHECKING([whether to build Trusted Python modules])
+PGAC_ARG_BOOL(with, spython, no, [  --with-spython           build Trusted Python modules (PL/Python)])
+AC_MSG_RESULT([$with_spython])
+AC_SUBST(with_spython)
+
+#
 # GSSAPI
 #
 AC_MSG_CHECKING([whether to build with GSSAPI support])
@@ -990,7 +998,7 @@ if test "$with_perl" = yes; then
   PGAC_CHECK_PERL_EMBED_LDFLAGS
 fi
 
-if test "$with_python" = yes; then
+if test "$with_python" = yes || "$with_spython" = yes; then
   PGAC_PATH_PYTHON
   PGAC_CHECK_PYTHON_EMBED_SETUP
 fi
