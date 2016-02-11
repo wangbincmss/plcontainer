@@ -59,5 +59,5 @@ sudo bash -c 'echo "RemoveIPC=no" >> /etc/systemd/logind.conf'
 sudo service systemd-logind restart
 
 # Installation
-#sudo -H -u gpadmin /bin/bash /vagrant/vagrant-install-gpdb.sh
+sudo -H -u gpadmin /bin/bash /vagrant/vagrant-install-gpdb.sh
 
