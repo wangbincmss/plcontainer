@@ -11,5 +11,8 @@ select pylog100();
 select pylog(10000, 10);
 select concat(fname, lname) from users;
 select concatall();
+select nested_call_three('a');
+select nested_call_two('a');
+select nested_call_one('a');
 select invalid_function();
 select invalid_syntax();

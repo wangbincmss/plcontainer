@@ -44,6 +44,24 @@ select concatall();
  jane,john,rick,willem
 (1 row)
 
+select nested_call_three('a');
+ nested_call_three 
+-------------------
+ a
+(1 row)
+
+select nested_call_two('a');
+      nested_call_two       
+----------------------------
+ {'nested_call_three': 'a'}
+(1 row)
+
+select nested_call_one('a');
+                  nested_call_one                  
+---------------------------------------------------
+ {'nested_call_two': "{'nested_call_three': 'a'}"}
+(1 row)
+
 select invalid_function();
 ERROR:  exception occured: (plcontainer.c:276)
 DETAIL:  'module' object has no attribute 'foobar'

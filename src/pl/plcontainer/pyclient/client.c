@@ -130,6 +130,7 @@ handle_call(callreq req) {
 
     /* wrap the input in a function and evaluate the result */
     func = create_python_func(req);
+	/* the function will be in the dictionary because it was wrapped with "def proc.name:... " */
     val  = PyRun_String(func, Py_single_input, dict, dict);
     if (val == NULL) {
         goto error;
@@ -325,9 +326,22 @@ plpy_execute(PyObject *self __attribute__((unused)), PyObject *pyquery) {
     /* we don't need it anymore */
     pfree(msg);
 
+
+receive:
     resp = plcontainer_channel_receive();
-    if (resp->msgtype != MT_RESULT) {
-        lprintf(ERROR, "didn't receive result back");
+
+    switch (resp->msgtype) {
+       case MT_CALLREQ:
+          lprintf(DEBUG1, "receives call req %c", resp->msgtype);
+          handle_call((callreq)resp);
+          free_callreq((callreq)resp);
+          goto receive;
+
+       case MT_RESULT:
+    	   break;
+       default:
+           lprintf(DEBUG1, "didn't receive result back %c", resp->msgtype);
+           return NULL;
     }
 
     result = (plcontainer_result)resp;

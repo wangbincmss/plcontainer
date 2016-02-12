@@ -23,7 +23,7 @@ TEST(MessageSerialization, CallRequest) {
     if (pid == 0) {
         plpgj_channel_initialize(send);
         // this is the child
-        callreq req = (callreq)malloc(sizeof(*req));
+        callreq req = (callreq)malloc(sizeof(callreq));
         req->msgtype = MT_CALLREQ;
         req->proc.name = "foobar";
         req->proc.src = "function definition";
