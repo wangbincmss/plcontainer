@@ -12,7 +12,7 @@ depssrc := $(wildcard $(top_builddir)/pl/plcontainer/common/*.c)
 depssrc += $(top_builddir)/pl/plcontainer/containers.c
 deps := $(foreach src,$(depssrc),$(subst .c,.o,$(src)))
 
-override CFLAGS += -I googletest/googletest/include -I $(top_builddir)/include \
+override CFLAGS += -g -I googletest/googletest/include -I $(top_builddir)/include \
 								-I $(top_builddir)/pl/plcontainer -DCOMM_STANDALONE
 
 %.o: %.c
