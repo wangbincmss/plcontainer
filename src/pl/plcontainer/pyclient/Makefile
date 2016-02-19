@@ -15,7 +15,7 @@ clean_common:
 %.o: %.c
 	$(CC) $(PYTHON_CFLAGS) $(CFLAGS) -c -o $@ $^
 
-client: client.o $(common_objs)
+client: client.o pycall.o $(common_objs)
 	$(CC) -o $@ $^ $(PYTHON_LDLAGS)
 
 .PHONY: all
