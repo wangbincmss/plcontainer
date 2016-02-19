@@ -38,5 +38,5 @@ containers: clients
 .PHONY: cleancontainers
 cleancontainers:
 	docker rmi -f plc_python
-	#docker rmi -f plc_r
-	docker ps -a | grep -v CONTAINER | awk '{ print \$1}' | xargs -i docker rm {}
+	docker rmi -f plc_r
+	docker ps -a | grep -v CONTAINER | awk '{ print $$1}' | xargs -i docker rm {}
