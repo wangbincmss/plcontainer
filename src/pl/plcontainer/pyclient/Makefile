@@ -6,7 +6,7 @@ common_src = $(shell find ../common -name "*.c")
 common_objs = $(foreach src,$(common_src),$(subst .c,.o,$(src)))
 
 .PHONY: default
-default: all
+default: clean all
 
 .PHONY: clean_common
 clean_common:

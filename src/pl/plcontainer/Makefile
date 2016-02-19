@@ -25,12 +25,18 @@ clean:
 	rm -f common/messages/*.o
 	rm -f plcontainer.so
 
+.PHONY: clients
+clients:
+	$(MAKE) -C pyclient
+	$(MAKE) -C rclient
+
 .PHONY: containers
-containers:
-	docker build -f Dockerfile.R -t plc_r $(top_builddir)
-	docker build -f Dockerfile.python -t plc_python $(top_builddir)
+containers: clients
+	docker build -f Dockerfile.R -t plc_r .
+	docker build -f Dockerfile.python -t plc_python .
 
 .PHONY: cleancontainers
 cleancontainers:
 	docker rmi -f plc_python
-	docker rmi -f plc_r
+	#docker rmi -f plc_r
+	docker ps -a | grep -v CONTAINER | awk '{ print \$1}' | xargs -i docker rm {}
