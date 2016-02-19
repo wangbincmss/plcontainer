@@ -15,7 +15,7 @@ clean_common:
 %.o: %.c
 	$(CC) $(R_CFLAGS) $(CFLAGS) -c -o $@ $^
 
-client: client.o $(common_objs)
+client: client.o rcall.o $(common_objs)
 	$(CC) -o $@ $^ $(R_LDLAGS)
 
 .PHONY: all

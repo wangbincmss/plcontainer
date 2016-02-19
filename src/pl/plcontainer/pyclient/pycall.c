@@ -4,7 +4,6 @@
 #include "common/comm_channel.h"
 #include "common/comm_logging.h"
 #include "common/libpq-mini.h"
-#include "client.h"
 #include "pycall.h"
 
 #include <Python.h>
@@ -17,11 +16,12 @@
 static char *create_python_func(callreq req);
 static PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery);
 
+static PyMethodDef moddef[] = {
+    {"execute", plpy_execute, METH_O, NULL}, {NULL},
+};
+
 void python_init() {
     PyObject *plpymod, *mainmod;
-    PyMethodDef moddef[] = {
-        {"execute", plpy_execute, METH_O, NULL}, {NULL},
-    };
 
     Py_SetProgramName("PythonContainer");
     Py_Initialize();

@@ -1,5 +1,5 @@
-#ifndef __PYCALL_H__
-#define __PYCALL_H__
+#ifndef __RCALL_H__
+#define __RCALL_H__
 
 #include "common/libpq-mini.h"
 
@@ -9,10 +9,13 @@
 #undef _POSIX_C_SOURCE
 #endif
 
-// Initialization of Python module
-void python_init(void);
+// Signal processing function signature
+typedef void (*sighandler_t)(int);
+
+// Initialization of R module
+void r_init(void);
 
 // Processing of the Greenplum function call
 void handle_call(callreq req);
 
-#endif /* __PYCALL_H__ */
+#endif /* __RCALL_H__ */

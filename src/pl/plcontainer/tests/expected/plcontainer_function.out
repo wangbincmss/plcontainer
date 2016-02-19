@@ -32,14 +32,11 @@ res = plpy.execute('select fname from users order by 1')
 names = map(lambda x: x['fname'], res)
 return reduce(lambda x,y: x + ',' + y, names)
 $$ LANGUAGE plcontainer;
-CREATE OR REPLACE FUNCTION FUNCTION invalid_function() RETURNS double precision AS $$
+CREATE OR REPLACE FUNCTION invalid_function() RETURNS double precision AS $$
 # container: plc_python
 import math
 return math.foobar(a, b)
 $$ LANGUAGE plcontainer;
-ERROR:  syntax error at or near "invalid_function"
-LINE 1: CREATE OR REPLACE FUNCTION FUNCTION invalid_function() RETUR...
-                                            ^
 CREATE OR REPLACE FUNCTION invalid_syntax() RETURNS double precision AS $$
 # container: plc_python
 import math

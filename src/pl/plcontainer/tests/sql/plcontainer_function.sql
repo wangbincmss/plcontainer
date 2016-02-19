@@ -38,7 +38,7 @@ names = map(lambda x: x['fname'], res)
 return reduce(lambda x,y: x + ',' + y, names)
 $$ LANGUAGE plcontainer;
 
-CREATE OR REPLACE FUNCTION FUNCTION invalid_function() RETURNS double precision AS $$
+CREATE OR REPLACE FUNCTION invalid_function() RETURNS double precision AS $$
 # container: plc_python
 import math
 return math.foobar(a, b)
