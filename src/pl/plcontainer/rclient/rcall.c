@@ -34,8 +34,8 @@
  */
 
 static char *create_r_func(const char *, const char *);
-static void send_error(char *msg);
-static SEXP run_r_code(const char *code, int *errorOccured);
+static void send_error(char *msg, PGconn_min* conn);
+static SEXP run_r_code(const char *code, int *errorOccured, PGconn_min* conn);
 static char * create_r_func(const char *name, const char *src);
 
 void r_init() {
@@ -58,7 +58,7 @@ void r_init() {
     }
 }
 
-void handle_call(callreq req) {
+void handle_call(callreq req, PGconn_min* conn) {
     SEXP             r, toString, strres;
     int              errorOccured;
     char *           func;
@@ -68,7 +68,7 @@ void handle_call(callreq req) {
     /* wrap the input in a function and evaluate the result */
     func = create_r_func(req->proc.name, req->proc.src);
 
-    PROTECT(r = run_r_code(func, &errorOccured));
+    PROTECT(r = run_r_code(func, &errorOccured, conn));
     if (errorOccured) {
         /* run_r_code will send an error back */
         UNPROTECT(1);
@@ -79,7 +79,7 @@ void handle_call(callreq req) {
     PROTECT(strres = R_tryEval(toString, R_GlobalEnv, &errorOccured));
     if (errorOccured) {
         UNPROTECT(3);
-        send_error("cannot convert value to string");
+        send_error("cannot convert value to string", conn);
         return;
     }
 
@@ -100,7 +100,7 @@ void handle_call(callreq req) {
     res->data[0]->value   = (char *)txt;
 
     /* send the result back */
-    plcontainer_channel_send((message)res);
+    plcontainer_channel_send((message)res, conn);
 
     /* free the result object and the python value */
     free_result(res);
@@ -110,7 +110,7 @@ void handle_call(callreq req) {
     return;
 }
 
-static void send_error(char *msg) {
+static void send_error(char *msg, PGconn_min* conn) {
     /* an exception was thrown */
     error_message err;
     err             = malloc(sizeof(*err));
@@ -119,13 +119,13 @@ static void send_error(char *msg) {
     err->stacktrace = "";
 
     /* send the result back */
-    plcontainer_channel_send((message)err);
+    plcontainer_channel_send((message)err, conn);
 
     /* free the objects */
     free(err);
 }
 
-static SEXP run_r_code(const char *code, int *errorOccured) {
+static SEXP run_r_code(const char *code, int *errorOccured, PGconn_min* conn) {
     /* int hadError; */
     ParseStatus status;
     char *      error;
@@ -164,7 +164,7 @@ static SEXP run_r_code(const char *code, int *errorOccured) {
 error:
     UNPROTECT(2);
 
-    send_error(error);
+    send_error(error, conn);
 
     return NULL;
 }

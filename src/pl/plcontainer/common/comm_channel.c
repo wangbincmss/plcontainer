@@ -34,125 +34,112 @@ interpreted as representing official policies, either expressed or implied, of t
 #include <stdlib.h>
 #include <unistd.h>
 
-PGconn_min *min_conn = NULL;
+// TODO: remove!
+//PGconn_min *min_conn = NULL;
 
-static void send_char(char);
-static void send_integer_4(int);
-static void send_bytes(const char *, size_t);
-static void send_string(const char *);
+static void send_char(char, PGconn_min*);
+static void send_integer_4(int, PGconn_min*);
+static void send_bytes(const char *, size_t, PGconn_min*);
+static void send_string(const char *, PGconn_min*);
 
-static void send_call(callreq call);
-static void send_result(plcontainer_result res);
-static void send_exception(error_message err);
-static void send_sql(sql_msg);
-static void send_sql_statement(sql_msg_statement msg);
+static void send_call(callreq call, PGconn_min*);
+static void send_result(plcontainer_result res, PGconn_min*);
+static void send_exception(error_message err, PGconn_min*);
+static void send_sql(sql_msg, PGconn_min*);
+static void send_sql_statement(sql_msg_statement msg, PGconn_min*);
 
 /* static void send_trigger(trigger_callreq call); */
 /* static void send_trigger_tuple(pparam *tuple, int colcount); */
 
-static char  receive_char(void);
-static int   receive_integer_4(void);
-static char *receive_string(void);
-static void  receive_bytes(char **, size_t *);
+static char  receive_char(PGconn_min*);
+static int   receive_integer_4(PGconn_min*);
+static char *receive_string(PGconn_min*);
+static void  receive_bytes(char **, size_t *, PGconn_min*);
 
-static void *  receive_exception(void);
-static void *  receive_result(void);
-static message receive_log(void);
+static void *  receive_exception(PGconn_min*);
+static void *  receive_result(PGconn_min*);
+static message receive_log(PGconn_min*);
 /* static message receive_tupres(void); */
 
-static sql_msg              receive_sql(void);
-static callreq              receive_call(void);
-static sql_msg_cursor_fetch receive_sql_fetch(void);
-static sql_msg_statement    receive_sql_statement(void);
-static sql_msg_prepare      receive_sql_prepare(void);
-static sql_pexecute         receive_sql_pexec(void);
-static sql_msg_cursor_close receive_sql_cursorclose(void);
-static sql_msg_unprepare    receive_sql_unprepare(void);
-static sql_msg_cursor_open  receive_sql_opencursor_sql();
+static sql_msg              receive_sql(PGconn_min*);
+static callreq              receive_call(PGconn_min*);
+static sql_msg_cursor_fetch receive_sql_fetch(PGconn_min*);
+static sql_msg_statement    receive_sql_statement(PGconn_min*);
+static sql_msg_prepare      receive_sql_prepare(PGconn_min*);
+static sql_pexecute         receive_sql_pexec(PGconn_min*);
+static sql_msg_cursor_close receive_sql_cursorclose(PGconn_min*);
+static sql_msg_unprepare    receive_sql_unprepare(PGconn_min*);
+static sql_msg_cursor_open  receive_sql_opencursor_sql(PGconn_min*);
 
 void
-plcontainer_channel_initialize(PGconn_min *conn) {
-    min_conn = conn;
-}
-
-bool
-plcontainer_channel_initialized() {
-    return min_conn != NULL;
-}
-
-void
-plcontainer_channel_send(message msg) {
+plcontainer_channel_send(message msg, PGconn_min *conn) {
     switch (msg->msgtype) {
-    case MT_CALLREQ:
-        send_call((callreq)msg);
-        break;
-    case MT_RESULT:
-        send_result((plcontainer_result)msg);
-        break;
-    case MT_EXCEPTION:
-        send_exception((error_message)msg);
-        break;
-    case MT_SQL:
-        send_sql((sql_msg)msg);
-        break;
-    default:
-        lprintf(ERROR, "UNHANDLED MESSAGE: %c", msg->msgtype);
-        return;
+        case MT_CALLREQ:
+            send_call((callreq)msg, conn);
+            break;
+        case MT_RESULT:
+            send_result((plcontainer_result)msg, conn);
+            break;
+        case MT_EXCEPTION:
+            send_exception((error_message)msg, conn);
+            break;
+        case MT_SQL:
+            send_sql((sql_msg)msg, conn);
+            break;
+        default:
+            lprintf(ERROR, "UNHANDLED MESSAGE: %c", msg->msgtype);
+            return;
     }
-    pqmPutMsgEnd(min_conn);
-    pqmFlush(min_conn);
+    pqmPutMsgEnd(conn);
+    pqmFlush(conn);
 }
 
-message
-plcontainer_channel_receive() {
+message plcontainer_channel_receive(PGconn_min *conn) {
     message msgret = NULL;
-    char    type   = receive_char();
-    //elog(DEBUG1, "plcontainer_channel_receive type = %c", type);
+    char    type   = receive_char(conn);
 
     switch (type) {
-    case MT_RESULT:
-        msgret = (message)receive_result();
-        break;
-    case MT_EXCEPTION:
-        msgret = (message)receive_exception();
-        break;
-    case MT_LOG:
-        msgret = (message)receive_log();
-        break;
-    case MT_SQL:
-        msgret = (message)receive_sql();
-        break;
-    case MT_CALLREQ:
-        msgret = (message)receive_call();
-        break;
-    case MT_EOF:
-        return NULL;
-    default:
-        lprintf(ERROR, "message type unknown %c", type);
-        return NULL;
+        case MT_RESULT:
+            msgret = (message)receive_result(conn);
+            break;
+        case MT_EXCEPTION:
+            msgret = (message)receive_exception(conn);
+            break;
+        case MT_LOG:
+            msgret = (message)receive_log(conn);
+            break;
+        case MT_SQL:
+            msgret = (message)receive_sql(conn);
+            break;
+        case MT_CALLREQ:
+            msgret = (message)receive_call(conn);
+            break;
+        case MT_EOF:
+            return NULL;
+        default:
+            lprintf(ERROR, "message type unknown %c", type);
+            return NULL;
     }
 
     msgret->msgtype = type;
-    pqmMessageRecvd(min_conn);
+    pqmMessageRecvd(conn);
     return msgret;
 }
 
-static char
-receive_char() {
+static char receive_char(PGconn_min *conn) {
     char c;
-    int  ret = pqmGetc(&c, min_conn);
+    int  ret = pqmGetc(&c, conn);
     if (ret == EOF) {
-        //lprintf(ERROR, "Unexpected EOF from socket");
         c = MT_EOF;
     }
     return c;
 }
 
 static int
-receive_integer_4() {
+receive_integer_4(PGconn_min *conn) {
     int i;
 
-    int ret = pqmGetInt(&i, 4, min_conn);
+    int ret = pqmGetInt(&i, 4, conn);
     if (ret == EOF) {
         lprintf(ERROR, "Unexpected EOF from socket");
     }
@@ -160,9 +147,8 @@ receive_integer_4() {
     return i;
 }
 
-static void
-receive_bytes(char **s, size_t *len) {
-    int cnt = receive_integer_4();
+static void receive_bytes(char **s, size_t *len, PGconn_min *conn) {
+    int cnt = receive_integer_4(conn);
     int ret;
 
     *len = cnt;
@@ -171,17 +157,16 @@ receive_bytes(char **s, size_t *len) {
         return;
     }
     *s  = pmalloc(sizeof(char) * (cnt + 1));
-    ret = pqmGetnchar(*s, cnt, min_conn);
+    ret = pqmGetnchar(*s, cnt, conn);
     if (ret == EOF) {
         lprintf(ERROR, "Unexpected EOF from socket");
     }
 }
 
-static char *
-receive_string() {
+static char * receive_string(PGconn_min *conn) {
     char * tmp_chr;
     size_t cnt;
-    receive_bytes(&tmp_chr, &cnt);
+    receive_bytes(&tmp_chr, &cnt, conn);
     if (cnt > 0) {
         /* receive_bytes allocated cnt+1 for us */
         tmp_chr[cnt] = 0;
@@ -189,128 +174,114 @@ receive_string() {
     return tmp_chr;
 }
 
-static void
-message_start() {
+static void message_start(PGconn_min *conn) {
     int ret = -1;
-    ret = pqmPutMsgStart(0, min_conn);
+    ret = pqmPutMsgStart(0, conn);
     if (ret == EOF) {
         lprintf(ERROR, "Unexpected EOF from socket");
     }
 }
 
-static void
-send_char(char c) {
-    int ret = pqmPutc(c, min_conn);
+static void send_char(char c, PGconn_min *conn) {
+    int ret = pqmPutc(c, conn);
     if (ret == EOF) {
         lprintf(ERROR, "Unexpected EOF from socket");
     }
 }
 
-static void
-send_integer_4(int i) {
-    int ret = pqmPutInt(i, 4, min_conn);
+static void send_integer_4(int i, PGconn_min *conn) {
+    int ret = pqmPutInt(i, 4, conn);
     if (ret == EOF) {
         lprintf(ERROR, "Unexpected EOF from socket");
     }
 }
 
-static void
-send_bytes(const char *s, size_t cnt) {
+static void send_bytes(const char *s, size_t cnt, PGconn_min *conn) {
     int ret;
-    send_integer_4(cnt);
-    ret = pqmPutMsgBytes(s, cnt, min_conn);
+    send_integer_4(cnt, conn);
+    ret = pqmPutMsgBytes(s, cnt, conn);
     if (ret == EOF) {
         lprintf(ERROR, "Unexpected EOF from socket");
     }
 }
 
-static void
-send_string(const char *s) {
+static void send_string(const char *s, PGconn_min *conn) {
     int cnt = strlen(s);
-    send_bytes(s, cnt);
+    send_bytes(s, cnt, conn);
 }
 
-static void
-send_call(callreq call) {
+static void send_call(callreq call, PGconn_min *conn) {
     int i;
 
-    message_start();
-    send_char(MT_CALLREQ);
-    send_string(call->proc.name);
-    send_string(call->proc.src);
-    send_integer_4(call->nargs);
+    message_start(conn);
+    send_char(MT_CALLREQ, conn);
+    send_string(call->proc.name, conn);
+    send_string(call->proc.src, conn);
+    send_integer_4(call->nargs, conn);
 
     for (i = 0; i < call->nargs; i++) {
-        send_string(call->args[i].name);
-        send_string(call->args[i].type);
-        send_string(call->args[i].value);
+        send_string(call->args[i].name, conn);
+        send_string(call->args[i].type, conn);
+        send_string(call->args[i].value, conn);
     }
 }
 
-static void
-send_result(plcontainer_result res) {
+static void send_result(plcontainer_result res, PGconn_min *conn) {
     int i, j;
-    message_start();
-    send_char(MT_RESULT);
-    send_integer_4(res->rows);
-    send_integer_4(res->cols);
+    message_start(conn);
+    send_char(MT_RESULT, conn);
+    send_integer_4(res->rows, conn);
+    send_integer_4(res->cols, conn);
 
     /* send types */
     for (j = 0; j < res->cols; j++) {
-        send_string(res->types[j]);
-        send_string(res->names[j]);
+        send_string(res->types[j], conn);
+        send_string(res->names[j], conn);
     }
 
     /* send rows */
     for (i = 0; i < res->rows; i++) {
         for (j = 0; j < res->cols; j++) {
             if (res->data[i][j].isnull) {
-                send_char('N');
+                send_char('N', conn);
             } else {
-                send_char('D');
-                send_string(res->data[i][j].value);
+                send_char('D', conn);
+                send_string(res->data[i][j].value, conn);
             }
         }
     }
 }
 
-static void
-send_exception(error_message err) {
-    message_start();
-    send_char(MT_EXCEPTION);
-    send_string(err->message);
-    send_string(err->stacktrace);
+static void send_exception(error_message err, PGconn_min *conn) {
+    message_start(conn);
+    send_char(MT_EXCEPTION, conn);
+    send_string(err->message, conn);
+    send_string(err->stacktrace, conn);
 }
-static void *
-receive_exception() {
-    // PQExpBuffer name,
-    //			mesg;
-    error_message ret;
 
-    // name = createPQExpBuffer();
-    // mesg = createPQExpBuffer();
+static void * receive_exception(PGconn_min *conn) {
+    error_message ret;
 
     ret = pmalloc(sizeof(str_error_message));
 
-    ret->message    = receive_string();
+    ret->message    = receive_string(conn);
     ret->stacktrace = NULL;
 
     ret->msgtype = MT_EXCEPTION;
 
-    if (min_conn->Pfdebug)
-        fflush(min_conn->Pfdebug);
+    if (conn->Pfdebug)
+        fflush(conn->Pfdebug);
     return ret;
 }
 
-static void *
-receive_result() {
+static void * receive_result(PGconn_min *conn) {
     plcontainer_result ret;
     int              i, j;  // iterators
     ret          = pmalloc(sizeof(*ret));
     ret->msgtype = MT_RESULT;
 
-    ret->rows = receive_integer_4();
-    ret->cols = receive_integer_4();
+    ret->rows = receive_integer_4(conn);
+    ret->cols = receive_integer_4(conn);
 
     if (ret->rows > 0) {
         ret->data = pmalloc((ret->rows) * sizeof(raw));
@@ -324,8 +295,8 @@ receive_result() {
     ret->names = pmalloc(ret->rows * sizeof(*ret->names));
 
     for (i = 0; i < ret->cols; i++) {
-        ret->types[i] = receive_string();
-        ret->names[i] = receive_string();
+        ret->types[i] = receive_string(conn);
+        ret->names[i] = receive_string(conn);
     }
 
     for (i = 0; i < ret->rows; i++) {
@@ -338,60 +309,57 @@ receive_result() {
         for (j = 0; j < ret->cols; j++) {
             char isn;
 
-            isn = receive_char();
+            isn = receive_char(conn);
             if (isn == 'N') {
                 ret->data[i][j].value  = NULL;
                 ret->data[i][j].isnull = 1;
             } else {
                 ret->data[i][j].isnull = 0;
-                ret->data[i][j].value  = receive_string();
+                ret->data[i][j].value  = receive_string(conn);
             }
         }
     }
 
-    if (min_conn->Pfdebug)
-        fflush(min_conn->Pfdebug);
+    if (conn->Pfdebug)
+        fflush(conn->Pfdebug);
     return ret;
 }
 
-static message
-receive_log() {
+static message receive_log(PGconn_min *conn) {
     log_message ret;
 
     ret          = pmalloc(sizeof(str_log_message));
     ret->msgtype = MT_LOG;
 
-    ret->level    = receive_integer_4();
-    ret->category = receive_string();
-    ret->message  = receive_string();
+    ret->level    = receive_integer_4(conn);
+    ret->category = receive_string(conn);
+    ret->message  = receive_string(conn);
 
-    if (min_conn->Pfdebug)
-        fflush(min_conn->Pfdebug);
+    if (conn->Pfdebug)
+        fflush(conn->Pfdebug);
 
     return (message)ret;
 }
 
-static sql_msg_statement
-receive_sql_statement() {
+static sql_msg_statement receive_sql_statement(PGconn_min *conn) {
     sql_msg_statement ret;
 
     ret          = (sql_msg_statement)pmalloc(sizeof(struct str_sql_statement));
     ret->msgtype = MT_SQL;
     ret->sqltype = SQL_TYPE_STATEMENT;
-    ret->statement = receive_string();
+    ret->statement = receive_string(conn);
     return ret;
 }
 
-static sql_msg_prepare
-receive_sql_prepare() {
+static sql_msg_prepare receive_sql_prepare(PGconn_min *conn) {
     sql_msg_prepare ret;
     int             i;
 
     ret            = (sql_msg_prepare)pmalloc(sizeof(struct str_sql_prepare));
     ret->msgtype   = MT_SQL;
     ret->sqltype   = SQL_TYPE_PREPARE;
-    ret->statement = receive_string();
-    ret->ntypes    = receive_integer_4();
+    ret->statement = receive_string(conn);
+    ret->ntypes    = receive_integer_4(conn);
     ret->types =
         ret->ntypes == 0 ? NULL : pmalloc(ret->ntypes * sizeof(char *));
 
@@ -400,14 +368,13 @@ receive_sql_prepare() {
 
     for (i = 0; i < ret->ntypes; i++) {
         lprintf(DEBUG1, "%d", i);
-        ret->types[i] = receive_string();
+        ret->types[i] = receive_string(conn);
     }
 
     return ret;
 }
 
-static sql_pexecute
-receive_sql_pexec() {
+static sql_pexecute receive_sql_pexec(PGconn_min *conn) {
     sql_pexecute      ret;
     int               i;
     struct fnc_param *param;
@@ -416,9 +383,9 @@ receive_sql_pexec() {
     ret          = pmalloc(sizeof(struct str_sql_pexecute));
     ret->msgtype = MT_SQL;
     ret->sqltype = SQL_TYPE_PEXECUTE;
-    ret->planid  = receive_integer_4();
-    ret->action  = receive_integer_4();
-    ret->nparams = receive_integer_4();
+    ret->planid  = receive_integer_4(conn);
+    ret->action  = receive_integer_4(conn);
+    ret->nparams = receive_integer_4(conn);
 
     if (ret->nparams == 0) {
         ret->params = NULL;
@@ -430,7 +397,7 @@ receive_sql_pexec() {
         char isnull;
         isnull = 0;
         lprintf(DEBUG1, ">>>");
-        isnull = receive_char();
+        isnull = receive_char(conn);
         param  = &ret->params[i];
         if (isnull == 'N') {
             param->data.isnull = 1;
@@ -439,122 +406,114 @@ receive_sql_pexec() {
             if (isnull != 'D')
                 lprintf(WARNING, "Should be N or D: %d", (unsigned char)isnull);
             param->data.isnull = 0;
-            param->type        = receive_string();
-            param->data.value  = receive_string();
+            param->type        = receive_string(conn);
+            param->data.value  = receive_string(conn);
         }
     }
     lprintf(DEBUG1, "<<<");
     return ret;
 }
 
-static sql_msg_cursor_close
-receive_sql_cursorclose() {
+static sql_msg_cursor_close receive_sql_cursorclose(PGconn_min *conn) {
     sql_msg_cursor_close ret;
 
     ret             = pmalloc(sizeof(struct str_sql_msg_cursor_close));
     ret->msgtype    = MT_SQL;
     ret->sqltype    = SQL_TYPE_CURSOR_CLOSE;
-    ret->cursorname = receive_string();
+    ret->cursorname = receive_string(conn);
 
     return ret;
 }
 
-static sql_msg_unprepare
-receive_sql_unprepare() {
+static sql_msg_unprepare receive_sql_unprepare(PGconn_min *conn) {
     sql_msg_unprepare ret;
 
     ret          = pmalloc(sizeof(struct str_sql_unprepare));
     ret->msgtype = MT_SQL;
     ret->sqltype = SQL_TYPE_UNPREPARE;
-    ret->planid  = receive_integer_4();
+    ret->planid  = receive_integer_4(conn);
 
     return ret;
 }
 
-static sql_msg_cursor_open
-receive_sql_opencursor_sql() {
+static sql_msg_cursor_open receive_sql_opencursor_sql(PGconn_min *conn) {
     sql_msg_cursor_open ret;
 
     ret             = pmalloc(sizeof(struct str_sql_msg_cursor_open));
     ret->msgtype    = MT_SQL;
     ret->sqltype    = SQL_TYPE_CURSOR_OPEN;
-    ret->cursorname = receive_string();
-    ret->query      = receive_string();
+    ret->cursorname = receive_string(conn);
+    ret->query      = receive_string(conn);
 
     return ret;
 }
 
-static sql_msg_cursor_fetch
-receive_sql_fetch() {
+static sql_msg_cursor_fetch receive_sql_fetch(PGconn_min *conn) {
     sql_msg_cursor_fetch ret;
 
     ret             = pmalloc(sizeof(struct str_sql_msg_cursor_fetch));
     ret->msgtype    = MT_SQL;
     ret->sqltype    = SQL_TYPE_FETCH;
-    ret->cursorname = receive_string();
-    ret->count      = receive_integer_4();
-    ret->direction  = receive_integer_4();
+    ret->cursorname = receive_string(conn);
+    ret->count      = receive_integer_4(conn);
+    ret->direction  = receive_integer_4(conn);
 
     return ret;
 }
 
-static void
-send_sql_statement(sql_msg_statement msg) {
-    message_start();
-    send_char(msg->msgtype);
-    send_integer_4(msg->sqltype);
-    send_string(msg->statement);
+static void send_sql_statement(sql_msg_statement msg, PGconn_min *conn) {
+    message_start(conn);
+    send_char(msg->msgtype, conn);
+    send_integer_4(msg->sqltype, conn);
+    send_string(msg->statement, conn);
 }
 
-static void
-send_sql(sql_msg msg) {
+static void send_sql(sql_msg msg, PGconn_min *conn) {
     switch (msg->sqltype) {
     case SQL_TYPE_STATEMENT:
-        send_sql_statement((sql_msg_statement)msg);
+        send_sql_statement((sql_msg_statement)msg, conn);
         break;
     default:
         lprintf(ERROR, "unhandled message type");
     }
 }
 
-static callreq
-receive_call() {
+static callreq receive_call(PGconn_min *conn) {
     int     i;
     callreq req;
 
     req            = pmalloc(sizeof(*req));
-    req->proc.name = receive_string();
-    req->proc.src  = receive_string();
-    req->nargs     = receive_integer_4();
+    req->proc.name = receive_string(conn);
+    req->proc.src  = receive_string(conn);
+    req->nargs     = receive_integer_4(conn);
     req->args      = pmalloc(sizeof(*req->args) * req->nargs);
     for (i = 0; i < req->nargs; i++) {
-        req->args[i].name  = receive_string();
-        req->args[i].type  = receive_string();
-        req->args[i].value = receive_string();
+        req->args[i].name  = receive_string(conn);
+        req->args[i].type  = receive_string(conn);
+        req->args[i].value = receive_string(conn);
     }
     return req;
 }
 
-static sql_msg
-receive_sql() {
+static sql_msg receive_sql(PGconn_min *conn) {
     int typ;
 
-    typ = receive_integer_4();
+    typ = receive_integer_4(conn);
     switch (typ) {
     case SQL_TYPE_STATEMENT:
-        return (sql_msg)receive_sql_statement();
+        return (sql_msg)receive_sql_statement(conn);
     case SQL_TYPE_PREPARE:
-        return (sql_msg)receive_sql_prepare();
+        return (sql_msg)receive_sql_prepare(conn);
     case SQL_TYPE_PEXECUTE:
-        return (sql_msg)receive_sql_pexec();
+        return (sql_msg)receive_sql_pexec(conn);
     case SQL_TYPE_FETCH:
-        return (sql_msg)receive_sql_fetch();
+        return (sql_msg)receive_sql_fetch(conn);
     case SQL_TYPE_CURSOR_CLOSE:
-        return (sql_msg)receive_sql_cursorclose();
+        return (sql_msg)receive_sql_cursorclose(conn);
     case SQL_TYPE_UNPREPARE:
-        return (sql_msg)receive_sql_unprepare();
+        return (sql_msg)receive_sql_unprepare(conn);
     case SQL_TYPE_CURSOR_OPEN:
-        return (sql_msg)receive_sql_opencursor_sql();
+        return (sql_msg)receive_sql_opencursor_sql(conn);
     default:
         // pljlogging_error = 1;
         lprintf(ERROR, "UNHANDLED SQL TYPE: %d", typ);

@@ -33,9 +33,7 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "libpq-mini.h"
 #include "messages/messages.h"
 
-bool    plcontainer_channel_initialized(void);
-void    plcontainer_channel_initialize(PGconn_min *);
-void    plcontainer_channel_send(message);
-message plcontainer_channel_receive(void);
+void    plcontainer_channel_send(message, PGconn_min*);
+message plcontainer_channel_receive(PGconn_min*);
 
 #endif // PLCONTAINER_CHANNEL_H

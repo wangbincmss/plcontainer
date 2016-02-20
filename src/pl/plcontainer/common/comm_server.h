@@ -11,7 +11,7 @@
 
 int  start_listener(void);
 void connection_wait(int sock);
-void connection_init(int sock);
-void receive_loop( void (*handle_call)(callreq) );
+PGconn_min* connection_init(int sock);
+void receive_loop( void (*handle_call)(callreq, PGconn_min*), PGconn_min* conn);
 
 #endif /* __COMM_SERVER_H__ */

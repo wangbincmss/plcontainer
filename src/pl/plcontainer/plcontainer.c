@@ -1,5 +1,7 @@
 /* a POC to implement pl that uses containers and is language agnostic */
 
+#include <string.h>
+
 #include "postgres.h"
 
 #include "common/comm_channel.h"
@@ -18,13 +20,9 @@
 #include "commands/trigger.h"
 #include "utils/memutils.h"
 #include "utils/palloc.h"
-#include <string.h>
 
 #include "containers.h"
-
 #include "postgres.h"
-
-#include "logging.h"
 
 #ifdef PG_MODULE_MAGIC
 PG_MODULE_MAGIC;
@@ -36,7 +34,7 @@ PG_FUNCTION_INFO_V1(plcontainer_call_handler);
 Datum plcontainer_call_handler(PG_FUNCTION_ARGS);
 
 static void plcontainer_exception_do(error_message);
-static void plcontainer_sql_do(sql_msg msg);
+static void plcontainer_sql_do(sql_msg msg, PGconn_min* conn);
 static void  plcontainer_log_do(log_message);
 static Datum plcontainer_call_hook(PG_FUNCTION_ARGS);
 
@@ -49,9 +47,7 @@ Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
         elog(ERROR, "[pl-j core] SPI connect error: %d (%s)", ret,
              SPI_result_code_string(ret));
 
-    plelog("Before plcontainer_call_hook()");
     datumreturn = plcontainer_call_hook(fcinfo);
-    plelog("After plcontainer_call_hook()");
 
     ret = SPI_finish();
     if (ret != SPI_OK_FINISH)
@@ -69,8 +65,6 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     PGconn_min *conn;
     proc_info   pinfo;
 
-    plelog("Inside plcontainer_call_hook()");
-
     /* TODO: handle trigger requests as well */
     if (CALLED_AS_TRIGGER(fcinfo)) {
         elog(ERROR, "triggers aren't supported");
@@ -82,18 +76,10 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     name = parse_container_name(req->proc.src);
     conn = find_container(name);
     if (conn == NULL) {
-        plelog("Before start_container()");
         conn = start_container(name);
-        plelog("After start_container()");
     }
 
-    plelog("Before plcontainer_channel_initialize()");
-    plcontainer_channel_initialize(conn);
-    plelog("After plcontainer_channel_initialize()");
-
-    plelog("Before plcontainer_channel_send()");
-    plcontainer_channel_send((message)req);
-    plelog("After plcontainer_channel_send()");
+    plcontainer_channel_send((message)req, conn);
 
     free(name);
     do {
@@ -107,38 +93,33 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
         MemoryContextSwitchTo(messageContext);
 
-        plelog("Before plcontainer_channel_receive()");
-        /* pljelog(DEBUG1, "waiting ansver."); */
-        ansver = plcontainer_channel_receive();
-        plelog("After plcontainer_channel_receive()");
+        ansver = plcontainer_channel_receive(conn);
 
-        elog(DEBUG1, "received message: %c", ((message)ansver)->msgtype);
         message_type = ansver->msgtype;
-        /* pljelog(DEBUG1, "ansver of type: %d", message_type); */
         switch (message_type) {
-        case MT_RESULT:
-            // handle elsewhere
-            break;
-        case MT_EXCEPTION:
-            plcontainer_exception_do((error_message)ansver);
-            PG_RETURN_NULL();
-            break;
-        case MT_SQL:
-            plcontainer_sql_do((sql_msg)ansver);
-            break;
-        case MT_LOG:
-            plcontainer_log_do((log_message)ansver);
-            break;
-        case MT_TUPLRES:
-            break;
-        default:
-            // lets first switch back to the old context and handle the error.
-            MemoryContextSwitchTo(oldContext);
-            MemoryContextDelete(messageContext);
-            /* pljelog(FATAL, "[plj core] received: unhandled message with type
-             * id %d", message_type); */
-            // this wont run.
-            PG_RETURN_NULL();
+            case MT_RESULT:
+                // handle elsewhere
+                break;
+            case MT_EXCEPTION:
+                plcontainer_exception_do((error_message)ansver);
+                PG_RETURN_NULL();
+                break;
+            case MT_SQL:
+                plcontainer_sql_do((sql_msg)ansver, conn);
+                break;
+            case MT_LOG:
+                plcontainer_log_do((log_message)ansver);
+                break;
+            case MT_TUPLRES:
+                break;
+            default:
+                // lets first switch back to the old context and handle the error.
+                MemoryContextSwitchTo(oldContext);
+                MemoryContextDelete(messageContext);
+                /* pljelog(FATAL, "[plj core] received: unhandled message with type
+                 * id %d", message_type); */
+                // this wont run.
+                PG_RETURN_NULL();
         }
 
         // we do not try to free messages anymore, we switch context and delete
@@ -149,14 +130,9 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
         /*
          * here is how to escape from the loop
          */
-        /* pljelog(DEBUG1, "begin return procedure"); */
-
         if (message_type == MT_RESULT) {
-            plelog("Handling result message");
-            /* pljelog(DEBUG1, "result"); */
             plcontainer_result res = (plcontainer_result)ansver;
 
-            /* pljelog(DEBUG1, "result 1"); */
             if (res->rows == 1 && res->cols == 1) {
                 Datum        ret;
                 HeapTuple    typetup;
@@ -166,28 +142,18 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                 int32        typeMod;
                 /* MemoryContext oldctx; */
 
-                plelog("One row one column");
-
                 if (res->data[0][0].isnull == 1) {
-                    plelog("Null received");
                     MemoryContextSwitchTo(oldContext);
                     MemoryContextDelete(messageContext);
                     PG_RETURN_NULL();
                 }
 
-                /* pljelog(DEBUG1, "1"); */
-                plelog("Before parseTypeString()");
-                //elog(DEBUG1, "Type string: '%s'", res->types[0]);
                 parseTypeString(res->types[0], &typeOid, &typeMod);
-                plelog("After parseTypeString()");
-                plelog("Before SearchSysCache()");
                 typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
-                plelog("After SearchSysCache()");
                 if (!HeapTupleIsValid(typetup)) {
                     MemoryContextSwitchTo(oldContext);
                     MemoryContextDelete(messageContext);
-                    elog(FATAL,
-                         "[plj - core] Invalid heaptuple at result return");
+                    elog(FATAL, "[plcontainer] Invalid heaptuple at result return");
                     // This won`t run
                     PG_RETURN_NULL();
                 }
@@ -263,15 +229,13 @@ plcontainer_log_do(log_message log) {
     elog(level, "[%s] -  %s ", log->category, log->message);
 }
 
-void
-plcontainer_sql_do(sql_msg msg) {
+void plcontainer_sql_do(sql_msg msg, PGconn_min* conn) {
     message res;
     res = handle_sql_message(msg);
     if (res != NULL)
-        plcontainer_channel_send((message)res);
+        plcontainer_channel_send((message)res, conn);
 }
 
-void
-plcontainer_exception_do(error_message msg) {
+void plcontainer_exception_do(error_message msg) {
     elog(ERROR, "exception occured: \n %s \n ", msg->message);
 }

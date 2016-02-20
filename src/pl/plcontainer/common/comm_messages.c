@@ -34,8 +34,7 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "messages/message_callreq.h"
 #include "messages/message_result.h"
 
-void
-free_callreq(callreq req) {
+void free_callreq(callreq req) {
     int i;
 
     /* free the procedure */
@@ -54,8 +53,7 @@ free_callreq(callreq req) {
     free(req);
 }
 
-void
-free_result(plcontainer_result res) {
+void free_result(plcontainer_result res) {
     int i;
 
     /* free the types array */

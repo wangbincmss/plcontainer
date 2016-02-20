@@ -13,6 +13,6 @@
 void python_init(void);
 
 // Processing of the Greenplum function call
-void handle_call(callreq req);
+void handle_call(callreq req, PGconn_min* conn);
 
 #endif /* __PYCALL_H__ */

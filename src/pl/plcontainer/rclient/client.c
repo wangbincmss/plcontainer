@@ -11,7 +11,8 @@
 #include "rcall.h"
 
 int main(int argc UNUSED, char **argv UNUSED) {
-    int sock;
+    int         sock;
+    PGconn_min* conn;
 
     // Bind the socket and start listening the port
     sock = start_listener();
@@ -22,15 +23,15 @@ int main(int argc UNUSED, char **argv UNUSED) {
     #ifdef _DEBUG_CLIENT
         // In debug mode we have a cycle of connections with infinite wait time
         while (true) {
-            connection_init(sock);
-            receive_loop(handle_call);
+            conn = connection_init(sock);
+            receive_loop(handle_call, conn);
         }
     #else
         // In release mode we wait for incoming connection for limited time
         // and the client works for a single connection only
         connection_wait(sock);
-        connection_init(sock);
-        receive_loop(handle_call);
+        conn = connection_init(sock);
+        receive_loop(handle_call, conn);
     #endif
 
     lprintf(NOTICE, "Client has finished execution");

@@ -63,10 +63,10 @@ void connection_wait(int sock) {
 /*
  * Function accepts the connection and initializes libpq structure for it
  */
-void connection_init(int sock) {
+PGconn_min* connection_init(int sock) {
     socklen_t          raddr_len;
     struct sockaddr_in raddr;
-    PGconn_min *       pqconn;
+    PGconn_min*        pqconn;
     int                connection;
 
     raddr_len  = sizeof(raddr);
@@ -76,18 +76,20 @@ void connection_init(int sock) {
     }
 
     pqconn = pq_min_connect_fd(connection);
+
     //pqconn->Pfdebug = stdout;
-    plcontainer_channel_initialize(pqconn);
+
+    return pqconn;
 }
 
 /*
  * The loop of receiving commands from the Greenplum process and processing them
  */
-void receive_loop( void (*handle_call)(callreq) ) {
+void receive_loop( void (*handle_call)(callreq, PGconn_min*), PGconn_min* conn) {
     message msg;
 
     while (true) {
-        msg = plcontainer_channel_receive();
+        msg = plcontainer_channel_receive(conn);
 
         if (msg == NULL) {
             break;
@@ -95,7 +97,7 @@ void receive_loop( void (*handle_call)(callreq) ) {
 
         switch (msg->msgtype) {
         case MT_CALLREQ:
-            handle_call((callreq)msg);
+            handle_call((callreq)msg, conn);
             free_callreq((callreq)msg);
             break;
         default:

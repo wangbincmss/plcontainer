@@ -16,6 +16,6 @@ typedef void (*sighandler_t)(int);
 void r_init(void);
 
 // Processing of the Greenplum function call
-void handle_call(callreq req);
+void handle_call(callreq req, PGconn_min* conn);
 
 #endif /* __RCALL_H__ */

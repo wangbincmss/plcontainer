@@ -20,6 +20,8 @@ static PyMethodDef moddef[] = {
     {"execute", plpy_execute, METH_O, NULL}, {NULL},
 };
 
+static PGconn_min* pqconn;
+
 void python_init() {
     PyObject *plpymod, *mainmod;
 
@@ -34,12 +36,14 @@ void python_init() {
     Py_DECREF(mainmod);
 }
 
-void handle_call(callreq req) {
+void handle_call(callreq req, PGconn_min* conn) {
     int              i;
     char *           func, *txt;
     plcontainer_result res;
     error_message    err;
     PyObject *       exc, *val, *retval, *tb, *str, *dict, *args;
+
+    pqconn = conn;
 
     /* import __main__ to get the builtin functions */
     val = PyImport_ImportModule("__main__");
@@ -126,7 +130,7 @@ void handle_call(callreq req) {
     res->data[0]->value  = txt;
 
     /* send the result back */
-    plcontainer_channel_send((message)res);
+    plcontainer_channel_send((message)res, conn);
 
     free_result(res);
 
@@ -149,7 +153,7 @@ error:
     err->stacktrace = "";
 
     /* send the result back */
-    plcontainer_channel_send((message)err);
+    plcontainer_channel_send((message)err, conn);
 
     /* free the objects */
     free(err);
@@ -240,19 +244,19 @@ static PyObject * plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
     msg->sqltype   = SQL_TYPE_STATEMENT;
     msg->statement = PyString_AsString(pyquery);
 
-    plcontainer_channel_send((message)msg);
+    plcontainer_channel_send((message)msg, pqconn);
 
     /* we don't need it anymore */
     pfree(msg);
 
 
 receive:
-    resp = plcontainer_channel_receive();
+    resp = plcontainer_channel_receive(pqconn);
 
     switch (resp->msgtype) {
        case MT_CALLREQ:
           lprintf(DEBUG1, "receives call req %c", resp->msgtype);
-          handle_call((callreq)resp);
+          handle_call((callreq)resp, pqconn);
           free_callreq((callreq)resp);
           goto receive;
 
