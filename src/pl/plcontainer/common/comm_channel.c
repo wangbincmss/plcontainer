@@ -34,9 +34,6 @@ interpreted as representing official policies, either expressed or implied, of t
 #include <stdlib.h>
 #include <unistd.h>
 
-// TODO: remove!
-//PGconn_min *min_conn = NULL;
-
 static void send_char(char, PGconn_min*);
 static void send_integer_4(int, PGconn_min*);
 static void send_bytes(const char *, size_t, PGconn_min*);
