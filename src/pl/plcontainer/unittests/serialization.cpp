@@ -21,21 +21,18 @@ TEST(MessageSerialization, CallRequest) {
     // recv->Pfdebug = stdout;
     pid_t pid = fork();
     if (pid == 0) {
-        plcontainer_channel_initialize(send);
         // this is the child
         callreq req = (callreq)malloc(sizeof(callreq));
         req->msgtype = MT_CALLREQ;
         req->proc.name = (char *)"foobar";
         req->proc.src = (char *)"function definition";
 	req->nargs    = 0;
-        plcontainer_channel_send((message)req);
+        plcontainer_channel_send((message)req, send);
         exit(0);
     }
 
-    // this is the parent
-    plcontainer_channel_initialize(recv);
     // this is the child
-    message msg = plcontainer_channel_receive();
+    message msg = plcontainer_channel_receive(recv);
     ASSERT_EQ(MT_CALLREQ, (char)msg->msgtype);
     callreq req = (callreq)msg;
     ASSERT_STREQ(req->proc.name, "foobar");

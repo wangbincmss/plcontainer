@@ -10,7 +10,7 @@ extern "C" {
 
 TEST(Containers, CanCreate) {
     // stop the container after the test run
-    PGconn_min *conn = start_container("plcontainer");
+    PGconn_min *conn = start_container("plc_python");
     ASSERT_TRUE(conn != NULL);
 }
 
