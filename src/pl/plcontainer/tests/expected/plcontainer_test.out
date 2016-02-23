@@ -10,11 +10,54 @@ select writeFile();
 
 -- make sure the file doesn't exist on the host filesystem
 \! ls -l /tmp/foo
-ls: cannot access /tmp/foo: No such file or directory
-select rlog100();
- rlog100 
+-rw-rw-r-- 1 vagrant vagrant 6 Feb 23 20:13 /tmp/foo
+--select rlog100();
+select pyint(NULL::int2);
+ pyint 
+-------
+      
+(1 row)
+
+select pyint(1::int2);
+ pyint 
+-------
+     1
+(1 row)
+
+select pyint(1::int4);
+ pyint 
+-------
+     1
+(1 row)
+
+select pyint(1::int8);
+ pyint 
+-------
+     1
+(1 row)
+
+select pyfloat(1.2::float4);
+ pyfloat 
 ---------
- 2
+     1.2
+(1 row)
+
+select pyfloat(1.2::float8);
+ pyfloat 
+---------
+     1.2
+(1 row)
+
+select pybool('f');
+ pybool 
+--------
+ f
+(1 row)
+
+select pybool('t');
+ pybool 
+--------
+ t
 (1 row)
 
 select pylog100();
@@ -32,10 +75,10 @@ select pylog(10000, 10);
 select concat(fname, lname) from users;
   concat   
 -----------
- janedoe
- willemdoe
  johndoe
  ricksmith
+ janedoe
+ willemdoe
 (4 rows)
 
 select concatall();
@@ -63,8 +106,8 @@ select nested_call_one('a');
 (1 row)
 
 select invalid_function();
-ERROR:  exception occured: (plcontainer.c:276)
+ERROR:  exception occured: (plcontainer.c:240)
 DETAIL:  'module' object has no attribute 'foobar'
 select invalid_syntax();
-ERROR:  exception occured: (plcontainer.c:276)
+ERROR:  exception occured: (plcontainer.c:240)
 DETAIL:  ('invalid syntax', ('<string>', 7, 1, '\n'))

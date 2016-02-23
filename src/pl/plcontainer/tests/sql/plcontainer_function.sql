@@ -19,6 +19,37 @@ import math
 return math.log10(100)
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pybool(b bool) RETURNS bool AS $$
+# container: plc_python
+return b
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyint(i int2) RETURNS int2 AS $$
+# container: plc_python
+return i
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyint(i int4) RETURNS int4 AS $$
+# container: plc_python
+return i
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyint(i int8) RETURNS int8 AS $$
+# container: plc_python
+return i
+$$ LANGUAGE plcontainer;
+
+
+CREATE OR REPLACE FUNCTION pyfloat(f float4) RETURNS float4 AS $$
+# container: plc_python
+return f
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyfloat(f float8) RETURNS float8 AS $$
+# container: plc_python
+return f
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pylog(a integer, b integer) RETURNS double precision AS $$
 # container: plc_python
 import math
