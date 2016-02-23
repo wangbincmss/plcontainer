@@ -83,7 +83,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
     free(name);
     do {
-        message       ansver = NULL;
+        message       answer = NULL;
         MemoryContext messageContext;
         MemoryContext oldContext;
 
@@ -93,22 +93,22 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
         MemoryContextSwitchTo(messageContext);
 
-        ansver = plcontainer_channel_receive(conn);
+        answer = plcontainer_channel_receive(conn);
 
-        message_type = ansver->msgtype;
+        message_type = answer->msgtype;
         switch (message_type) {
             case MT_RESULT:
                 // handle elsewhere
                 break;
             case MT_EXCEPTION:
-                plcontainer_exception_do((error_message)ansver);
+                plcontainer_exception_do((error_message)answer);
                 PG_RETURN_NULL();
                 break;
             case MT_SQL:
-                plcontainer_sql_do((sql_msg)ansver, conn);
+                plcontainer_sql_do((sql_msg)answer, conn);
                 break;
             case MT_LOG:
-                plcontainer_log_do((log_message)ansver);
+                plcontainer_log_do((log_message)answer);
                 break;
             case MT_TUPLRES:
                 break;
@@ -131,7 +131,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
          * here is how to escape from the loop
          */
         if (message_type == MT_RESULT) {
-            plcontainer_result res = (plcontainer_result)ansver;
+            plcontainer_result res = (plcontainer_result)answer;
 
             if (res->rows == 1 && res->cols == 1) {
                 Datum        ret;
@@ -148,7 +148,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                     PG_RETURN_NULL();
                 }
 
-                parseTypeString(res->types[0], &typeOid, &typeMod);
+                parseTypeString(pinfo.rettype.name, &typeOid, &typeMod);
                 typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
                 if (!HeapTupleIsValid(typetup)) {
                     MemoryContextSwitchTo(oldContext);
@@ -184,7 +184,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
              * continue here!!
              */
 
-            /*			PG_RETURN_NULL(); */
+            /*            PG_RETURN_NULL(); */
             /*
              * break;
              */
@@ -196,7 +196,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
         //elog(DEBUG1, "deleted message ctx");
 
         if (message_type == MT_EXCEPTION) {
-            elog(ERROR, "Exception caught: %s", ((error_message)ansver)->message);
+            elog(ERROR, "Exception caught: %s", ((error_message)answer)->message);
             PG_RETURN_NULL();
         }
         //elog(DEBUG1, "debug");

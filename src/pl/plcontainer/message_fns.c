@@ -22,12 +22,12 @@ interpreted as representing official policies, either expressed or implied, of t
 
 
 /**
- * file name:		plj-callmkr.c
- * description:		PL/pgJ call message creator routine. This file
- *				    was renamed from plpgj_call_maker.c
- *				    It is replaceable with pljava-way of declaring java
- *					method calls. (read the readme!)
- * author:		Laszlo Hornyak
+ * file name:        plj-callmkr.c
+ * description:        PL/pgJ call message creator routine. This file
+ *                    was renamed from plpgj_call_maker.c
+ *                    It is replaceable with pljava-way of declaring java
+ *                    method calls. (read the readme!)
+ * author:        Laszlo Hornyak
  */
 
 /* standard headers */
@@ -137,11 +137,17 @@ fill_callreq_arguments(FunctionCallInfo fcinfo, proc_info *pinfo, callreq req) {
     req->args  = pmalloc(sizeof(*req->args) * pinfo->nargs);
 
     for (i = 0; i < pinfo->nargs; i++) {
-        val               = fcinfo->arg[i];
         req->args[i].name = pinfo->argnames[i];
         req->args[i].type = pinfo->argtypes[i].name;
-        req->args[i].value =
-            DatumGetCString(OidFunctionCall1(pinfo->argtypes[i].output, val));
+
+        if (fcinfo->argnull[i]){
+            //TODO: this can't be freed so it will probably fail
+            req->args[i].value = "\\N";
+        }else{
+            val               = fcinfo->arg[i];
+            req->args[i].value =
+                DatumGetCString(OidFunctionCall1(pinfo->argtypes[i].output, val));
+        }
     }
 }
 

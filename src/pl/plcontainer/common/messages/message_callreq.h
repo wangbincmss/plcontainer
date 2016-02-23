@@ -19,7 +19,7 @@ typedef struct {
     procedure proc;
     int       nargs;
     argument *args;
-} * callreq;
+} call_req, * callreq;
 
 /*
   Frees a callreq and all subfields of the struct, this function

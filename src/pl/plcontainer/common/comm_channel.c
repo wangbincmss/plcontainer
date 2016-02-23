@@ -21,9 +21,9 @@ interpreted as representing official policies, either expressed or implied, of t
 */
 
 /**
- * file name:			comm_channel.c
- * description:			Channel API.
- * author:			Laszlo Hornyak Kocka
+ * file name:            comm_channel.c
+ * description:            Channel API.
+ * author:            Laszlo Hornyak Kocka
  */
 
 #include "comm_channel.h"
@@ -360,8 +360,8 @@ static sql_msg_prepare receive_sql_prepare(PGconn_min *conn) {
     ret->types =
         ret->ntypes == 0 ? NULL : pmalloc(ret->ntypes * sizeof(char *));
 
-    //	ret -> ntypes = 0;
-    //	ret -> types = NULL;
+    //    ret -> ntypes = 0;
+    //    ret -> types = NULL;
 
     for (i = 0; i < ret->ntypes; i++) {
         lprintf(DEBUG1, "%d", i);
@@ -376,7 +376,7 @@ static sql_pexecute receive_sql_pexec(PGconn_min *conn) {
     int               i;
     struct fnc_param *param;
 
-    //	pljlprintf(DEBUG1,"receive_sql_pexec");
+    //    pljlprintf(DEBUG1,"receive_sql_pexec");
     ret          = pmalloc(sizeof(struct str_sql_pexecute));
     ret->msgtype = MT_SQL;
     ret->sqltype = SQL_TYPE_PEXECUTE;

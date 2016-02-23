@@ -14,7 +14,7 @@ typedef struct {
 } container_t;
 
 static container_t containers[10];
-
+//#define CONTAINER_DEBUG 1
 #ifndef CONTAINER_DEBUG
 
 static char *

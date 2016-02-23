@@ -29,7 +29,12 @@ int start_listener() {
     if (bind(sock, (const struct sockaddr *)&addr, sizeof(addr)) == -1) {
         lprintf(ERROR, "Cannot bind the port: %s", strerror(errno));
     }
-
+#ifdef _DEBUG_CLIENT
+    int enable = 1;
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) < 0){
+        lprintf(ERROR, "setsockopt(SO_REUSEADDR) failed");
+    }
+#endif
     if (listen(sock, 10) == -1) {
         lprintf(ERROR, "Cannot listen the socket: %s", strerror(errno));
     }
