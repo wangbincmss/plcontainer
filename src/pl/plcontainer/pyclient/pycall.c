@@ -75,6 +75,9 @@ void handle_call(callreq req, PGconn_min* conn) {
     args = PyTuple_New(req->nargs);
     for (i = 0; i < req->nargs; i++) {
         PyObject *arg;
+        /*
+        *  Use \N as null
+        */
         if ( strcmp( req->args[i].value, "\\N" ) == 0 ) {
             Py_INCREF(Py_None);
             arg = Py_None;

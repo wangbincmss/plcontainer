@@ -142,6 +142,9 @@ fill_callreq_arguments(FunctionCallInfo fcinfo, proc_info *pinfo, callreq req) {
 
         if (fcinfo->argnull[i]){
             //TODO: this can't be freed so it will probably fail
+            /*
+             * Use \N to mark NULL
+             */
             req->args[i].value = "\\N";
         }else{
             val               = fcinfo->arg[i];
