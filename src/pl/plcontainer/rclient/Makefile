@@ -1,6 +1,6 @@
 R_CFLAGS = $(shell pkg-config --cflags libR)
 R_LDLAGS = $(shell pkg-config --libs libR)
-override CFLAGS += $(DEBUG) -I../ -I../../../include -DCOMM_STANDALONE -Wall -Wextra -Werror
+override CFLAGS += -I../ -I../../../include -DCOMM_STANDALONE -Wall -Wextra -Werror
 
 common_src = $(shell find ../common -name "*.c")
 common_objs = $(foreach src,$(common_src),$(subst .c,.o,$(src)))
@@ -17,10 +17,6 @@ clean_common:
 
 client: client.o rcall.o $(common_objs)
 	$(CC) -o $@ $^ $(R_LDLAGS)
-
-debug: DEBUG = -D_DEBUG_CLIENT -g
-
-debug: client
 
 .PHONY: all
 all: client

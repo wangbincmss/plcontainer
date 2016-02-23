@@ -6,7 +6,7 @@ select writeFile();
 -- make sure the file doesn't exist on the host filesystem
 \! ls -l /tmp/foo
 
---select rlog100();
+select rlog100();
 select pyint(NULL::int2);
 select pyint(1::int2);
 select pyint(1::int4);

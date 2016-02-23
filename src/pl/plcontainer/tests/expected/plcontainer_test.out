@@ -11,7 +11,12 @@ select writeFile();
 -- make sure the file doesn't exist on the host filesystem
 \! ls -l /tmp/foo
 -rw-rw-r-- 1 vagrant vagrant 6 Feb 23 20:13 /tmp/foo
---select rlog100();
+select rlog100();
+ rlog100 
+---------
+ 2
+(1 row)
+
 select pyint(NULL::int2);
  pyint 
 -------
@@ -75,10 +80,10 @@ select pylog(10000, 10);
 select concat(fname, lname) from users;
   concat   
 -----------
- johndoe
- ricksmith
  janedoe
  willemdoe
+ johndoe
+ ricksmith
 (4 rows)
 
 select concatall();
@@ -106,8 +111,8 @@ select nested_call_one('a');
 (1 row)
 
 select invalid_function();
-ERROR:  exception occured: (plcontainer.c:240)
+ERROR:  exception occured: (plcontainer.c:244)
 DETAIL:  'module' object has no attribute 'foobar'
 select invalid_syntax();
-ERROR:  exception occured: (plcontainer.c:240)
+ERROR:  exception occured: (plcontainer.c:244)
 DETAIL:  ('invalid syntax', ('<string>', 7, 1, '\n'))
