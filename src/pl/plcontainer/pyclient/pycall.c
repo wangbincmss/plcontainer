@@ -38,6 +38,7 @@ void python_init() {
 
 void handle_call(callreq req, PGconn_min* conn) {
     int              i;
+    int                 returnedNull = false;
     char *           func, *txt;
     plcontainer_result res;
     error_message    err;
@@ -55,7 +56,7 @@ void handle_call(callreq req, PGconn_min* conn) {
 
     /* wrap the input in a function and evaluate the result */
     func = create_python_func(req);
-	/* the function will be in the dictionary because it was wrapped with "def proc.name:... " */
+    /* the function will be in the dictionary because it was wrapped with "def proc.name:... " */
     val  = PyRun_String(func, Py_single_input, dict, dict);
     if (val == NULL) {
         goto error;
@@ -74,14 +75,37 @@ void handle_call(callreq req, PGconn_min* conn) {
     args = PyTuple_New(req->nargs);
     for (i = 0; i < req->nargs; i++) {
         PyObject *arg;
-        if (strcmp(req->args[i].type, "text") == 0) {
-            arg = PyString_FromString((char *)req->args[i].value);
-        } else if (strcmp(req->args[i].type, "int4") == 0) {
-            arg = PyLong_FromString((char *)req->args[i].value, NULL, 0);
+        if ( strcmp( req->args[i].value, "\\N" ) == 0 ) {
+            Py_INCREF(Py_None);
+            arg = Py_None;
         } else {
-            lprintf(ERROR, "unknown type %s", req->args[i].type);
-        }
+            if ( strcmp(req->args[i].type, "bool") == 0 ) {
+                if( strcmp(req->args[i].value,"t") == 0 ) {
+                    Py_INCREF(Py_True);
+                    arg = Py_True;
+                }else{
+                    Py_INCREF(Py_False);
+                    arg = Py_False;
+                }
+            } else if (strcmp(req->args[i].type, "varchar") == 0) {
+                arg = PyString_FromString((char *)req->args[i].value);
+            } else if (strcmp(req->args[i].type, "text") == 0) {
+                arg = PyString_FromString((char *)req->args[i].value);
+            } else if (strcmp(req->args[i].type, "int2") == 0) {
+                arg = PyLong_FromString((char *)req->args[i].value, NULL, 0);
+            } else if (strcmp(req->args[i].type, "int4") == 0) {
+                arg = PyLong_FromString((char *)req->args[i].value, NULL, 0);
+            } else if (strcmp(req->args[i].type, "int8") == 0) {
+                arg = PyLong_FromString((char *)req->args[i].value, NULL, 0);
+            } else if (strcmp(req->args[i].type, "float4") == 0) {
+                arg = PyFloat_FromString(PyString_FromString((char *)req->args[i].value), NULL);
+            } else if (strcmp(req->args[i].type, "float8") == 0) {
+                arg = PyFloat_FromString(PyString_FromString((char *)req->args[i].value), NULL);
 
+            } else {
+                lprintf(ERROR, "unknown type %s", req->args[i].type);
+            }
+        }
         if (arg == NULL) {
             goto error;
         }
@@ -96,18 +120,21 @@ void handle_call(callreq req, PGconn_min* conn) {
     if (retval == NULL) {
         goto error;
     }
-
-    val = PyObject_Str(retval);
-    /* TODO: get the type of the return value */
+    if (retval == Py_None){
+        returnedNull=true;
+        txt = NULL;
+    } else {
+        val = PyObject_Str(retval);
+        txt = PyString_AsString(val);
+        if (txt == NULL) {
+            goto error;
+        }
+    }
 
     /* release all references */
     Py_DECREF(args);
     Py_DECREF(dict);
 
-    txt = PyString_AsString(val);
-    if (txt == NULL) {
-        goto error;
-    }
 
     /* allocate a result */
     res          = pmalloc(sizeof(*res));
@@ -123,10 +150,8 @@ void handle_call(callreq req, PGconn_min* conn) {
     /* use strdup since free_result assumes values are on the heap */
     res->names[0] = pstrdup("result");
     res->types[0] = pstrdup("text");
-    if (PyFloat_Check(retval)) {
-        res->types[0] = pstrdup("double precision");
-    }
-    res->data[0]->isnull = false;
+
+    res->data[0]->isnull = returnedNull;
     res->data[0]->value  = txt;
 
     /* send the result back */
@@ -261,7 +286,7 @@ receive:
           goto receive;
 
        case MT_RESULT:
-    	   break;
+           break;
        default:
            lprintf(DEBUG1, "didn't receive result back %c", resp->msgtype);
            return NULL;
