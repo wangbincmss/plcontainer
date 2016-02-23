@@ -147,7 +147,11 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                     MemoryContextDelete(messageContext);
                     PG_RETURN_NULL();
                 }
-
+                /*
+                * use the return type provided by the function
+                * to figure out the method to use to return
+                * the value
+                */
                 parseTypeString(pinfo.rettype.name, &typeOid, &typeMod);
                 typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
                 if (!HeapTupleIsValid(typetup)) {
