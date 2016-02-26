@@ -45,10 +45,10 @@ SEXP convert_args(callreq req);
  */
 
 static void send_error(plcConn* conn, char *msg);
-static char * create_r_func(const char *name, const char *src);
+static char * create_r_func(callreq req);
 
 static char *create_r_func(callreq req);
-static SEXP parse_r_code(const char *code, PGconn_min* conn);
+static SEXP parse_r_code(const char *code, plcConn* conn);
 
 
 void handle_call(callreq req, plcConn* conn) {
@@ -104,7 +104,7 @@ void handle_call(callreq req, plcConn* conn) {
     if (errorOccurred) {
     	UNPROTECT(1); //r
     	//TODO send real error message
-        send_error("cannot convert value to string", conn);
+        send_error(conn, "cannot convert value to string");
         return;
     }
 
