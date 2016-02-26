@@ -8,9 +8,12 @@
 #include <signal.h>
 
 #include <R.h>
+#include <Rversion.h>
 #include <Rembedded.h>
 #include <Rinternals.h>
 #include <R_ext/Parse.h>
+#include <Rdefines.h>
+
 
 /* R's definition conflicts with the ones defined by postgres */
 #undef WARNING
@@ -21,6 +24,14 @@
 #include "common/comm_connectivity.h"
 #include "common/comm_server.h"
 #include "rcall.h"
+#include "rsupport.h"
+
+/*
+ * set by hook throw_r_error
+ */
+extern char * last_R_error_msg;
+SEXP convert_args(callreq req);
+
 
 /*
   based on examples from:
@@ -33,53 +44,67 @@
   - http://adv-r.had.co.nz/C-interface.html
  */
 
-static char *create_r_func(const char *, const char *);
 static void send_error(plcConn* conn, char *msg);
-static SEXP run_r_code(const char *code, int *errorOccured, plcConn* conn);
 static char * create_r_func(const char *name, const char *src);
 
-void r_init() {
-    char   *argv[] = {"client", "--slave", "--vanilla"};
-    int  signals[] = {SIGTERM, SIGSEGV, SIGABRT};
-    size_t iter;
+static char *create_r_func(callreq req);
+static SEXP parse_r_code(const char *code, PGconn_min* conn);
 
-    Rf_initEmbeddedR(sizeof(argv) / sizeof(*argv), argv);
-    /*
-      A temporary hack to force the R environment to exit when termination
-      signals are raised. Otherwise, R will prompt the user for what to do and
-      will hang in the container
-    */
-    for (iter = 0; iter < sizeof(signals) / sizeof(*signals); iter++) {
-        sighandler_t sig = signal(signals[iter], exit);
-        if (sig == SIG_ERR) {
-            fprintf(stderr, "Cannot reset signal handler for %d to default\n", signals[iter]);
-            exit(1);
-        }
-    }
-}
 
 void handle_call(callreq req, plcConn* conn) {
-    SEXP             r, toString, strres;
-    int              errorOccured;
+    SEXP             r,
+					 strres,
+					 call,
+					 rargs,
+					 obj,
+					 args;
+
+    int              i,
+	                 errorOccurred;
+
     char *           func;
     const char *     txt;
     plcontainer_result res;
 
     /* wrap the input in a function and evaluate the result */
-    func = create_r_func(req->proc.name, req->proc.src);
+    func = create_r_func(req);
 
-    PROTECT(r = run_r_code(func, &errorOccured, conn));
-    if (errorOccured) {
+    PROTECT(r = parse_r_code(func, conn));
+
+    if (errorOccurred) {
+    	//TODO send real error message
         /* run_r_code will send an error back */
-        UNPROTECT(1);
+        UNPROTECT(1); //r
         return;
     }
-    /* get the symbol from the symbol table */
-    PROTECT(toString = lang2(install("toString"), r));
-    PROTECT(strres = R_tryEval(toString, R_GlobalEnv, &errorOccured));
-    if (errorOccured) {
-        UNPROTECT(3);
-        send_error(conn, "cannot convert value to string");
+
+    if(req->nargs > 0)
+	{
+        rargs = convert_args(req);
+		PROTECT(obj = args = allocList(req->nargs));
+
+		for (i = 0; i < req->nargs; i++)
+		{
+			SETCAR(obj, VECTOR_ELT(rargs, i));
+			obj = CDR(obj);
+		}
+		UNPROTECT(1);
+		PROTECT(call = lcons(r, args));
+	}
+	else
+	{
+		PROTECT(call = allocVector(LANGSXP,1));
+		SETCAR(call, r);
+	}
+
+	strres = R_tryEval(call, R_GlobalEnv, &errorOccurred);
+	UNPROTECT(1); //call
+
+
+    if (errorOccurred) {
+    	UNPROTECT(1); //r
+    	//TODO send real error message
+        send_error("cannot convert value to string", conn);
         return;
     }
 
@@ -105,7 +130,7 @@ void handle_call(callreq req, plcConn* conn) {
     /* free the result object and the python value */
     free_result(res);
 
-    UNPROTECT(3);
+    UNPROTECT(1);
 
     return;
 }
@@ -125,14 +150,15 @@ static void send_error(plcConn* conn, char *msg) {
     free(err);
 }
 
-static SEXP run_r_code(const char *code, int *errorOccured, plcConn* conn) {
+static SEXP parse_r_code(const char *code,  plcConn* conn) {
     /* int hadError; */
     ParseStatus status;
     char *      error;
-    SEXP        e, r, tmp;
-    int         i;
+    SEXP        tmp,
+			    rbody,
+				fun;
 
-    PROTECT(tmp = mkString(code));
+    PROTECT(rbody = mkString(code));
     /*
       limit the number of expressions to be parsed to 2:
         - the definition of the function, i.e. f <- function() {...}
@@ -141,47 +167,150 @@ static SEXP run_r_code(const char *code, int *errorOccured, plcConn* conn) {
       kind of useful to prevent injection, but pointless since we are
       running in a container. I think -1 is equivalent to no limit.
     */
-    PROTECT(e = R_ParseVector(tmp, -1, &status, R_NilValue));
+    PROTECT(tmp = R_ParseVector(rbody, -1, &status, R_NilValue));
+
+    if (tmp != R_NilValue){
+    	PROTECT(fun = VECTOR_ELT(tmp, 0));
+    }else{
+    	PROTECT(fun = R_NilValue);
+    }
+
     if (status != PARSE_OK) {
-        *errorOccured = 1;
-        error         = "cannot parse code";
+        UNPROTECT(3);
+        error         = last_R_error_msg;
         goto error;
     }
 
-    /* Loop is needed here as EXPSEXP will be of length > 1 */
-    for (i = 0; i < length(e); i++) {
-        r = R_tryEval(VECTOR_ELT(e, i), R_GlobalEnv, errorOccured);
-        if (*errorOccured) {
-            error = "cannot evaluate code";
-            goto error;
-        }
-    }
-
-    UNPROTECT(2);
-
-    return r;
+    UNPROTECT(3);
+    return fun;
 
 error:
-    UNPROTECT(2);
 
     send_error(conn, error);
-
     return NULL;
 }
 
-static char * create_r_func(const char *name, const char *src) {
+static char * create_r_func(callreq req) {
     int    plen;
     char * mrc;
-    size_t mlen;
+    size_t mlen = 0;
 
+    int i;
+
+    // calculate space required for args
+    for (i=0;i<req->nargs;i++){
+    	// +4 for , and space
+    	mlen += strlen(req->args[i].name) + 4;
+    }
     /*
      * room for function source and function call
      */
-    mlen = strlen(src) + strlen(name) + 40;
+    mlen += strlen(req->proc.src) + strlen(req->proc.name) + 40;
 
     mrc  = malloc(mlen);
-    plen = snprintf(mrc, mlen, "%s <- function() {\n%s\n}\n%s()\n", name, src,
-                    name);
+    plen = snprintf(mrc,mlen,"%s <- function(",req->proc.name);
+
+
+    for (i=0;i<req->nargs;i++){
+
+        strcat( mrc,req->args[i].name);
+
+    	/* add a comma if not the last arg */
+    	if ( i < (req->nargs-1) ){
+    		strcat(mrc,", ") ;
+    		plen += 2;
+    	}
+
+    	/* keep track of where we are copying */
+    	plen+=strlen(req->args[i].name);
+    }
+
+    /* finish the function definition from where we left off */
+    plen = snprintf(mrc+plen, mlen, ") {\n%s\n}\n%s()\n", req->proc.src,
+                    req->proc.name);
     assert(plen >= 0 && ((size_t)plen) < mlen);
     return mrc;
 }
+
+#define INTEGER_ARG 1
+#define NUMBER_ARG  2
+#define BOOL_ARG 3
+#define STRING_ARG  4
+
+static SEXP get_r_array(int type, int size)
+{
+	SEXP result;
+
+	switch (type){
+	case INTEGER_ARG:
+		PROTECT( result = NEW_INTEGER(size) );
+		break;
+	case NUMBER_ARG:
+		PROTECT( result = NEW_NUMERIC(size) );
+		break;
+	case BOOL_ARG:
+		PROTECT( result = NEW_LOGICAL(size) );
+		break;
+	case STRING_ARG:
+		default:
+		PROTECT( result = NEW_CHARACTER(size) );
+		break;
+	}
+	UNPROTECT(1);
+	return result;
+}
+
+SEXP convert_args(callreq req)
+{
+	SEXP	rargs, element;
+
+	int    i;
+
+    /* create the argument list */
+	PROTECT(rargs = allocVector(VECSXP, req->nargs));
+
+	for (i = 0; i < req->nargs; i++) {
+
+        /*
+        *  Use \N as null
+        */
+        if ( strcmp( req->args[i].value, "\\N" ) == 0 ) {
+        	SET_VECTOR_ELT( rargs, i, R_NilValue );
+        } else {
+            if ( strcmp(req->args[i].type, "bool") == 0 ) {
+            	PROTECT(element = get_r_array(BOOL_ARG,1));
+                LOGICAL_DATA(element)[0] = (req->args[i].value[0]=='t'?1:0);
+            	SET_VECTOR_ELT( rargs, i, element );
+            	UNPROTECT(1);
+
+            } else if ( (strcmp(req->args[i].type, "varchar") == 0)
+            		 || (strcmp(req->args[i].type, "text") == 0) ) {
+
+            	PROTECT(element = get_r_array(STRING_ARG,1));
+            	SET_STRING_ELT(element, 0, COPY_TO_USER_STRING((char *)(req->args[i].value)));
+            	SET_VECTOR_ELT( rargs, i, element );
+
+            } else if ( (strcmp(req->args[i].type, "int2") == 0)
+            		|| (strcmp(req->args[i].type, "int4") == 0) ) {
+
+            	PROTECT(element = get_r_array(INTEGER_ARG,1));
+            	INTEGER_DATA(element)[0] = atof((char *)req->args[i].value);
+            	SET_VECTOR_ELT( rargs, i, element );
+
+            } else if ( (strcmp(req->args[i].type, "int8") == 0)
+                    || (strcmp(req->args[i].type, "float4") == 0)
+					|| (strcmp(req->args[i].type, "float8") == 0) )
+            {
+            	PROTECT(element = get_r_array(NUMBER_ARG,1));
+            	REAL(element)[0] = atof((char *)req->args[i].value);
+            	SET_VECTOR_ELT( rargs, i, element );
+
+            } else {
+                lprintf(ERROR, "unknown type %s", req->args[i].type);
+            }
+        }
+    }
+	UNPROTECT(1);
+	return rargs;
+}
+

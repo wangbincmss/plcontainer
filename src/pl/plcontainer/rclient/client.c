@@ -10,6 +10,8 @@
 #include "common/comm_server.h"
 #include "rcall.h"
 
+extern void r_init();
+
 int main(int argc UNUSED, char **argv UNUSED) {
     int      sock;
     plcConn* conn;
