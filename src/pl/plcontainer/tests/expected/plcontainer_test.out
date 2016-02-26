@@ -10,7 +10,7 @@ select writeFile();
 
 -- make sure the file doesn't exist on the host filesystem
 \! ls -l /tmp/foo
--rw-rw-r-- 1 vagrant vagrant 6 Feb 23 20:13 /tmp/foo
+ls: cannot access /tmp/foo: No such file or directory
 select rlog100();
  rlog100 
 ---------
@@ -111,8 +111,8 @@ select nested_call_one('a');
 (1 row)
 
 select invalid_function();
-ERROR:  exception occured: (plcontainer.c:244)
+ERROR:  exception occured: (plcontainer.c:249)
 DETAIL:  'module' object has no attribute 'foobar'
 select invalid_syntax();
-ERROR:  exception occured: (plcontainer.c:244)
+ERROR:  exception occured: (plcontainer.c:249)
 DETAIL:  ('invalid syntax', ('<string>', 7, 1, '\n'))

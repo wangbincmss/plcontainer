@@ -10,7 +10,7 @@ extern "C" {
 
 TEST(Containers, CanCreate) {
     // stop the container after the test run
-    PGconn_min *conn = start_container("plc_python");
+    plcConn *conn = start_container("plc_python");
     ASSERT_TRUE(conn != NULL);
 }
 
@@ -27,7 +27,7 @@ TEST(Containers, CanFigureOutTheNameAndStart) {
         "return 'foobar'");
     ASSERT_STREQ(name, "plc_python");
     // stop the container after the test run
-    PGconn_min *conn = start_container(name);
+    plcConn *conn = start_container(name);
     ASSERT_TRUE(conn != NULL);
 }
 

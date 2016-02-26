@@ -1,6 +1,8 @@
 #ifndef __COMM_SERVER_H__
 #define __COMM_SERVER_H__
 
+#include "comm_connectivity.h"
+
 // Enabling debug would create infinite loop of client receiving connections
 //#define _DEBUG_SERVER
 
@@ -11,7 +13,7 @@
 
 int  start_listener(void);
 void connection_wait(int sock);
-PGconn_min* connection_init(int sock);
-void receive_loop( void (*handle_call)(callreq, PGconn_min*), PGconn_min* conn);
+plcConn* connection_init(int sock);
+void receive_loop( void (*handle_call)(callreq, plcConn*), plcConn* conn);
 
 #endif /* __COMM_SERVER_H__ */

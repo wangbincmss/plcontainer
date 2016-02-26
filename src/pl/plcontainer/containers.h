@@ -3,7 +3,7 @@
 
 //#define CONTAINER_DEBUG
 
-#include "common/libpq-mini.h"
+#include "common/comm_connectivity.h"
 
 /*
    given source code of the function, extract the container name.
@@ -18,9 +18,9 @@
 char *parse_container_name(const char *source);
 
 /* return the port of a started container, -1 if the container isn't started */
-PGconn_min *find_container(const char *image);
+plcConn *find_container(const char *image);
 
 /* start a new docker container using the given image  */
-PGconn_min *start_container(const char *image);
+plcConn *start_container(const char *image);
 
 #endif /* __CONTAINERS_H__ */

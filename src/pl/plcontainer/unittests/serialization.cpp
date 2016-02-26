@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "common/libpq-mini.h"
+#include "common/comm_connectivity.h"
 #include "common/comm_channel.h"
 #include "common/messages/messages.h"
 }
@@ -15,10 +15,10 @@ TEST(MessageSerialization, CallRequest) {
     int fds[2];
     int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
     ASSERT_NE(ret, -1);
-    PGconn_min *send, *recv;
-    send = pq_min_connect_fd(fds[0]);
+    plcConn *send, *recv;
+    send = plcConnInit(fds[0]);
     // send->Pfdebug = stdout;
-    recv = pq_min_connect_fd(fds[1]);
+    recv = plcConnInit(fds[1]);
     // recv->Pfdebug = stdout;
     pid_t pid = fork();
     if (pid == 0) {
@@ -49,12 +49,13 @@ TEST(MessageSerialization, CallRequest) {
 		req->args[2].name="arg3";
 		req->args[2].type="float";
 		req->args[2].value="12.5";
-        plcontainer_channel_send((message)req, send);
+        plcontainer_channel_send(send, (message)req);
         exit(0);
     }
 
     // this is the child
-    message msg = plcontainer_channel_receive(recv);
+    message msg;
+    plcontainer_channel_receive(recv, &msg);
     ASSERT_EQ(MT_CALLREQ, (char)msg->msgtype);
     callreq req = (callreq)msg;
     ASSERT_STREQ(req->proc.name, "foobar");

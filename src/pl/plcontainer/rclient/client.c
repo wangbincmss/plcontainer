@@ -6,13 +6,13 @@
 
 #include "common/comm_channel.h"
 #include "common/comm_logging.h"
-#include "common/libpq-mini.h"
+#include "common/comm_connectivity.h"
 #include "common/comm_server.h"
 #include "rcall.h"
 
 int main(int argc UNUSED, char **argv UNUSED) {
-    int         sock;
-    PGconn_min* conn;
+    int      sock;
+    plcConn* conn;
 
     // Bind the socket and start listening the port
     sock = start_listener();

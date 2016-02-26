@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 
 extern "C" {
-#include "common/libpq-mini.h"
+#include "common/comm_connectivity.h"
 #include "common/comm_channel.h"
 #include "common/messages/messages.h"
 
@@ -25,10 +25,10 @@ TEST(PythonTypes, CallRequest) {
     int fds[2];
     int ret = socketpair(AF_UNIX, SOCK_STREAM, 0, fds);
     ASSERT_NE(ret, -1);
-    PGconn_min *send, *recv;
-    send = pq_min_connect_fd(fds[0]);
+    plcConn *send, *recv;
+    send = plcConnInit(fds[0]);
     // send->Pfdebug = stdout;
-    recv = pq_min_connect_fd(fds[1]);
+    recv = plcConnInit(fds[1]);
     // recv->Pfdebug = stdout;
     pid_t pid = fork();
     if (pid == 0) {
@@ -93,7 +93,7 @@ TEST(PythonTypes, CallRequest) {
 
         memcpy( (void *)&req->args[8], (const void *)&float8, sizeof(argument) );
 
-        plcontainer_channel_send((message)req, send);
+        plcontainer_channel_send(send, (message)req);
 
         free(req->args);
         free(req);
@@ -101,7 +101,8 @@ TEST(PythonTypes, CallRequest) {
         exit(0);
     }
 
-    message msg = plcontainer_channel_receive(recv);
+    message msg;
+    plcontainer_channel_receive(recv, &msg);
     ASSERT_EQ(MT_CALLREQ, (char)msg->msgtype);
     callreq req = (callreq)msg;
     ASSERT_STREQ(req->proc.name, "foobar");

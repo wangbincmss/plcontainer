@@ -3,7 +3,7 @@
 
 #include "common/comm_channel.h"
 #include "common/comm_logging.h"
-#include "common/libpq-mini.h"
+#include "common/comm_connectivity.h"
 #include "pycall.h"
 
 #include <Python.h>
@@ -20,7 +20,7 @@ static PyMethodDef moddef[] = {
     {"execute", plpy_execute, METH_O, NULL}, {NULL},
 };
 
-static PGconn_min* pqconn;
+static plcConn* plcconn;
 
 void python_init() {
     PyObject *plpymod, *mainmod;
@@ -36,7 +36,7 @@ void python_init() {
     Py_DECREF(mainmod);
 }
 
-void handle_call(callreq req, PGconn_min* conn) {
+void handle_call(callreq req, plcConn* conn) {
     int              i;
     int                 returnedNull = false;
     char *           func, *txt;
@@ -44,7 +44,7 @@ void handle_call(callreq req, PGconn_min* conn) {
     error_message    err;
     PyObject *       exc, *val, *retval, *tb, *str, *dict, *args;
 
-    pqconn = conn;
+    plcconn = conn;
 
     /* import __main__ to get the builtin functions */
     val = PyImport_ImportModule("__main__");
@@ -158,7 +158,7 @@ void handle_call(callreq req, PGconn_min* conn) {
     res->data[0]->value  = txt;
 
     /* send the result back */
-    plcontainer_channel_send((message)res, conn);
+    plcontainer_channel_send(conn, (message)res);
 
     free_result(res);
 
@@ -181,7 +181,7 @@ error:
     err->stacktrace = "";
 
     /* send the result back */
-    plcontainer_channel_send((message)err, conn);
+    plcontainer_channel_send(conn, (message)err);
 
     /* free the objects */
     free(err);
@@ -256,11 +256,12 @@ static char * create_python_func(callreq req) {
 /* plpy methods */
 
 static PyObject * plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
-    int               i, j;
-    sql_msg_statement msg;
-    plcontainer_result  result;
-    message           resp;
-    PyObject *        pyresult, *pydict, *pyval, *tmp;
+    int                i, j;
+    int                res = 0;
+    sql_msg_statement  msg;
+    plcontainer_result result;
+    message            resp;
+    PyObject *         pyresult, *pydict, *pyval, *tmp;
 
     if (!PyString_Check(pyquery)) {
         PyErr_SetString(PyExc_TypeError, "expected the query string");
@@ -272,26 +273,27 @@ static PyObject * plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
     msg->sqltype   = SQL_TYPE_STATEMENT;
     msg->statement = PyString_AsString(pyquery);
 
-    plcontainer_channel_send((message)msg, pqconn);
+    plcontainer_channel_send(plcconn, (message)msg);
 
     /* we don't need it anymore */
     pfree(msg);
 
-
 receive:
-    resp = plcontainer_channel_receive(pqconn);
+    res = plcontainer_channel_receive(plcconn, &resp);
+    if (res < 0) {
+        lprintf (ERROR, "Error receiving data from the backend, %d", res);
+        return NULL;
+    }
 
     switch (resp->msgtype) {
        case MT_CALLREQ:
-          lprintf(DEBUG1, "receives call req %c", resp->msgtype);
-          handle_call((callreq)resp, pqconn);
+          handle_call((callreq)resp, plcconn);
           free_callreq((callreq)resp);
           goto receive;
-
        case MT_RESULT:
            break;
        default:
-           lprintf(DEBUG1, "didn't receive result back %c", resp->msgtype);
+           lprintf(WARNING, "didn't receive result back %c", resp->msgtype);
            return NULL;
     }
 

@@ -6,7 +6,7 @@
 
 #include "comm_channel.h"
 #include "comm_logging.h"
-#include "libpq-mini.h"
+#include "comm_connectivity.h"
 #include "comm_server.h"
 
 /*
@@ -66,12 +66,12 @@ void connection_wait(int sock) {
 }
 
 /*
- * Function accepts the connection and initializes libpq structure for it
+ * Function accepts the connection and initializes structure for it
  */
-PGconn_min* connection_init(int sock) {
+plcConn* connection_init(int sock) {
     socklen_t          raddr_len;
     struct sockaddr_in raddr;
-    PGconn_min*        pqconn;
+    plcConn*           conn;
     int                connection;
 
     raddr_len  = sizeof(raddr);
@@ -80,33 +80,40 @@ PGconn_min* connection_init(int sock) {
         lprintf(ERROR, "failed to accept connection: %s", strerror(errno));
     }
 
-    pqconn = pq_min_connect_fd(connection);
+    conn = plcConnInit(connection);
+    // plcConnectionDebug(conn, stdout);
 
-    //pqconn->Pfdebug = stdout;
-
-    return pqconn;
+    return conn;
 }
 
 /*
  * The loop of receiving commands from the Greenplum process and processing them
  */
-void receive_loop( void (*handle_call)(callreq, PGconn_min*), PGconn_min* conn) {
+void receive_loop( void (*handle_call)(callreq, plcConn*), plcConn* conn) {
     message msg;
+    int res = 0;
 
     while (true) {
-        msg = plcontainer_channel_receive(conn);
+        lprintf(WARNING, "Before plcontainer_channel_receive");
+        res = plcontainer_channel_receive(conn, &msg);
+        lprintf(WARNING, "After plcontainer_channel_receive");
 
-        if (msg == NULL) {
+        if (res == -3) {
+            lprintf(NOTICE, "Backend mush have closed the connection");
+            break;
+        }
+        if (res < 0) {
+            lprintf(ERROR, "Error receiving data from the backend, %d", res);
             break;
         }
 
         switch (msg->msgtype) {
-        case MT_CALLREQ:
-            handle_call((callreq)msg, conn);
-            free_callreq((callreq)msg);
-            break;
-        default:
-            lprintf(ERROR, "received unknown message: %c", msg->msgtype);
+            case MT_CALLREQ:
+                handle_call((callreq)msg, conn);
+                free_callreq((callreq)msg);
+                break;
+            default:
+                lprintf(ERROR, "received unknown message: %c", msg->msgtype);
         }
     }
 }

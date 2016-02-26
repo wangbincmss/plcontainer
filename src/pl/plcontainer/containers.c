@@ -10,11 +10,11 @@
 
 typedef struct {
     const char *name;
-    PGconn_min *conn;
+    plcConn    *conn;
 } container_t;
 
 static container_t containers[10];
-//#define CONTAINER_DEBUG 1
+
 #ifndef CONTAINER_DEBUG
 
 static char *
@@ -78,7 +78,7 @@ shell(const char *cmd) {
 #endif
 
 static void
-insert_container(const char *image, PGconn_min *conn) {
+insert_container(const char *image, plcConn *conn) {
     size_t i;
     for (i = 0; i < sizeof(containers) / sizeof(*containers); i++) {
         if (containers[i].name == NULL) {
@@ -89,7 +89,7 @@ insert_container(const char *image, PGconn_min *conn) {
     }
 }
 
-PGconn_min *
+plcConn *
 find_container(const char *image) {
     size_t i;
     for (i = 0; i < sizeof(containers) / sizeof(*containers); i++) {
@@ -102,17 +102,17 @@ find_container(const char *image) {
     return NULL;
 }
 
-PGconn_min *
+plcConn *
 start_container(const char *image) {
     int port;
 #ifdef CONTAINER_DEBUG
-    static PGconn_min *conn;
+    static plcConn *conn;
     if (conn != NULL) {
         return conn;
     }
     port = 8080;
 #else
-    PGconn_min *conn;
+    plcConn *conn;
 
     char  cmd[300];
     char *dockerid, *ports, *exposed;
@@ -147,7 +147,7 @@ start_container(const char *image) {
     free(dockerid);
 #endif
 
-    conn = pq_min_connect(port);
+    conn = plcConnect(port);
     insert_container(image, conn);
     return conn;
 }

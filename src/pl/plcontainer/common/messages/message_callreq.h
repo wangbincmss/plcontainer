@@ -14,12 +14,12 @@ typedef struct {
     char *type;
 } argument;
 
-typedef struct {
+typedef struct call_req {
     base_message_content;
     procedure proc;
     int       nargs;
     argument *args;
-} call_req, * callreq;
+} call_req, *callreq;
 
 /*
   Frees a callreq and all subfields of the struct, this function

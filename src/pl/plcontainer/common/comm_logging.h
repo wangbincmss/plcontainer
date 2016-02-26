@@ -22,9 +22,6 @@ interpreted as representing official policies, either expressed or implied, of t
 
 /**
  * file:			comm_logging.h.
- * description:		very minimal functionality from the original
- * 				    libpq implementation. Structures and
- * 				    functionalities are extremely simplified.
  * author:			PostgreSQL developement group.
  * author:			Laszlo Hornyak
  */

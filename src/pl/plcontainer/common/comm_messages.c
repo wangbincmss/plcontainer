@@ -22,15 +22,13 @@ interpreted as representing official policies, either expressed or implied, of t
 
 /**
  * file:			commm_messages.c
- * description:		very minimal functionality from the original
- * 				    libpq implementation. Structures and
- * 				    functionalities are extremely simplified.
  * author:			PostgreSQL developement group.
  * author:			Laszlo Hornyak
  */
 
 #include <stdlib.h>
 
+#include "comm_logging.h"
 #include "messages/message_callreq.h"
 #include "messages/message_result.h"
 
@@ -38,19 +36,19 @@ void free_callreq(callreq req) {
     int i;
 
     /* free the procedure */
-    free(req->proc.name);
-    free(req->proc.src);
+    pfree(req->proc.name);
+    pfree(req->proc.src);
 
     /* free the arguments */
     for (i = 0; i < req->nargs; i++) {
-        free(req->args[i].name);
-        free(req->args[i].value);
-        free(req->args[i].type);
+        pfree(req->args[i].name);
+        pfree(req->args[i].value);
+        pfree(req->args[i].type);
     }
-    free(req->args);
+    pfree(req->args);
 
     /* free the top-level request */
-    free(req);
+    pfree(req);
 }
 
 void free_result(plcontainer_result res) {
@@ -58,18 +56,18 @@ void free_result(plcontainer_result res) {
 
     /* free the types array */
     for (i = 0; i < res->cols; i++) {
-        free(res->types[i]);
-        free(res->names[i]);
+        pfree(res->types[i]);
+        pfree(res->names[i]);
     }
-    free(res->types);
-    free(res->names);
+    pfree(res->types);
+    pfree(res->names);
 
     /* free the data array */
     for (i = 0; i < res->rows; i++) {
         /* free the row */
-        free(res->data[i]);
+        pfree(res->data[i]);
     }
-    free(res->data);
+    pfree(res->data);
 
-    free(res);
+    pfree(res);
 }

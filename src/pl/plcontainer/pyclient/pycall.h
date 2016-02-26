@@ -1,7 +1,7 @@
 #ifndef __PYCALL_H__
 #define __PYCALL_H__
 
-#include "common/libpq-mini.h"
+#include "common/comm_connectivity.h"
 
 #define UNUSED __attribute__ (( unused ))
 
@@ -13,6 +13,6 @@
 void python_init(void);
 
 // Processing of the Greenplum function call
-void handle_call(callreq req, PGconn_min* conn);
+void handle_call(callreq req, plcConn* conn);
 
 #endif /* __PYCALL_H__ */

@@ -34,7 +34,7 @@ PG_FUNCTION_INFO_V1(plcontainer_call_handler);
 Datum plcontainer_call_handler(PG_FUNCTION_ARGS);
 
 static void plcontainer_exception_do(error_message);
-static void plcontainer_sql_do(sql_msg msg, PGconn_min* conn);
+static void plcontainer_sql_do(sql_msg msg, plcConn* conn);
 static void  plcontainer_log_do(log_message);
 static Datum plcontainer_call_hook(PG_FUNCTION_ARGS);
 
@@ -54,7 +54,6 @@ Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
         elog(ERROR, "SPI finis error: %d (%s)", ret,
              SPI_result_code_string(ret));
 
-    //elog(DEBUG1, "SPI_finish called");
     return datumreturn;
 }
 
@@ -62,7 +61,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     char *      name;
     callreq     req;
     int         message_type;
-    PGconn_min *conn;
+    plcConn    *conn;
     proc_info   pinfo;
 
     /* TODO: handle trigger requests as well */
@@ -79,11 +78,12 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
         conn = start_container(name);
     }
 
-    plcontainer_channel_send((message)req, conn);
+    plcontainer_channel_send(conn, (message)req);
 
     free(name);
     do {
-        message       answer = NULL;
+        int res = 0;
+        message       answer;
         MemoryContext messageContext;
         MemoryContext oldContext;
 
@@ -93,7 +93,11 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
         MemoryContextSwitchTo(messageContext);
 
-        answer = plcontainer_channel_receive(conn);
+        res = plcontainer_channel_receive(conn, &answer);
+        if (res < 0) {
+            elog(ERROR, "Error receiving data from the client, %d", res);
+            break;
+        }
 
         message_type = answer->msgtype;
         switch (message_type) {
@@ -124,8 +128,6 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
         // we do not try to free messages anymore, we switch context and delete
         // the old one
-        // elog(DEBUG1, "[plj core] free message");
-        // elog(DEBUG1, "[plj core] free message done");
 
         /*
          * here is how to escape from the loop
@@ -194,22 +196,15 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
              */
         }
 
-        //elog(DEBUG1, "deleting message ctx");
         MemoryContextSwitchTo(oldContext);
         MemoryContextDelete(messageContext);
-        //elog(DEBUG1, "deleted message ctx");
 
         if (message_type == MT_EXCEPTION) {
             elog(ERROR, "Exception caught: %s", ((error_message)answer)->message);
             PG_RETURN_NULL();
         }
-        //elog(DEBUG1, "debug");
-
-        /* pljelog(ERROR, "no handler for message type: %d", message_type); */
-
     } while (1);
 
-    /* pljelog(DEBUG1, "return null"); */
     PG_RETURN_NULL();
 }
 
@@ -233,11 +228,11 @@ plcontainer_log_do(log_message log) {
     elog(level, "[%s] -  %s ", log->category, log->message);
 }
 
-void plcontainer_sql_do(sql_msg msg, PGconn_min* conn) {
+void plcontainer_sql_do(sql_msg msg, plcConn* conn) {
     message res;
     res = handle_sql_message(msg);
     if (res != NULL)
-        plcontainer_channel_send((message)res, conn);
+        plcontainer_channel_send(conn, (message)res);
 }
 
 void plcontainer_exception_do(error_message msg) {
