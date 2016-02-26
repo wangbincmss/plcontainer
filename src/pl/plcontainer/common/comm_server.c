@@ -94,10 +94,8 @@ void receive_loop( void (*handle_call)(callreq, plcConn*), plcConn* conn) {
     int res = 0;
 
     while (true) {
-        lprintf(WARNING, "Before plcontainer_channel_receive");
         res = plcontainer_channel_receive(conn, &msg);
-        lprintf(WARNING, "After plcontainer_channel_receive");
-
+        
         if (res == -3) {
             lprintf(NOTICE, "Backend mush have closed the connection");
             break;
