@@ -30,7 +30,7 @@ override CFLAGS += -g -I googletest/googletest/include -I $(top_builddir)/includ
 	$(CXX) $(R_CFLAGS) $(PYTHON_CFLAGS) $(CFLAGS) -c -o $@ $^
 
 test: $(objs) $(deps) googletest
-	$(CXX) -o $@ googletest/googletest/make/gtest-all.o $(objs) $(deps) $(R_LDLAGS) $(PYTHON_LDLAGS) -lpthread
+	$(CXX) -o $@ googletest/googletest/make/gtest-all.o $(objs) ../rclient/librsupport.so  $(deps) $(R_LDLAGS) $(PYTHON_LDLAGS) -lpthread
 
 run-tests: test
 	./test
