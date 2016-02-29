@@ -44,14 +44,14 @@ Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
 
     ret = SPI_connect();
     if (ret != SPI_OK_CONNECT)
-        elog(ERROR, "[pl-j core] SPI connect error: %d (%s)", ret,
+        elog(ERROR, "[plcontainer] SPI connect error: %d (%s)", ret,
              SPI_result_code_string(ret));
 
     datumreturn = plcontainer_call_hook(fcinfo);
 
     ret = SPI_finish();
     if (ret != SPI_OK_FINISH)
-        elog(ERROR, "SPI finis error: %d (%s)", ret,
+        elog(ERROR, "[plcontainer] SPI finish error: %d (%s)", ret,
              SPI_result_code_string(ret));
 
     return datumreturn;
@@ -71,7 +71,6 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
     fill_proc_info(fcinfo, &pinfo);
     req = plcontainer_create_call(fcinfo, &pinfo);
-
     name = parse_container_name(req->proc.src);
     conn = find_container(name);
     if (conn == NULL) {
@@ -80,7 +79,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
     plcontainer_channel_send(conn, (message)req);
 
-    free(name);
+    pfree(name);
     do {
         int res = 0;
         message       answer;

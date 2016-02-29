@@ -20,7 +20,7 @@ typedef struct plc_buffer plcBuffer;
 struct plc_conn {
     int sock;
     plcBuffer* buffer[2];
-    FILE *fDebug;
+    int debug;
 };
 
 typedef struct plc_conn plcConn;
@@ -32,6 +32,6 @@ int plcBufferAppend (plcConn *conn, char *prt, size_t len);
 int plcBufferRead (plcConn *conn, char *resBuffer, size_t len);
 int plcBufferReceive (plcConn *conn, size_t nBytes);
 int plcBufferFlush (plcConn *conn);
-void plcConnectionDebug(plcConn *conn, FILE* f);
+void plcConnectionSetDebug(plcConn *conn);
 
 #endif /* COMM_CONNECTIVITY_H */

@@ -23,6 +23,9 @@ static int plcBufferMaybeGrow (plcConn *conn, int bufType, size_t bufAppend);
 static ssize_t plcSocketRecv(plcConn *conn, void *ptr, size_t len) {
      ssize_t n = 0;
      n = recv(conn->sock, ptr, len, 0);
+     if (conn->debug) {
+         lprintf(INFO, ">> Sent %d bytes", (int)n);
+     }
      return n;
  }
 
@@ -32,6 +35,9 @@ static ssize_t plcSocketRecv(plcConn *conn, void *ptr, size_t len) {
 static ssize_t plcSocketSend(plcConn *conn, const void *ptr, size_t len) {
      ssize_t n = 0;
      n = send(conn->sock, ptr, len, 0);
+     if (conn->debug) {
+         lprintf(INFO, "<< Received %d bytes", (int)n);
+     }
      return n;
  }
 
@@ -57,7 +63,7 @@ plcConn * plcConnInit(int sock) {
     conn->buffer[PLC_OUTPUT_BUFFER]->pEnd = 0;
 
     // Initializing control parameters
-    conn->fDebug = 0;
+    conn->debug = 0;
     conn->sock = sock;
 
     return conn;
@@ -312,6 +318,6 @@ int plcBufferFlush (plcConn *conn) {
 /*
  * Set connection debug output
  */
-void plcConnectionDebug(plcConn *conn, FILE* f) {
-    conn->fDebug = f;
+void plcConnectionSetDebug(plcConn *conn) {
+    conn->debug = 1;
 }

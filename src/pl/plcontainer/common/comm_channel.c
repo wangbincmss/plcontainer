@@ -290,8 +290,6 @@ static int receive_exception(plcConn *conn, message *mExc) {
     res += receive_string(conn, &ret->message);
     res += receive_string(conn, &ret->stacktrace);
 
-    if (conn->fDebug)
-        fflush(conn->fDebug);
     return res;
 }
 
@@ -346,8 +344,6 @@ static int receive_result(plcConn *conn, message *mRes) {
         }
     }
 
-    if (conn->fDebug)
-        fflush(conn->fDebug);
     return (res < 0) ? -1 : 0;
 }
 
@@ -362,9 +358,6 @@ static int receive_log(plcConn *conn, message *mLog) {
     res += receive_integer_4(conn, &ret->level);
     res += receive_string(conn, &ret->category);
     res += receive_string(conn, &ret->message);
-
-    if (conn->fDebug)
-        fflush(conn->fDebug);
 
     return (res < 0) ? -1 : 0;
 }

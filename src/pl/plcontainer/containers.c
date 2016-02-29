@@ -19,59 +19,31 @@ static container_t containers[10];
 
 static char *
 shell(const char *cmd) {
-    int   ret, cmdexit, outfd, errfd, fds[2];
-    char *data = malloc(1024);
+    FILE* fCmd;
+    int ret;
+    char* data;
 
-    ret = pipe(fds);
-    if (ret == -1) {
-        lprintf(FATAL, "cannot call pipe: %s", strerror(errno));
+    fCmd = popen(cmd, "r");
+    if (fCmd == NULL) {
+        lprintf(FATAL, "Cannot execute command '%s', error is: %s",
+                       cmd, strerror(errno));
     }
 
-    if ((outfd = dup(1)) == -1) {
-        lprintf(FATAL, "cannot dup stdout: %s", strerror(errno));
+    data = palloc(1024);
+    if (data == NULL) {
+        lprintf(ERROR, "Cannot allocate command buffer: %s", strerror(errno));
     }
 
-    if ((errfd = dup(1)) == -1) {
-        lprintf(FATAL, "cannot dup stderr: %s", strerror(errno));
+    if (fgets(data, 1024, fCmd) == NULL) {
+        lprintf(ERROR, "Cannot read output of the command: %s", strerror(errno));
     }
 
-    if (dup2(fds[1], 1) == -1) {
-        lprintf(FATAL, "cannot dup to stdout: %s", strerror(errno));
+    ret = pclose(fCmd);
+    if (ret < 0) {
+        lprintf(FATAL, "Cannot close the command file descriptor: %s",
+                       strerror(errno));
     }
 
-    if (dup2(fds[1], 2) == -1) {
-        lprintf(FATAL, "cannot dup to stderr: %s", strerror(errno));
-    }
-
-    cmdexit = system(cmd);
-
-    if (close(fds[1]) == -1) {
-        lprintf(ERROR, "cannot close fd: %s", strerror(errno));
-    }
-
-    ret = read(fds[0], data, 1024);
-    if (ret == -1) {
-        lprintf(ERROR, "cannot read from fd: %s", strerror(errno));
-    }
-
-    /*
-       string should end with newline. TODO: this is little dangerous
-       in case the output change. To be honest we should be using an
-       api instead of the command line interface. This is just a POC
-    */
-    data[ret - 1] = '\0';
-
-    if (dup2(outfd, 1) == -1) {
-        lprintf(FATAL, "cannot dup: %s", strerror(errno));
-    }
-
-    if (dup2(outfd, 1) == -1) {
-        lprintf(FATAL, "cannot dup: %s", strerror(errno));
-    }
-
-    if (cmdexit != 0) {
-        lprintf(ERROR, "cannot start container: '%s', command '%s'", data, cmd);
-    }
     return data;
 }
 
@@ -105,13 +77,17 @@ find_container(const char *image) {
 plcConn *
 start_container(const char *image) {
     int port;
+
 #ifdef CONTAINER_DEBUG
+
     static plcConn *conn;
     if (conn != NULL) {
         return conn;
     }
     port = 8080;
+
 #else
+
     plcConn *conn;
 
     char  cmd[300];
@@ -127,6 +103,7 @@ start_container(const char *image) {
       $ sudo docker run -d -P plcontainer
       bd1a714ac07cf31b15b26697a65e2405d993696a6dd8ad08a06210d3bc47c942
      */
+
     dockerid = shell(cmd);
     cnt      = snprintf(cmd, sizeof(cmd), "docker port %s", dockerid);
     if (cnt < 0 || cnt >= (int)sizeof(cmd)) {
@@ -143,9 +120,10 @@ start_container(const char *image) {
         lprintf(FATAL, "cannot find port in %s", ports);
     }
     port = atoi(exposed + 1);
-    free(ports);
-    free(dockerid);
-#endif
+    pfree(ports);
+    pfree(dockerid);
+
+#endif // CONTAINER_DEBUG
 
     conn = plcConnect(port);
     insert_container(image, conn);
@@ -154,13 +132,17 @@ start_container(const char *image) {
 
 char *
 parse_container_name(const char *source) {
-    char *newline, *dup, *image;
+    char *newline, *dup, *image, *name;
     int   len, first, last;
 
-    dup = strdup(source);
+    len = strlen(source+1);
+    dup = palloc(len);
+
     if (dup == NULL) {
         lprintf(FATAL, "cannot allocate memory");
     }
+
+    dup = strncpy(dup, source, len+1);
 
     if (strlen(dup) == 0) {
         lprintf(ERROR, "empty string received");
@@ -209,13 +191,16 @@ parse_container_name(const char *source) {
     image[last + 1] = '\0';
     image += first;
 
-    image = strdup(image);
-    free(dup);
+    len = strlen(image);
 
     /* error if the image name is empty */
     if (strlen(image) == 0) {
         lprintf(ERROR, "empty image name");
     }
 
-    return image;
+    name = palloc(len+1);
+    strncpy(name, image, len+1);
+    pfree(dup);
+
+    return name;
 }
