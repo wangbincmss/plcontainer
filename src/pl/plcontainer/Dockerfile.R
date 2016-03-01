@@ -6,10 +6,10 @@ RUN yum -y install R R-devel R-core
 ADD ./rclient /clientdir
 
 RUN cp /clientdir/librsupport.so /usr/lib64
-RUN cp /clientdir/librsupport.so /
 
 ENV R_HOME /usr/lib64/R
 
 EXPOSE 8080
+WORKDIR /clientdir
 
-CMD ["/clientdir/client"]
+CMD ["./client"]
