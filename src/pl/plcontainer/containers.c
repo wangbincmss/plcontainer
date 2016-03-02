@@ -29,19 +29,21 @@ shell(const char *cmd) {
                        cmd, strerror(errno));
     }
 
-    data = palloc(1024);
+    data = pmalloc(1024);
     if (data == NULL) {
-        lprintf(ERROR, "Cannot allocate command buffer: %s", strerror(errno));
+        lprintf(ERROR, "Cannot allocate command buffer '%s': %s",
+                       cmd, strerror(errno));
     }
 
     if (fgets(data, 1024, fCmd) == NULL) {
-        lprintf(ERROR, "Cannot read output of the command: %s", strerror(errno));
+        lprintf(ERROR, "Cannot read output of the command '%s': %s",
+                       cmd, strerror(errno));
     }
 
     ret = pclose(fCmd);
     if (ret < 0) {
-        lprintf(FATAL, "Cannot close the command file descriptor: %s",
-                       strerror(errno));
+        lprintf(FATAL, "Cannot close the command file descriptor '%s': %s",
+                       cmd, strerror(errno));
     }
 
     return data;
@@ -136,7 +138,7 @@ parse_container_name(const char *source) {
     int   len, first, last;
 
     len = strlen(source+1);
-    dup = palloc(len);
+    dup = pmalloc(len);
 
     if (dup == NULL) {
         lprintf(FATAL, "cannot allocate memory");
@@ -198,7 +200,7 @@ parse_container_name(const char *source) {
         lprintf(ERROR, "empty image name");
     }
 
-    name = palloc(len+1);
+    name = pmalloc(len+1);
     strncpy(name, image, len+1);
     pfree(dup);
 
