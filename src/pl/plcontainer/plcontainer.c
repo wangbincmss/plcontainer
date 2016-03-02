@@ -58,19 +58,19 @@ Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
 }
 
 static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
-    char *      name;
-    callreq     req;
-    int         message_type;
-    plcConn    *conn;
-    proc_info   pinfo;
+    char        *name;
+    callreq      req;
+    int          message_type;
+    plcConn     *conn;
+    plcProcInfo *pinfo;
 
     /* TODO: handle trigger requests as well */
     if (CALLED_AS_TRIGGER(fcinfo)) {
         elog(ERROR, "triggers aren't supported");
     }
 
-    fill_proc_info(fcinfo, &pinfo);
-    req = plcontainer_create_call(fcinfo, &pinfo);
+    pinfo = get_proc_info(fcinfo);
+    req = plcontainer_create_call(fcinfo, pinfo);
     name = parse_container_name(req->proc.src);
     conn = find_container(name);
     if (conn == NULL) {
@@ -153,7 +153,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                 * to figure out the method to use to return
                 * the value
                 */
-                parseTypeString(pinfo.rettype.name, &typeOid, &typeMod);
+                parseTypeString(pinfo->rettype.name, &typeOid, &typeMod);
                 typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
                 if (!HeapTupleIsValid(typetup)) {
                     MemoryContextSwitchTo(oldContext);

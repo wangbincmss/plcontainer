@@ -20,27 +20,35 @@ The views and conclusions contained in the software and documentation are those 
 interpreted as representing official policies, either expressed or implied, of the PL-J Project.
 */
 
-#ifndef PLPGJ_MESSAGE_FNS
-#define PLPGJ_MESSAGE_FNS
+#ifndef PLC_MESSAGE_FNS
+#define PLC_MESSAGE_FNS
 
 #include "common/messages/messages.h"
 #include "fmgr.h"
 
+#define PLC_FUNCTION_CACHE_SIZE 5
+
 typedef struct {
     char *name;
-    /* used to convert a given value from/to "...." */
-    RegProcedure output, input;
-} type_info;
+    RegProcedure output, input; /* used to convert a given value from/to "...." */
+} plcTypeInfo;
 
 typedef struct {
-    int       nargs;
-    type_info rettype;
-    char *    argnames[FUNC_MAX_ARGS];
-    type_info argtypes[FUNC_MAX_ARGS];
-} proc_info;
+    /* Greenplum Function Information */
+    Oid              funcOid;
+    TransactionId    fn_xmin; /* Transaction ID that created this function in catalog */
+    ItemPointerData  fn_tid;  /* ItemPointer for the function row in catalog */
+    /* Universal Function Information */
+    char            *name;
+    char            *src;
+    int              nargs;
+    plcTypeInfo      rettype;
+    char           **argnames;//[FUNC_MAX_ARGS];
+    plcTypeInfo     *argtypes;
+} plcProcInfo;
 
-void fill_proc_info(FunctionCallInfo fcinfo, proc_info *pinfo);
+plcProcInfo * get_proc_info(FunctionCallInfo fcinfo);
 
-callreq plcontainer_create_call(FunctionCallInfo fcinfo, proc_info *pinfo);
+callreq plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo);
 
-#endif
+#endif /* PLC_MESSAGE_FNS */
