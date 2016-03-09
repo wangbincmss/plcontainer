@@ -15,11 +15,11 @@ clean_common:
 %.o: %.c
 	$(CC) $(R_CFLAGS) $(CFLAGS) -c -o $@ $^
 
-librsupport.so: rsupport.c 
-	$(CC) $(R_CFLAGS) $(CFLAGS) -fpic -c -o rsupport.o $^
-	$(CC) -shared -o librsupport.so rsupport.o
+librcall.so: rcall.c 
+	$(CC) $(R_CFLAGS) $(CFLAGS) -fpic -c -o rcall.o $^
+	$(CC) -shared -o librcall.so rcall.o
 
-client: client.o rcall.o librsupport.so $(common_objs)
+client: client.o librcall.so $(common_objs)
 	$(CC) -o $@ $^ $(R_LDLAGS)
 
 debug: DEBUG = -D_DEBUG_CLIENT -g

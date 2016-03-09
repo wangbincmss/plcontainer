@@ -7,6 +7,7 @@ select writeFile();
 \! ls -l /tmp/foo
 
 select rlog100();
+select pg_spi_exec('select 1');
 select pyint(NULL::int2);
 select pyint(1::int2);
 select pyint(1::int4);

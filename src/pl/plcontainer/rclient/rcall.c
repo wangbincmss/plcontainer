@@ -14,6 +14,12 @@
 #include <R_ext/Parse.h>
 #include <Rdefines.h>
 
+#if (R_VERSION >= 132352) /* R_VERSION >= 2.5.0 */
+#define R_PARSEVECTOR(a_, b_, c_)               R_ParseVector(a_, b_, (ParseStatus *) c_, R_NilValue)
+#else /* R_VERSION < 2.5.0 */
+#define R_PARSEVECTOR(a_, b_, c_)               R_ParseVector(a_, b_, (ParseStatus *) c_)
+#endif /* R_VERSION >= 2.5.0 */
+
 
 /* R's definition conflicts with the ones defined by postgres */
 #undef WARNING
@@ -24,13 +30,50 @@
 #include "common/comm_connectivity.h"
 #include "common/comm_server.h"
 #include "rcall.h"
-#include "rsupport.h"
 
-/*
- * set by hook throw_r_error
- */
-extern char * last_R_error_msg;
+
 SEXP convert_args(callreq req);
+
+#define OPTIONS_NULL_CMD	"options(error = expression(NULL))"
+
+/* install the error handler to call our throw_r_error */
+#define THROWRERROR_CMD \
+			"pg.throwrerror <-function(msg) " \
+			"{" \
+			"  msglen <- nchar(msg);" \
+			"  if (substr(msg, msglen, msglen + 1) == \"\\n\")" \
+			"    msg <- substr(msg, 1, msglen - 1);" \
+			"  .C(\"throw_r_error\", as.character(msg));" \
+			"}"
+#define OPTIONS_THROWRERROR_CMD \
+			"options(error = expression(pg.throwrerror(geterrmessage())))"
+
+/* install the notice handler to call our throw_r_notice */
+#define THROWNOTICE_CMD \
+			"pg.thrownotice <-function(msg) " \
+			"{.C(\"throw_pg_notice\", as.character(msg))}"
+#define THROWERROR_CMD \
+			"pg.throwerror <-function(msg) " \
+			"{stop(msg, call. = FALSE)}"
+#define OPTIONS_THROWWARN_CMD \
+			"options(warning.expression = expression(pg.thrownotice(last.warning)))"
+
+#define QUOTE_LITERAL_CMD \
+			"pg.quoteliteral <-function(sql) " \
+			"{.Call(\"plr_quote_literal\", sql)}"
+#define QUOTE_IDENT_CMD \
+			"pg.quoteident <-function(sql) " \
+			"{.Call(\"plr_quote_ident\", sql)}"
+#define SPI_EXEC_CMD \
+			"pg.spi.exec <-function(sql) {.Call(\"plr_SPI_exec\", sql)}"
+
+int R_SignalHandlers = 1;  /* Exposed in R_interface.h */
+
+static void load_r_cmd(const char *cmd);
+static char * get_load_self_ref_cmd(const char *libstr);
+
+// Initialization of R module
+void r_init( );
 
 
 /*
@@ -48,8 +91,100 @@ static void send_error(plcConn* conn, char *msg);
 static char * create_r_func(callreq req);
 
 static char *create_r_func(callreq req);
-static SEXP parse_r_code(const char *code, plcConn* conn);
+static SEXP parse_r_code(const char *code, plcConn* conn, int *errorOccurred);
 
+/*
+ * set by hook throw_r_error
+ */
+char *last_R_error_msg,
+     *last_R_notice;
+
+extern SEXP plr_SPI_execp(const char * sql);
+
+
+
+plcConn* plcconn;
+
+
+void r_init( ) {
+    char   *argv[] = {"client", "--slave", "--vanilla"};
+
+    /*
+     * Stop R using its own signal handlers Otherwise, R will prompt the user for what to do and
+         will hang in the container
+    */
+    R_SignalHandlers = 0;
+
+    if( !Rf_initEmbeddedR(sizeof(argv) / sizeof(*argv), argv) ){
+    	//TODO: return an error
+    	;
+    }
+
+
+
+    /*
+	 * temporarily turn off R error reporting -- it will be turned back on
+	 * once the custom R error handler is installed from the plr library
+	 */
+	load_r_cmd(OPTIONS_NULL_CMD);
+
+	/* next load the plr library into R */
+	load_r_cmd(get_load_self_ref_cmd("librcall.so"));
+
+    load_r_cmd(THROWRERROR_CMD);
+    load_r_cmd(OPTIONS_THROWRERROR_CMD);
+    load_r_cmd(THROWNOTICE_CMD);
+    load_r_cmd(THROWERROR_CMD);
+    load_r_cmd(OPTIONS_THROWWARN_CMD);
+    load_r_cmd(QUOTE_LITERAL_CMD);
+    load_r_cmd(QUOTE_IDENT_CMD);
+    load_r_cmd(SPI_EXEC_CMD);
+}
+
+static  char *get_load_self_ref_cmd(const char *libstr)
+{
+	char   *buf =  (char *) malloc(strlen(libstr) + 12 + 1);;
+
+	sprintf(buf, "dyn.load(\"%s\")", libstr);
+	return buf;
+}
+
+static void
+load_r_cmd(const char *cmd)
+{
+	SEXP		cmdSexp,
+				cmdexpr;
+	int			i,
+				status=0;
+
+
+	PROTECT(cmdSexp = NEW_CHARACTER(1));
+	SET_STRING_ELT(cmdSexp, 0, COPY_TO_USER_STRING(cmd));
+	PROTECT(cmdexpr = R_PARSEVECTOR(cmdSexp, -1, &status));
+	if (status != PARSE_OK) {
+		UNPROTECT(2);
+		goto error;
+	}
+
+	/* Loop is needed here as EXPSEXP may be of length > 1 */
+	for(i = 0; i < length(cmdexpr); i++)
+	{
+		R_tryEval(VECTOR_ELT(cmdexpr, i), R_GlobalEnv, &status);
+		if(status != 0)
+		{
+			goto error;
+		}
+	}
+
+	UNPROTECT(2);
+	return;
+
+error:
+	// TODO send error back to client
+	printf("Error loading %s \n ",cmd);
+	return;
+
+}
 
 void handle_call(callreq req, plcConn* conn) {
     SEXP             r,
@@ -62,14 +197,21 @@ void handle_call(callreq req, plcConn* conn) {
     int              i,
 	                 errorOccurred;
 
-    char *           func;
+    char 			*func,
+					*errmsg;
+
     const char *     txt;
     plcontainer_result res;
+
+    /*
+     * Keep our connection for future calls from R back to us.
+    */
+    plcconn = conn;
 
     /* wrap the input in a function and evaluate the result */
     func = create_r_func(req);
 
-    PROTECT(r = parse_r_code(func, conn));
+    PROTECT(r = parse_r_code(func, conn, &errorOccurred));
 
     if (errorOccurred) {
     	//TODO send real error message
@@ -104,7 +246,15 @@ void handle_call(callreq req, plcConn* conn) {
     if (errorOccurred) {
     	UNPROTECT(1); //r
     	//TODO send real error message
-        send_error(conn, "cannot convert value to string");
+    	if (last_R_error_msg){
+    		errmsg = strdup(last_R_error_msg);
+    	}else{
+    		errmsg = strdup("Error executing\n");
+    		errmsg = realloc(errmsg, strlen(errmsg)+strlen(req->proc.src));
+    		errmsg = strcat(errmsg, req->proc.src);
+    	}
+    	send_error(conn, last_R_error_msg);
+    	free(errmsg);
         return;
     }
 
@@ -150,10 +300,10 @@ static void send_error(plcConn* conn, char *msg) {
     free(err);
 }
 
-static SEXP parse_r_code(const char *code,  plcConn* conn) {
+static SEXP parse_r_code(const char *code,  plcConn* conn, int *errorOccurred) {
     /* int hadError; */
     ParseStatus status;
-    char *      error;
+    char *      errmsg;
     SEXP        tmp,
 			    rbody,
 				fun;
@@ -177,16 +327,27 @@ static SEXP parse_r_code(const char *code,  plcConn* conn) {
 
     if (status != PARSE_OK) {
         UNPROTECT(3);
-        error         = last_R_error_msg;
+        if (last_R_error_msg != NULL){
+        	errmsg  = strdup(last_R_error_msg);
+        }else{
+        	errmsg =  strdup("Parse Error\n");
+        	errmsg =  realloc(errmsg, strlen(errmsg)+strlen(code));
+        	errmsg =  strcat(errmsg, code);
+        }
         goto error;
     }
 
     UNPROTECT(3);
+    *errorOccurred=0;
     return fun;
 
 error:
-
-    send_error(conn, error);
+	/*
+	 * set the global error flag
+	 */
+	*errorOccurred=1;
+    send_error(conn, errmsg);
+    free(errmsg);
     return NULL;
 }
 
@@ -312,5 +473,333 @@ SEXP convert_args(callreq req)
     }
 	UNPROTECT(1);
 	return rargs;
+}
+
+#ifdef XXX
+/*
+ * plr_quote_literal() - quote literal strings that are to
+ *			  be used in SPI_exec query strings
+ */
+SEXP
+plr_quote_literal(SEXP rval)
+{
+	const char *value;
+	text	   *value_text;
+	text	   *result_text;
+	SEXP		result;
+
+	/* extract the C string */
+	PROTECT(rval =  AS_CHARACTER(rval));
+	value = CHAR(STRING_ELT(rval, 0));
+
+	/* convert using the pgsql quote_literal function */
+	value_text = PG_STR_GET_TEXT(value);
+	result_text = value_text; //DatumGetTextP(DirectFunctionCall1(quote_literal, PointerGetDatum(value_text)));
+
+	/* copy result back into an R object */
+	PROTECT(result = NEW_CHARACTER(1));
+	SET_STRING_ELT(result, 0, COPY_TO_USER_STRING(PG_TEXT_GET_STR(result_text)));
+	UNPROTECT(2);
+
+	return result;
+}
+
+/*
+ * plr_quote_literal() - quote identifiers that are to
+ *			  be used in SPI_exec query strings
+ */
+SEXP
+plr_quote_ident(SEXP rval)
+{
+	const char *value;
+	text	   *value_text;
+	text	   *result_text;
+	SEXP		result;
+
+	/* extract the C string */
+	PROTECT(rval =  AS_CHARACTER(rval));
+	value = CHAR(STRING_ELT(rval, 0));
+
+	/* convert using the pgsql quote_literal function */
+	value_text = PG_STR_GET_TEXT(value);
+	result_text = value_text; //DatumGetTextP(DirectFunctionCall1(quote_ident, PointerGetDatum(value_text)));
+
+	/* copy result back into an R object */
+	PROTECT(result = NEW_CHARACTER(1));
+	SET_STRING_ELT(result, 0, COPY_TO_USER_STRING(PG_TEXT_GET_STR(result_text)));
+	UNPROTECT(2);
+
+	return result;
+}
+#endif //XXX
+
+/*
+ * create an R vector of a given type and size based on pg output function oid
+ */
+static SEXP
+get_r_vector(char type, int numels)
+{
+	SEXP	result;
+
+	switch (type)
+	{
+		case 'i':
+			/* 2 and 4 byte integer pgsql datatype => use R INTEGER */
+			PROTECT(result = NEW_INTEGER(numels));
+			break;
+
+		case 'f':
+			/*
+			 * Other numeric types => use R REAL
+			 * Note pgsql int8 is mapped to R REAL
+			 * because R INTEGER is only 4 byte
+			 */
+			PROTECT(result = NEW_NUMERIC(numels));
+			break;
+		case 't':
+			PROTECT(result = NEW_LOGICAL(numels));
+			break;
+		default:
+			/* Everything else is defaulted to string */
+			PROTECT(result = NEW_CHARACTER(numels));
+	}
+	UNPROTECT(1);
+
+	return result;
+}
+
+/*
+ * given a single non-array pg value, convert to its R value representation
+ */
+static void
+pg_get_one_r(char *value,  char type, SEXP *obj, int elnum)
+{
+	switch (type)
+	{
+		case 'i':
+			/* 2 and 4 byte integer pgsql datatype => use R INTEGER */
+			if (value)
+				INTEGER_DATA(*obj)[elnum] = atoi(value);
+			else
+				INTEGER_DATA(*obj)[elnum] = NA_INTEGER;
+			break;
+		case 'f':
+			/*
+			 * Other numeric types => use R REAL
+			 * Note pgsql int8 is mapped to R REAL
+			 * because R INTEGER is only 4 byte
+			 */
+			if (value)
+				NUMERIC_DATA(*obj)[elnum] = atof(value);
+			else
+				NUMERIC_DATA(*obj)[elnum] = NA_REAL;
+			break;
+		case 't':
+			if (value)
+				LOGICAL_DATA(*obj)[elnum] = ((*value == 't') ? 1 : 0);
+			else
+				LOGICAL_DATA(*obj)[elnum] = NA_LOGICAL;
+			break;
+		default:
+			/* Everything else is defaulted to string */
+			if (value)
+				SET_STRING_ELT(*obj, elnum, COPY_TO_USER_STRING(value));
+			else
+				SET_STRING_ELT(*obj, elnum, NA_STRING);
+	}
+}
+
+/*
+ * plr_SPI_exec - The builtin SPI_exec command for the R interpreter
+ */
+SEXP
+plr_SPI_exec( SEXP rsql )
+{
+	const char  		   *sql;
+	SEXP			r_result = NULL,
+					names,
+					fldvec;
+
+	int             res = 0,
+					i,j;
+
+	sql_msg_statement  msg;
+	plcontainer_result result;
+	message            resp;
+
+	PROTECT(rsql =  AS_CHARACTER(rsql));
+	sql = CHAR(STRING_ELT(rsql, 0));
+	UNPROTECT(1);
+
+	if (sql == NULL){
+		error("%s", "cannot execute empty query");
+		return NULL;
+	}
+
+
+	msg            = pmalloc(sizeof(*msg));
+	msg->msgtype   = MT_SQL;
+	msg->sqltype   = SQL_TYPE_STATEMENT;
+	/*
+	 * satisfy compiler
+	 */
+	msg->statement = (char *)sql;
+
+	plcontainer_channel_send(plcconn, (message)msg);
+
+	/* we don't need it anymore */
+	pfree(msg);
+
+	receive:
+	res = plcontainer_channel_receive(plcconn, &resp);
+	if (res < 0) {
+		lprintf (ERROR, "Error receiving data from the backend, %d", res);
+		return NULL;
+	}
+
+	switch (resp->msgtype) {
+	   case MT_CALLREQ:
+		  handle_call((callreq)resp, plcconn);
+		  free_callreq((callreq)resp);
+		  goto receive;
+	   case MT_RESULT:
+		   break;
+	   default:
+		   lprintf(WARNING, "didn't receive result back %c", resp->msgtype);
+		   return NULL;
+	}
+
+	result = (plcontainer_result)resp;
+	if (result->rows == 0){
+		return R_NilValue;
+	}
+
+	PROTECT(r_result = NEW_LIST(result->cols));
+	PROTECT(names = NEW_CHARACTER(result->cols));
+
+
+	for (j=0; j<result->cols;j++){
+		/*
+		 * set the names of the columns
+		 */
+		SET_STRING_ELT(names, j, Rf_mkChar(result->names[j]));
+
+		for ( i=0; i<result->rows; i++ ){
+			PROTECT(fldvec = get_r_vector(result->types[i][j], result->rows));
+			pg_get_one_r(result->data[i][j].value, result->types[i][j], &fldvec, i);
+			UNPROTECT(1);
+
+		}
+		SET_VECTOR_ELT(r_result, j, fldvec);
+	}
+
+	free_result(result);
+	UNPROTECT(2);
+	return r_result;
+}
+
+
+#ifdef XXX
+	/* switch to SPI memory context */
+	SWITCHTO_PLR_SPI_CONTEXT(oldcontext);
+
+	/*
+	 * trap elog/ereport so we can let R finish up gracefully
+	 * and generate the error once we exit the interpreter
+	 */
+	PG_TRY();
+	{
+		/* Execute the query and handle return codes */
+		spi_rc = SPI_exec(sql, count);
+	}
+	PLR_PG_CATCH();
+	PLR_PG_END_TRY();
+
+	/* back to caller's memory context */
+	MemoryContextSwitchTo(oldcontext);
+
+	switch (spi_rc)
+	{
+		case SPI_OK_UTILITY:
+			snprintf(buf, sizeof(buf), "%d", 0);
+			SPI_freetuptable(SPI_tuptable);
+
+			PROTECT(result = NEW_CHARACTER(1));
+			SET_STRING_ELT(result, 0, COPY_TO_USER_STRING(buf));
+			UNPROTECT(1);
+			break;
+
+		case SPI_OK_SELINTO:
+		case SPI_OK_INSERT:
+		case SPI_OK_DELETE:
+		case SPI_OK_UPDATE:
+			snprintf(buf, sizeof(buf), "%d", SPI_processed);
+			SPI_freetuptable(SPI_tuptable);
+
+			PROTECT(result = NEW_CHARACTER(1));
+			SET_STRING_ELT(result, 0, COPY_TO_USER_STRING(buf));
+			UNPROTECT(1);
+			break;
+
+		case SPI_OK_SELECT:
+			ntuples = SPI_processed;
+			if (ntuples > 0)
+			{
+				result = rpgsql_get_results(ntuples, SPI_tuptable);
+				SPI_freetuptable(SPI_tuptable);
+			}
+			else
+				result = R_NilValue;
+			break;
+
+		case SPI_ERROR_ARGUMENT:
+			error("SPI_exec() failed: SPI_ERROR_ARGUMENT");
+			break;
+
+		case SPI_ERROR_UNCONNECTED:
+			error("SPI_exec() failed: SPI_ERROR_UNCONNECTED");
+			break;
+
+		case SPI_ERROR_COPY:
+			error("SPI_exec() failed: SPI_ERROR_COPY");
+			break;
+
+		case SPI_ERROR_CURSOR:
+			error("SPI_exec() failed: SPI_ERROR_CURSOR");
+			break;
+
+		case SPI_ERROR_TRANSACTION:
+			error("SPI_exec() failed: SPI_ERROR_TRANSACTION");
+			break;
+
+		case SPI_ERROR_OPUNKNOWN:
+			error("SPI_exec() failed: SPI_ERROR_OPUNKNOWN");
+			break;
+
+		default:
+			error("SPI_exec() failed: %d", spi_rc);
+			break;
+	}
+
+	POP_PLERRCONTEXT;
+	return result;
+#endif
+
+
+
+void
+throw_pg_notice(const char **msg)
+{
+	if (msg && *msg)
+		last_R_notice = strdup(*msg);
+}
+
+void
+throw_r_error(const char **msg)
+{
+	if (msg && *msg)
+		last_R_error_msg = strdup(*msg);
+	else
+		last_R_error_msg = strdup("caught error calling R function");
 }
 

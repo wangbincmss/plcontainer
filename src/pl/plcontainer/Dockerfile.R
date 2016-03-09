@@ -5,7 +5,7 @@ RUN yum -y install R R-devel R-core
 
 ADD ./rclient /clientdir
 
-RUN cp /clientdir/librsupport.so /usr/lib64
+RUN cp /clientdir/librcall.so /usr/lib64
 
 ENV R_HOME /usr/lib64/R
 

@@ -29,11 +29,11 @@ override CFLAGS += -g -I googletest/googletest/include -I $(top_builddir)/includ
 %.o: %.cpp
 	$(CXX) $(R_CFLAGS) $(PYTHON_CFLAGS) $(CFLAGS) -c -o $@ $^
 
-librsupport.so:
-	ln -s ../rclient/librsupport.so
+librcall.so:
+	ln -s ../rclient/librcall.so
 
-test: $(objs) $(deps) librsupport.so  googletest
-	$(CXX) -o $@ googletest/googletest/make/gtest-all.o $(objs) ../rclient/librsupport.so  $(deps) $(R_LDLAGS) $(PYTHON_LDLAGS) -lpthread
+test: $(objs) $(deps) librcall.so  googletest
+	$(CXX) -o $@ googletest/googletest/make/gtest-all.o $(objs) ../rclient/librcall.so  $(deps) $(R_LDLAGS) $(PYTHON_LDLAGS) -lpthread
 
 run-tests: test
 	./test

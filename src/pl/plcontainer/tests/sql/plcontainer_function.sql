@@ -5,6 +5,11 @@ CREATE OR REPLACE FUNCTION rlog100() RETURNS text AS $$
 return(log10(100))
 $$ LANGUAGE plcontainer;
 
+create or replace function pg_spi_exec(arg1 text) returns text as $$
+#container: plc_r
+(pg.spi.exec(arg1))[[1]]
+$$ language plcontainer;
+
 CREATE OR REPLACE FUNCTION writeFile() RETURNS text AS $$
 # container: plc_python
 f = open("/tmp/foo", "w")

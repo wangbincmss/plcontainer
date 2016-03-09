@@ -17,6 +17,12 @@ select rlog100();
  2
 (1 row)
 
+select pg_spi_exec('select 1');
+ pg_spi_exec 
+-------------
+ 1
+(1 row)
+
 select pyint(NULL::int2);
  pyint 
 -------
@@ -80,10 +86,10 @@ select pylog(10000, 10);
 select concat(fname, lname) from users;
   concat   
 -----------
- janedoe
- willemdoe
  johndoe
  ricksmith
+ janedoe
+ willemdoe
 (4 rows)
 
 select concatall();
@@ -111,8 +117,8 @@ select nested_call_one('a');
 (1 row)
 
 select invalid_function();
-ERROR:  exception occured: (plcontainer.c:249)
+ERROR:  exception occurred: (plcontainer.c:238)
 DETAIL:  'module' object has no attribute 'foobar'
 select invalid_syntax();
-ERROR:  exception occured: (plcontainer.c:249)
+ERROR:  exception occurred: (plcontainer.c:238)
 DETAIL:  ('invalid syntax', ('<string>', 7, 1, '\n'))

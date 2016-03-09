@@ -197,6 +197,7 @@ static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup) {
     return valid;
 }
 
+
 plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
     int           i, len;
     Datum *       argnames, argnamesArray;
@@ -212,6 +213,19 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
     procHeapTup = SearchSysCache(PROCOID, procoid, 0, 0, 0);
     if (!HeapTupleIsValid(procHeapTup)) {
         elog(ERROR, "cannot find proc with oid %u", procoid);
+    }
+
+    if (fcinfo->nargs >0){
+		/*
+		 * look for the name of the argument so we can pass it to the client
+		 * currently
+		 */
+		argnamesArray = SysCacheGetAttr(PROCOID, procHeapTup,
+										Anum_pg_proc_proargnames, &isnull);
+		if (isnull) {
+			ReleaseSysCache(procHeapTup);
+			elog(ERROR, "Need to name arguments");
+		}
     }
     procTup = (Form_pg_proc)GETSTRUCT(procHeapTup);
 

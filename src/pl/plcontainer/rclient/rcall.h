@@ -13,7 +13,7 @@
 
 
 // Processing of the Greenplum function call
-void handle_call(callreq req, plcConn* conn);
+void handle_call(callreq req, plcConn* conn );
 
 
 #endif /* __RCALL_H__ */
