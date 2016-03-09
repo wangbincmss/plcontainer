@@ -25,7 +25,7 @@ static plcontainer_handler handlertab = NULL;
 
 static message
 handle_invalid_message(sql_msg msg) {
-    elog(ERROR, "[plj core] invalid message type: %d", msg->sqltype);
+    elog(ERROR, "[plcontainer core] invalid message type: %d", msg->sqltype);
     return NULL;
 }
 
@@ -120,7 +120,7 @@ message_handler_init() {
     handlertab[SQL_TYPE_STATEMENT].desc    = "statement message handler";
     handlertab[SQL_TYPE_STATEMENT].handler = handle_statement_message;
 
-    //elog(DEBUG1, "[pl-j - sql] init done");
+    //elog(DEBUG1, "[plcontainer - sql] init done");
     msg_handler_init = 1;
 }
 

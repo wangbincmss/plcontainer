@@ -44,6 +44,9 @@ void handle_call(callreq req, plcConn* conn) {
     error_message    err;
     PyObject *       exc, *val, *retval, *tb, *str, *dict, *args;
 
+    /*
+     * Keep our connection for future calls from Python back to us.
+     */
     plcconn = conn;
 
     /* import __main__ to get the builtin functions */

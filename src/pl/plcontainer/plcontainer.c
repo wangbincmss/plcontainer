@@ -235,5 +235,5 @@ void plcontainer_sql_do(sql_msg msg, plcConn* conn) {
 }
 
 void plcontainer_exception_do(error_message msg) {
-    elog(ERROR, "exception occured: \n %s \n ", msg->message);
+    elog(ERROR, "exception occurred: \n %s \n ", msg->message);
 }

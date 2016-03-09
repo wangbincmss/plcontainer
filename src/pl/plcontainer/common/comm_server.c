@@ -97,7 +97,7 @@ void receive_loop( void (*handle_call)(callreq, plcConn*), plcConn* conn) {
         res = plcontainer_channel_receive(conn, &msg);
         
         if (res == -3) {
-            lprintf(NOTICE, "Backend mush have closed the connection");
+            lprintf(NOTICE, "Backend must have closed the connection");
             break;
         }
         if (res < 0) {
