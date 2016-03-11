@@ -105,3 +105,13 @@ CREATE OR REPLACE FUNCTION nested_call_three(a text) RETURNS text AS $$
 return a
 $$ LANGUAGE plcontainer ;
 
+CREATE OR REPLACE FUNCTION rlog100_shared() RETURNS text AS $$
+# container: plc_r_shared
+return(log10(100))
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pylog100_shared() RETURNS double precision AS $$
+# container: plc_python_shared
+import math
+return math.log10(100)
+$$ LANGUAGE plcontainer;

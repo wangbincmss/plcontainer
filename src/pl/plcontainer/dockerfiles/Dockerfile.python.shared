@@ -6,4 +6,5 @@ ADD ./pyclient /clientdir
 
 EXPOSE 8080
 
-CMD ["/clientdir/client"]
+CMD ["/clientdir/client.sh"]
+

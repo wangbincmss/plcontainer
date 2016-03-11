@@ -1,0 +1,10 @@
+FROM centos:7
+
+RUN yum -y install python
+
+ADD ./pyclient /clientdir
+
+EXPOSE 8080
+
+CMD ["/clientdir/client"]
+

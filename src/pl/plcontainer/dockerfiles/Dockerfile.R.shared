@@ -1,0 +1,10 @@
+FROM centos:7
+
+RUN yum -y install epel-release
+RUN yum -y install R R-devel R-core
+
+ADD ./rclient /clientdir
+
+EXPOSE 8080
+
+CMD ["/clientdir/client.sh"]

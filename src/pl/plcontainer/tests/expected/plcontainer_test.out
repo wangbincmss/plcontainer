@@ -83,12 +83,12 @@ select pylog(10000, 10);
      4
 (1 row)
 
-select concat(fname, lname) from users;
+select concat(fname, lname) from users order by 1;
   concat   
 -----------
+ janedoe
  johndoe
  ricksmith
- janedoe
  willemdoe
 (4 rows)
 
@@ -122,3 +122,15 @@ DETAIL:  'module' object has no attribute 'foobar'
 select invalid_syntax();
 ERROR:  exception occurred: (plcontainer.c:238)
 DETAIL:  ('invalid syntax', ('<string>', 7, 1, '\n'))
+select rlog100_shared();
+ rlog100_shared 
+----------------
+ 2
+(1 row)
+
+select pylog100_shared();
+ pylog100_shared 
+-----------------
+               2
+(1 row)
+
