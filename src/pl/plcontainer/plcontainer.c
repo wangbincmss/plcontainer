@@ -63,6 +63,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     int          message_type;
     plcConn     *conn;
     plcProcInfo *pinfo;
+	int          shared = 0;
 
     /* TODO: handle trigger requests as well */
     if (CALLED_AS_TRIGGER(fcinfo)) {
@@ -71,10 +72,10 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
     pinfo = get_proc_info(fcinfo);
     req = plcontainer_create_call(fcinfo, pinfo);
-    name = parse_container_name(req->proc.src);
+    name = parse_container_meta(req->proc.src, &shared);
     conn = find_container(name);
     if (conn == NULL) {
-        conn = start_container(name);
+        conn = start_container(name, shared);
     }
 
     plcontainer_channel_send(conn, (message)req);

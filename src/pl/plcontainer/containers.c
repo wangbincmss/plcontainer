@@ -15,6 +15,8 @@ typedef struct {
 
 static container_t containers[10];
 
+static inline bool is_whitespace (const char c);
+
 #ifndef CONTAINER_DEBUG
 
 static char *
@@ -77,7 +79,7 @@ find_container(const char *image) {
 }
 
 plcConn *
-start_container(const char *image) {
+start_container(const char *image, int shared) {
     int port;
 
 #ifdef CONTAINER_DEBUG
@@ -132,77 +134,96 @@ start_container(const char *image) {
     return conn;
 }
 
+static inline bool is_whitespace (const char c) {
+	return (c == ' ' || c == '\n' || c == '\t' || c == '\r');
+}
+
 char *
-parse_container_name(const char *source) {
-    char *newline, *dup, *image, *name;
-    int   len, first, last;
+parse_container_meta(const char *source, int *shared) {
+    int first, last, len;
+	char *name = NULL;
+	int nameptr = 0;
+	*shared = 0;
 
-    len = strlen(source+1);
-    dup = pmalloc(len);
+	first = 0;
+	len = strlen(source);
 
-    if (dup == NULL) {
-        lprintf(FATAL, "cannot allocate memory");
-    }
+	/* Ignore whitespaces in the beginning of the function declaration */
+	while (first < len && is_whitespace(source[first]))
+		first++;
 
-    dup = strncpy(dup, source, len+1);
+	/* Read everything up to the first newline or end of string */
+	last = first;
+	while (last < len && source[last] != '\n' && source[last] != '\r')
+		last++;
 
-    if (strlen(dup) == 0) {
-        lprintf(ERROR, "empty string received");
-    }
+	/* If the string is too small or not starting with hash - no declaration */
+	if (last - first < 12 || source[first] != '#') {
+		lprintf(ERROR, "No container declaration found");
+		return name;
+	}
 
-    /*
-       if '#' isn't the first or second character after newline then error out,
-       e.g.:
+	/* Ignore whitespaces after the hash sign */
+	first++;
+	while (first < len && is_whitespace(source[first]))
+		first++;
 
-       CREATE FUNCTION stupid() RETURNS text AS $$    <--- newline here
-       # container: plc_python
-       return "zarkon"
-       $$ LANGUAGE plcontainer;
+	/* Line should be "# container :", fail if not so */
+	if (strncmp(&source[first], "container", 9) != 0) {
+		lprintf(ERROR, "Container declaration should start with '#container:'");
+		return name;
+	}
 
-       # without the initial newline
-       CREATE FUNCTION stupid() RETURNS text AS $$ # container: plc_python
-       return "zarkon"
-       $$ LANGUAGE plcontainer;
-    */
-    if (!(dup[0] == '#' || (dup[0] == '\n' && dup[1] == '#'))) {
-        lprintf(ERROR, "no container declaration");
-    }
+	/* Follow the line up to colon sign */
+	while (first < last && source[first] != ':')
+		first++;
+	first++;
 
-    newline = strchr(dup + 1, '\n');
-    if (newline == NULL) {
-        lprintf(ERROR, "no new line found!");
-    }
+	/* If no colon found - bad declaration */
+	if (first >= last) {
+		lprintf(ERROR, "No colon found in container declaration");
+		return name;
+	}
 
-    /* search for the colon in the first line only */
-    newline[0] = '\0';
-    image      = strrchr(dup, ':');
-    if (image == NULL) {
-        lprintf(ERROR, "no colon found!");
-    }
+	/* 
+	 * Allocate container name variable and copy container name
+	 * ignoring whitespaces, i.e. container name cannot contain whitespaces
+	 */
+	name = (char*)pmalloc(last-first);
+	while (first < last && source[first] != ':') {
+		if (!is_whitespace(source[first])) {
+			name[nameptr] = source[first];
+			nameptr++;
+		}
+		first++;
+	}
 
-    /* skip the colon */
-    image++;
-
-    /* skip any whitespace, e.g. trim() */
-    len   = strlen(image);
-    first = 0, last = len - 1;
-    while (first < len && isspace(image[first]))
-        first++;
-    while (last > first && isspace(image[last]))
-        last--;
-    image[last + 1] = '\0';
-    image += first;
-
-    len = strlen(image);
-
-    /* error if the image name is empty */
-    if (strlen(image) == 0) {
-        lprintf(ERROR, "empty image name");
-    }
-
-    name = pmalloc(len+1);
-    strncpy(name, image, len+1);
-    pfree(dup);
-
-    return name;
+	/* Name cannot be empty */
+	if (nameptr == 0) {
+		lprintf(ERROR, "Container name cannot be empty");
+		pfree(name);
+		return NULL;
+	}
+	name[nameptr] = '\0';
+	
+	/* Searching for container sharing declaration */
+	if (first < last && source[first] == ':') {
+		/* Scroll to first non-whitespace */
+		first++;
+		while (first < last && is_whitespace(source[first]))
+			first++;
+		if (first == last) {
+			lprintf(ERROR, "Container sharing mode declaration is empty");
+			pfree(name);
+			return NULL;
+		}
+		/* The only supported mode is "shared" */
+		if (last - first < 6 || strncmp(&source[first],"shared", 6) != 0) {
+			lprintf(ERROR, "Container sharing mode declaration can be only 'shared'");
+			pfree(name);
+			return NULL;
+		}
+		*shared = 1;
+	}
+	return name;
 }

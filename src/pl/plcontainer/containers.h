@@ -15,12 +15,12 @@
    return "python string"
    ```
 */
-char *parse_container_name(const char *source);
+char *parse_container_meta(const char *source, int *shared);
 
 /* return the port of a started container, -1 if the container isn't started */
 plcConn *find_container(const char *image);
 
 /* start a new docker container using the given image  */
-plcConn *start_container(const char *image);
+plcConn *start_container(const char *image, int shared);
 
 #endif /* __CONTAINERS_H__ */

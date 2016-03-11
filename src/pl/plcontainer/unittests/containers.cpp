@@ -10,54 +10,89 @@ extern "C" {
 
 TEST(Containers, CanCreate) {
     // stop the container after the test run
-    plcConn *conn = start_container("plc_python");
+    plcConn *conn = start_container("plc_python", 0);
     ASSERT_TRUE(conn != NULL);
 }
 
 TEST(Containers, CanFigureOutTheName) {
-    const char *name = parse_container_name(
+    int shared;
+    const char *name = parse_container_meta(
         "# container: plc_python\n"
-        "return 'foobar'");
+        "return 'foobar'", &shared);
     ASSERT_STREQ(name, "plc_python");
+    ASSERT_TRUE(shared == 0);
 }
 
 TEST(Containers, CanFigureOutTheNameAndStart) {
-    const char *name = parse_container_name(
+    int shared;
+    const char *name = parse_container_meta(
         "# container: plc_python\n"
-        "return 'foobar'");
+        "return 'foobar'", &shared);
     ASSERT_STREQ(name, "plc_python");
+    ASSERT_TRUE(shared == 0);
     // stop the container after the test run
-    plcConn *conn = start_container(name);
+    plcConn *conn = start_container(name, 0);
     ASSERT_TRUE(conn != NULL);
 }
 
 TEST(Containers, CanFigureOutTheNameWhenThereIsANewline) {
-    const char *name = parse_container_name(
+    int shared;
+    const char *name = parse_container_meta(
         "\n"
         "# container: plc_python\n"
-        "return 'foobar'");
+        "return 'foobar'", &shared);
     ASSERT_STREQ(name, "plc_python");
+    ASSERT_TRUE(shared == 0);
+}
+
+TEST(Containers, CanFigureOutContainerIsShared) {
+    int shared;
+    const char *name = parse_container_meta(
+        "\n"
+        "# container: plc_python : shared \n"
+        "return 'foobar'", &shared);
+    ASSERT_STREQ(name, "plc_python");
+    ASSERT_TRUE(shared == 1);
 }
 
 TEST(Containers, DiesWithNoContainerDeclaration) {
-    ASSERT_DEATH(parse_container_name("return 'foobar'"),
-                 "no container declaration");
+    int shared;
+    ASSERT_DEATH(parse_container_meta("return 'foobar'", &shared),
+                 "No container declaration found");
 }
 
-TEST(Containers, DiesWithInvalidContainerDeclaration) {
-    ASSERT_DEATH(parse_container_name("# container: plc_python"),
-                 "no new line found");
+TEST(Containers, DiesWithNoContainerInContainerDeclaration) {
+    int shared;
+    ASSERT_DEATH(parse_container_meta("# foobar: plc_python\n\n", &shared),
+                 "Container declaration should start with '#container:'");
 }
 
 TEST(Containers, DiesWithMissingColonInContainerDeclaration) {
-    ASSERT_DEATH(parse_container_name("# container plc_python\n"),
-                 "no colon found");
+    int shared;
+    ASSERT_DEATH(parse_container_meta("# container plc_python\n", &shared),
+                 "No colon found in container declaration");
 }
 
 TEST(Containers, DiesWithEmptyImageName) {
-    ASSERT_DEATH(parse_container_name("# container : \n"), "empty image name");
+    int shared;
+    ASSERT_DEATH(parse_container_meta("# container : \n", &shared),
+                "Container name cannot be empty");
 }
 
 TEST(Containers, DiesWithEmptyString) {
-    ASSERT_DEATH(parse_container_name(""), "empty string received");
+    int shared;
+    ASSERT_DEATH(parse_container_meta("", &shared),
+                "No container declaration found");
+}
+
+TEST(Containers, DiesWithEmptySharing) {
+    int shared;
+    ASSERT_DEATH(parse_container_meta("# container : plc_python : \n", &shared),
+                "Container sharing mode declaration is empty");
+}
+
+TEST(Containers, DiesWithBadSharing) {
+    int shared;
+    ASSERT_DEATH(parse_container_meta("# container : plc_python : nonshared \n", &shared),
+                "Container sharing mode declaration can be only 'shared'");
 }
