@@ -357,7 +357,7 @@ void handle_call(callreq req, plcConn* conn) {
         res->types[0]         = pstrdup("text");
         res->names[0]         = pstrdup("result");
         res->data[0]->isnull  = false;
-        res->data[0]->value   = (char *)CHAR(asChar(strres));
+        res->data[0]->value   = pstrdup(CHAR(asChar(strres)));
     }
 
     /* send the result back */
