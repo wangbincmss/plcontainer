@@ -158,7 +158,11 @@ void handle_call(callreq req, plcConn* conn) {
     res->types[0] = pstrdup("text");
 
     res->data[0]->isnull = returnedNull;
-    res->data[0]->value  = txt;
+    if ( returnedNull ){
+    	res->data[0]->value  = NULL;
+    }else{
+    	res->data[0]->value  = pstrdup(txt);
+    }
 
     /* send the result back */
     plcontainer_channel_send(conn, (message)res);
