@@ -48,17 +48,18 @@ int main(int argc UNUSED, char **argv UNUSED) {
 
     while (true) {
         conn = connection_init(sock);
-		receive_loop(handle_call, conn);
+        //conn->debug = DEBUG1;
+        receive_loop(handle_call, conn);
     }
 #else
 
 
     // In release mode we wait for incoming connection for limited time
-	// and the client works for a single connection only
-	connection_wait(sock);
-	conn = connection_init(sock);
+    // and the client works for a single connection only
+    connection_wait(sock);
+    conn = connection_init(sock);
 
-	receive_loop(handle_call, conn);
+    receive_loop(handle_call, conn);
 #endif
 
     lprintf(NOTICE, "Client has finished execution");
