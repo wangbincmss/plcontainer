@@ -134,12 +134,6 @@ static void fill_type_info(Oid typoid, plcTypeInfo *type) {
     typeStruct = (Form_pg_type)GETSTRUCT(typeTup);
     ReleaseSysCache(typeTup);
 
-    /* Disallow non basic types */
-    if (typeStruct->typtype != TYPTYPE_BASE) {
-        elog(ERROR, "plpython functions don't support non-basic types: %s",
-             format_type_be(typoid));
-    }
-
     type->name   = strdup(NameStr(typeStruct->typname));
     type->output = typeStruct->typoutput;
     type->input  = typeStruct->typinput;
