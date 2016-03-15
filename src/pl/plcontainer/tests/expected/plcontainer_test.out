@@ -11,6 +11,15 @@ select writeFile();
 -- make sure the file doesn't exist on the host filesystem
 \! ls -l /tmp/foo
 ls: cannot access /tmp/foo: No such file or directory
+select test_spi_tup('select fname, lname,username from users');
+    test_spi_tup    
+--------------------
+ (john,doe,johnd)
+ (rick,smith,slash)
+ (jane,doe,j_doe)
+ (willem,doe,w_doe)
+(4 rows)
+
 select rlog100();
  rlog100 
 ---------
@@ -117,10 +126,10 @@ select nested_call_one('a');
 (1 row)
 
 select invalid_function();
-ERROR:  exception occurred: (plcontainer.c:238)
+ERROR:  exception occurred: (plcontainer.c:310)
 DETAIL:  'module' object has no attribute 'foobar'
 select invalid_syntax();
-ERROR:  exception occurred: (plcontainer.c:238)
+ERROR:  exception occurred: (plcontainer.c:310)
 DETAIL:  ('invalid syntax', ('<string>', 7, 1, '\n'))
 select rlog100_shared();
  rlog100_shared 

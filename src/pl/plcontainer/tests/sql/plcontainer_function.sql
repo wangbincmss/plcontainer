@@ -1,3 +1,11 @@
+-- create type for next function
+create type user_type as (fname text, lname text, username text);
+
+create or replace function test_spi_tup(arg1 text) returns setof user_type as $$
+#container: plc_r
+pg.spi.exec(arg1)
+$$ language plcontainer;
+
 /* really stupid function just to get the module loaded
 */
 CREATE OR REPLACE FUNCTION rlog100() RETURNS text AS $$

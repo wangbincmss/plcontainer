@@ -6,6 +6,7 @@ select writeFile();
 -- make sure the file doesn't exist on the host filesystem
 \! ls -l /tmp/foo
 
+select test_spi_tup('select fname, lname,username from users');
 select rlog100();
 select pg_spi_exec('select 1');
 select pyint(NULL::int2);
