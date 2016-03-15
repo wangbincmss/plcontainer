@@ -52,7 +52,7 @@ void free_callreq(callreq req) {
 }
 
 void free_result(plcontainer_result res) {
-    int i;
+    int i,j;
 
     /* free the types array */
     for (i = 0; i < res->cols; i++) {
@@ -64,6 +64,12 @@ void free_result(plcontainer_result res) {
 
     /* free the data array */
     for (i = 0; i < res->rows; i++) {
+    	for (j=0; j < res->cols;j++){
+    		if (res->data[i][j].value){
+    			/* free the data if it is not null */
+    			pfree(res->data[i][j].value);
+    		}
+    	}
         /* free the row */
         pfree(res->data[i]);
     }
