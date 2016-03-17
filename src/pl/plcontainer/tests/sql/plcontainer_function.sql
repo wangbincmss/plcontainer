@@ -6,6 +6,11 @@ create or replace function test_spi_tup(arg1 text) returns setof user_type as $$
 pg.spi.exec(arg1)
 $$ language plcontainer;
 
+create or replace function test_spi_ta(arg1 text) returns text[] as $$
+#container: plc_r
+pg.spi.exec(arg1)
+$$ language plcontainer;
+
 /* really stupid function just to get the module loaded
 */
 CREATE OR REPLACE FUNCTION rlog100() RETURNS text AS $$

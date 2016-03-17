@@ -14,7 +14,6 @@
 #include "nodes/makefuncs.h"
 #include "parser/parse_type.h"
 #include "sqlhandler.h"
-#include "utils/portal.h"
 #include "funcapi.h"
 #include "miscadmin.h"
 
@@ -22,6 +21,8 @@
 #include "commands/trigger.h"
 #include "utils/memutils.h"
 #include "utils/palloc.h"
+#include "utils/lsyscache.h"
+#include "utils/portal.h"
 
 #include "containers.h"
 #include "postgres.h"
@@ -29,6 +30,8 @@
 #ifdef PG_MODULE_MAGIC
 PG_MODULE_MAGIC;
 #endif
+
+MemoryContext pl_container_caller_context;
 
 PG_FUNCTION_INFO_V1(plcontainer_call_handler);
 
@@ -39,10 +42,17 @@ static void plcontainer_exception_do(error_message);
 static void plcontainer_sql_do(sql_msg msg, plcConn* conn);
 static void  plcontainer_log_do(log_message);
 static Datum plcontainer_call_hook(PG_FUNCTION_ARGS);
+void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
+        ReturnSetInfo *rsinfo,plcontainer_result res, int *isNull );
+Datum get_array_datum(plcontainer_result res, int col, int *isNull);
+void perm_fmgr_info(Oid functionId, FmgrInfo *finfo);
 
 Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
     Datum datumreturn;
     int ret;
+
+    /* save caller's context */
+    pl_container_caller_context = CurrentMemoryContext;
 
     ret = SPI_connect();
     if (ret != SPI_OK_CONNECT)
@@ -65,7 +75,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     int          message_type;
     plcConn     *conn;
     plcProcInfo *pinfo;
-	int          shared = 0;
+    int          shared = 0;
 
     /* TODO: handle trigger requests as well */
     if (CALLED_AS_TRIGGER(fcinfo)) {
@@ -187,81 +197,25 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                 PG_RETURN_VOID();
             } else {
 
-                // we have rows and columns
-                ReturnSetInfo      *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
-                AttInMetadata      *attinmeta;
-                Tuplestorestate    *tupstore = tuplestore_begin_heap(true, false, work_mem);
-                HeapTuple          tuple;
-                TupleDesc          tupdesc;
+                Datum result;
 
-                char **values;
+                int isNull;
 
-                int i,j;
-
-                /* get the requested return tuple description */
-                tupdesc = CreateTupleDescCopy(rsinfo->expectedDesc);
-
-                for (j=0; j<res->cols;j++){
-                    parseTypeString(res->types[j], &typeOid, &typeMod);
-                    typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
-
-                    if (!HeapTupleIsValid(typetup)) {
-                        MemoryContextSwitchTo(oldContext);
-                        MemoryContextDelete(messageContext);
-                        elog(FATAL, "[plcontainer] Invalid heaptuple at result return");
-                        // This won`t run
-                        PG_RETURN_NULL();
-                    }
-
-                    type = (Form_pg_type)GETSTRUCT(typetup);
-
-                    strcpy(tupdesc->attrs[j]->attname.data, res->names[j]);
-                    tupdesc->attrs[j]->atttypid = typeOid;
-                    ReleaseSysCache(typetup);
+                if ( fcinfo->flinfo->fn_retset ){
+                    // we have rows and columns
+                    ReturnSetInfo      *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
+                    get_tuple_store(oldContext, messageContext, rsinfo, res, &isNull);
+                    PG_RETURN_NULL();
                 }
-
-                attinmeta = TupleDescGetAttInMetadata(tupdesc);
-
-                /* OK, go to work */
-                rsinfo->returnMode = SFRM_Materialize;
-                MemoryContextSwitchTo(oldContext);
-
-                /*
-                 * SFRM_Materialize mode expects us to return a NULL Datum. The actual
-                 * tuples are in our tuplestore and passed back through
-                 * rsinfo->setResult. rsinfo->setDesc is set to the tuple description
-                 * that we actually used to build our tuples with, so the caller can
-                 * verify we did what it was expecting.
-                 */
-                rsinfo->setDesc = tupdesc;
-
-                for (i=0; i<res->rows;i++){
-
-                    values = palloc(sizeof(char *)* res->cols);
-                    for (j=0; j< res->cols;j++){
-                        values[j] = res->data[i][j].value;
-                    }
-
-                    /* construct the tuple */
-                    tuple = BuildTupleFromCStrings(attinmeta, values);
-                    pfree(values);
-
-                    /* switch to appropriate context while storing the tuple */
-                    oldContext = MemoryContextSwitchTo(messageContext);
-
-                    /* now store it */
-                    tuplestore_puttuple(tupstore, tuple);
+                else{
+                    result = get_array_datum(res, 0, &isNull);
+                    fcinfo->isnull = isNull;
 
                     MemoryContextSwitchTo(oldContext);
+                    MemoryContextDelete(messageContext);
+
+                    return result;
                 }
-                rsinfo->setResult = tupstore;
-                MemoryContextSwitchTo(oldContext);
-                MemoryContextDelete(messageContext);
-
-                fcinfo->isnull = true;
-                return (Datum) 0;
-
-
             }
 
 
@@ -279,6 +233,181 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     PG_RETURN_NULL();
 }
 
+Datum get_array_datum(plcontainer_result res, int col,  int *isNull)
+{
+    bool        typbyval;
+    char        typalign;
+
+    Oid    typeOid;
+    int32 typeMod;
+    int16            typlen;
+    char            typdelim;
+    Oid                typinput,
+                    typelem;
+    FmgrInfo        inputproc;
+
+
+    Datum       *dvalues = NULL;
+    Datum        dvalue;
+
+    ArrayType  *array;
+    int            nr;
+    int            nc;
+
+#define FIXED_NUM_DIMS        2
+    int            ndims = FIXED_NUM_DIMS;
+    int            dims[FIXED_NUM_DIMS];
+    int            lbs[FIXED_NUM_DIMS];
+#undef FIXED_NUM_DIMS
+    bool       *nulls = NULL;
+    bool        have_nulls = FALSE;
+
+    int     i,j;
+
+    /*
+     * get the type of the column from the result
+     */
+    parseTypeString(res->types[col], &typeOid, &typeMod);
+
+    get_type_io_data(typeOid, IOFunc_input,
+                        &typlen, &typbyval, &typalign,
+                        &typdelim, &typelem, &typinput);
+    /*
+     * get the input proc
+     */
+    perm_fmgr_info(typinput, &inputproc);
+
+    nr = res->rows;
+    nc = res->cols;
+
+    dvalues = (Datum *) palloc(nr * nc * sizeof(Datum));
+    nulls = (bool *) palloc(nr * nc * sizeof(bool));
+
+    for(i = 0; i < nr; i++){
+
+        for (j = 0; j < nc; j++){
+            int idx = (i*nr) + j;
+
+            if (res->data[i][j].isnull){
+                nulls[idx] = TRUE;
+                have_nulls |= TRUE;
+            }
+            else{
+                nulls[idx] = FALSE;
+                dvalues[idx] = FunctionCall3(&inputproc,
+                                        CStringGetDatum(res->data[i][j].value),
+                                        (Datum) 0,
+                                        Int32GetDatum(-1));
+            }
+        }
+    }
+
+    dims[0] = nr;
+    dims[1] = nc;
+    lbs[0] = 1;
+    lbs[1] = 1;
+
+    if (!have_nulls){
+        array = construct_md_array((Datum *)dvalues, NULL, ndims, dims, lbs,
+                                    typeOid, typlen, typbyval, typalign);
+    }else{
+        array = construct_md_array((Datum *)dvalues, (bool *)nulls, ndims, dims, lbs,
+                                    typeOid, typlen, typbyval, typalign);
+    }
+
+    dvalue = PointerGetDatum(array);
+    pfree(nulls);
+    pfree(dvalues);
+
+    return dvalue;
+
+}
+void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
+        ReturnSetInfo *rsinfo,plcontainer_result res, int *isNull )
+{
+    AttInMetadata      *attinmeta;
+    Tuplestorestate    *tupstore = tuplestore_begin_heap(true, false, work_mem);
+    TupleDesc          tupdesc;
+    HeapTuple    typetup,
+                 tuple;
+    Form_pg_type type;
+    Oid          typeOid;
+    int32        typeMod;
+
+    char **values;
+    int i,j;
+
+    /* get the requested return tuple description */
+    tupdesc = CreateTupleDescCopy(rsinfo->expectedDesc);
+
+    for (j=0; j<res->cols;j++){
+        parseTypeString(res->types[j], &typeOid, &typeMod);
+        typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
+
+        if (!HeapTupleIsValid(typetup)) {
+            MemoryContextSwitchTo(oldContext);
+            MemoryContextDelete(messageContext);
+            elog(FATAL, "[plcontainer] Invalid heaptuple at result return");
+            // This won`t run
+            *isNull=TRUE;
+        }
+
+        type = (Form_pg_type)GETSTRUCT(typetup);
+
+        strcpy(tupdesc->attrs[j]->attname.data, res->names[j]);
+        tupdesc->attrs[j]->atttypid = typeOid;
+        ReleaseSysCache(typetup);
+    }
+
+    attinmeta = TupleDescGetAttInMetadata(tupdesc);
+
+    /* OK, go to work */
+    rsinfo->returnMode = SFRM_Materialize;
+    MemoryContextSwitchTo(oldContext);
+
+    /*
+     * SFRM_Materialize mode expects us to return a NULL Datum. The actual
+     * tuples are in our tuplestore and passed back through
+     * rsinfo->setResult. rsinfo->setDesc is set to the tuple description
+     * that we actually used to build our tuples with, so the caller can
+     * verify we did what it was expecting.
+     */
+    rsinfo->setDesc = tupdesc;
+
+    for (i=0; i<res->rows;i++){
+
+        values = palloc(sizeof(char *)* res->cols);
+        for (j=0; j< res->cols;j++){
+            values[j] = res->data[i][j].value;
+        }
+
+        /* construct the tuple */
+        tuple = BuildTupleFromCStrings(attinmeta, values);
+        pfree(values);
+
+        /* switch to appropriate context while storing the tuple */
+        oldContext = MemoryContextSwitchTo(messageContext);
+
+        /* now store it */
+        tuplestore_puttuple(tupstore, tuple);
+
+        MemoryContextSwitchTo(oldContext);
+    }
+    rsinfo->setResult = tupstore;
+    MemoryContextSwitchTo(oldContext);
+    MemoryContextDelete(messageContext);
+
+    *isNull = TRUE;
+
+}
+
+void
+perm_fmgr_info(Oid functionId, FmgrInfo *finfo)
+{
+    fmgr_info_cxt(functionId, finfo, TopMemoryContext);
+    finfo->fn_mcxt = pl_container_caller_context;
+    finfo->fn_expr = (Node *) NULL;
+}
 void
 plcontainer_log_do(log_message log) {
     int level = DEBUG1;

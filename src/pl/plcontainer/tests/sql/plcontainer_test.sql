@@ -7,6 +7,7 @@ select writeFile();
 \! ls -l /tmp/foo
 
 select test_spi_tup('select fname, lname,username from users');
+select test_spi_ta('select oid, typname from pg_type where typname = ''oid'' or typname = ''text''');
 select rlog100();
 select pg_spi_exec('select 1');
 select pyint(NULL::int2);
