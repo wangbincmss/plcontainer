@@ -44,7 +44,7 @@ static void  plcontainer_log_do(log_message);
 static Datum plcontainer_call_hook(PG_FUNCTION_ARGS);
 void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
         ReturnSetInfo *rsinfo,plcontainer_result res, int *isNull );
-Datum get_array_datum(plcontainer_result res, int col, int *isNull);
+Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col, int *isNull);
 void perm_fmgr_info(Oid functionId, FmgrInfo *finfo);
 
 Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
@@ -152,7 +152,20 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
             Datum        rawDatum;
             int32        typeMod;
 
-            if (res->rows == 1 && res->cols == 1) {
+            /*
+             * see if we can return right now
+             */
+            if (res->rows == 0) {
+                MemoryContextSwitchTo(oldContext);
+                MemoryContextDelete(messageContext);
+                /* pljelog(ERROR, "Resultset return not implemented."); */
+                PG_RETURN_VOID();
+
+            }else if (pinfo->rettype.name[0] != '_' && res->rows == 1 && res->cols == 1) {
+            /*
+             * handle non array and scalars
+             */
+
                 Datum        ret;
                 /* MemoryContext oldctx; */
 
@@ -178,6 +191,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
                 type = (Form_pg_type)GETSTRUCT(typetup);
 
+
                 /* TODO: we don't need that since SPI_palloc allocates memory
                  * from the upper executor context
                  */
@@ -190,13 +204,10 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                 MemoryContextDelete(messageContext);
 
                 return ret;
-            } else if (res->rows == 0) {
-                MemoryContextSwitchTo(oldContext);
-                MemoryContextDelete(messageContext);
-                /* pljelog(ERROR, "Resultset return not implemented."); */
-                PG_RETURN_VOID();
             } else {
-
+                /*
+                 * here is where we handle tuples, and other non-scalar types
+                 */
                 Datum result;
 
                 int isNull;
@@ -208,7 +219,8 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                     PG_RETURN_NULL();
                 }
                 else{
-                    result = get_array_datum(res, 0, &isNull);
+
+                    result = get_array_datum(res, pinfo->rettype, 0, &isNull);
                     fcinfo->isnull = isNull;
 
                     MemoryContextSwitchTo(oldContext);
@@ -233,7 +245,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     PG_RETURN_NULL();
 }
 
-Datum get_array_datum(plcontainer_result res, int col,  int *isNull)
+Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col,  int *isNull)
 {
     bool        typbyval;
     char        typalign;
@@ -264,10 +276,18 @@ Datum get_array_datum(plcontainer_result res, int col,  int *isNull)
 
     int     i,j;
 
+    nr = res->rows;
+    nc = res->cols;
+
+
     /*
-     * get the type of the column from the result
-     */
+    * get the type of the column from the result
+    */
+
     parseTypeString(res->types[col], &typeOid, &typeMod);
+
+
+
 
     get_type_io_data(typeOid, IOFunc_input,
                         &typlen, &typbyval, &typalign,
@@ -277,8 +297,6 @@ Datum get_array_datum(plcontainer_result res, int col,  int *isNull)
      */
     perm_fmgr_info(typinput, &inputproc);
 
-    nr = res->rows;
-    nc = res->cols;
 
     dvalues = (Datum *) palloc(nr * nc * sizeof(Datum));
     nulls = (bool *) palloc(nr * nc * sizeof(bool));
@@ -286,7 +304,7 @@ Datum get_array_datum(plcontainer_result res, int col,  int *isNull)
     for(i = 0; i < nr; i++){
 
         for (j = 0; j < nc; j++){
-            int idx = (i*nr) + j;
+            int idx = (i*nc) + j;
 
             if (res->data[i][j].isnull){
                 nulls[idx] = TRUE;

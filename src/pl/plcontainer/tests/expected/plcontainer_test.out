@@ -26,6 +26,12 @@ select test_spi_ta('select oid, typname from pg_type where typname = ''oid'' or 
  {{25,text},{26,oid}}
 (1 row)
 
+select test_mia();
+          test_mia          
+----------------------------
+ {{1,3,5,7,9},{2,4,6,8,10}}
+(1 row)
+
 select rlog100();
  rlog100 
 ---------
@@ -132,10 +138,10 @@ select nested_call_one('a');
 (1 row)
 
 select invalid_function();
-ERROR:  exception occurred: (plcontainer.c:439)
+ERROR:  exception occurred: (plcontainer.c:457)
 DETAIL:  'module' object has no attribute 'foobar'
 select invalid_syntax();
-ERROR:  exception occurred: (plcontainer.c:439)
+ERROR:  exception occurred: (plcontainer.c:457)
 DETAIL:  ('invalid syntax', ('<string>', 7, 1, '\n'))
 select rlog100_shared();
  rlog100_shared 

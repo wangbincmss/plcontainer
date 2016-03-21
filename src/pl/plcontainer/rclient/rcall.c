@@ -195,6 +195,18 @@ error:
     return;
 
 }
+static char *get_base_type(SEXP rval)
+{
+    switch (TYPEOF(rval)){
+    case INTSXP:
+        return "int8";
+    case REALSXP:
+        return "float8";
+    case STRSXP:
+    default:
+        return "text";
+    }
+}
 
 void handle_call(callreq req, plcConn* conn) {
     SEXP             r,
@@ -269,11 +281,74 @@ void handle_call(callreq req, plcConn* conn) {
         free(errmsg);
         return;
     }
-    if (isFrame(strres)){
+
+    if ( isMatrix(strres) ) {
+        int cols;
+        int rows,col, row, idx;
+
+        cols = ncols(strres);
+        rows = nrows(strres);
+
+        res          = pmalloc(sizeof(*res));
+        res->msgtype = MT_RESULT;
+
+        res->types   = pmalloc(sizeof(*res->types)*cols);
+        res->names   = pmalloc(sizeof(*res->names)*cols);
+
+        for (col=0; col < cols; col++){
+            res->names[col]         = pstrdup("1");
+            res->types[col]         = pstrdup(get_base_type(strres));
+        }
+        res->cols=cols;
+        res->rows=rows;
+
+        res->data    = pmalloc(sizeof(*res->data));
+
+        PROTECT(obj =  coerce_to_char(strres));
+
+        /*
+         * in memory the data is 1,2,3,4,5,6,7,8,9,10
+         * however the first row is 1,3,5,7,9 second row
+         * is 2,4,6,8,10
+         */
+
+        /*
+         * pre-allocate the rows
+         */
+        for(row = 0; row < rows; row++)
+        {
+            res->data[row] = pmalloc(cols * sizeof(res->data[0][0]));
+        }
+        col=row=0;
+        for( idx = 0; idx < (rows*cols); idx++)
+        {
+            row = idx % rows;
+            col = idx / rows;
+
+            if (STRING_ELT(obj, idx) != NA_STRING){
+                res->data[row][col].isnull = FALSE;
+                res->data[row][col].value = pstrdup((char *) CHAR(STRING_ELT(obj, idx)));
+            }else{
+                res->data[row][col].isnull = TRUE;
+                res->data[row][col].value = (char *) NULL;
+            }
+
+        }
+        UNPROTECT(1);
+
+    }else if (isFrame(strres) ){
+
         SEXP names;
         PROTECT(names = getAttrib(strres,R_NamesSymbol));
-        int cols = length(strres);
+        int cols;
         int rows, col, row;
+
+
+        if( isFrame(strres) ){
+            cols = length(strres);
+        }else{
+            cols = 1;
+        }
 
 
         /* allocate a result */
@@ -310,7 +385,12 @@ void handle_call(callreq req, plcConn* conn) {
              */
 
             if (col == 0){
-                rows = length(obj);
+                if (isFrame(strres) || isMatrix(strres) ){
+                    rows = length(obj);
+                }else{
+                    rows = 1;
+                }
+
 
                 res->data    = pmalloc(sizeof(*res->data) * rows);
                 /*
@@ -370,6 +450,8 @@ void handle_call(callreq req, plcConn* conn) {
 
     return;
 }
+
+
 
 static void send_error(plcConn* conn, char *msg) {
     /* an exception was thrown */

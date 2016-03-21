@@ -8,6 +8,11 @@ create or replace function test_spi_ta(arg1 text) returns text[] as $$
 #container: plc_r
 pg.spi.exec(arg1)
 $$ language plcontainer;
+create or replace function test_mia() returns int[] as $$
+#container:plc_r
+as.matrix(array(1:10,c(2,5)))
+$$
+language 'plcontainer';
 /* really stupid function just to get the module loaded
 */
 CREATE OR REPLACE FUNCTION rlog100() RETURNS text AS $$
