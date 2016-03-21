@@ -312,9 +312,10 @@ static int receive_result(plcConn *conn, message *mRes) {
             ret->types = NULL;
         }
 
-        /* types per column or per row ? */
-        ret->types = pmalloc(ret->rows * sizeof(*ret->types));
-        ret->names = pmalloc(ret->rows * sizeof(*ret->names));
+        /* types per column  */
+        ret->types = pmalloc(ret->cols * sizeof(*ret->types));
+        ret->names = pmalloc(ret->cols * sizeof(*ret->names));
+
         for (i = 0; i < ret->cols; i++) {
              res += receive_string(conn, &ret->types[i]);
              res += receive_string(conn, &ret->names[i]);
