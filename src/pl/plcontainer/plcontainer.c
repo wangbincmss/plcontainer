@@ -160,25 +160,21 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                 MemoryContextDelete(messageContext);
                 /* pljelog(ERROR, "Resultset return not implemented."); */
                 PG_RETURN_VOID();
-
-            }else if (pinfo->rettype.name[0] != '_' && res->rows == 1 && res->cols == 1) {
-            /*
-             * handle non array and scalars
-             */
-
+            } else if (pinfo->rettype.name[0] != '_' && res->rows == 1 && res->cols == 1) {
+               /*
+                * handle non array and scalars
+                */
                 Datum        ret;
-                /* MemoryContext oldctx; */
-
                 if (res->data[0][0].isnull == 1) {
                     MemoryContextSwitchTo(oldContext);
                     MemoryContextDelete(messageContext);
                     PG_RETURN_NULL();
                 }
                 /*
-                * use the return type provided by the function
-                * to figure out the method to use to return
-                * the value
-                */
+                 * use the return type provided by the function
+                 * to figure out the method to use to return
+                 * the value
+                 */
                 parseTypeString(pinfo->rettype.name, &typeOid, &typeMod);
                 typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
                 if (!HeapTupleIsValid(typetup)) {
@@ -190,7 +186,6 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                 }
 
                 type = (Form_pg_type)GETSTRUCT(typetup);
-
 
                 /* TODO: we don't need that since SPI_palloc allocates memory
                  * from the upper executor context
@@ -210,7 +205,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                  */
                 Datum result;
 
-                int isNull;
+                int isNull = FALSE;
 
                 if ( fcinfo->flinfo->fn_retset ){
                     // we have rows and columns
@@ -219,7 +214,6 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                     PG_RETURN_NULL();
                 }
                 else{
-
                     result = get_array_datum(res, pinfo->rettype, 0, &isNull);
                     fcinfo->isnull = isNull;
 
@@ -249,27 +243,23 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col,  in
 {
     bool        typbyval;
     char        typalign;
-
-    Oid    typeOid;
-    int32 typeMod;
-    int16            typlen;
-    char            typdelim;
-    Oid                typinput,
-                    typelem;
-    FmgrInfo        inputproc;
-
-
-    Datum       *dvalues = NULL;
-    Datum        dvalue;
-
+    Oid         typeOid;
+    int32       typeMod;
+    int16       typlen;
+    char        typdelim;
+    Oid         typinput,
+                typelem;
+    FmgrInfo    inputproc;
+    Datum      *dvalues = NULL;
+    Datum       dvalue;
     ArrayType  *array;
-    int            nr;
-    int            nc;
+    int         nr;
+    int         nc;
 
 #define FIXED_NUM_DIMS        2
-    int            ndims = FIXED_NUM_DIMS;
-    int            dims[FIXED_NUM_DIMS];
-    int            lbs[FIXED_NUM_DIMS];
+    int         ndims = FIXED_NUM_DIMS;
+    int         dims[FIXED_NUM_DIMS];
+    int         lbs[FIXED_NUM_DIMS];
 #undef FIXED_NUM_DIMS
     bool       *nulls = NULL;
     bool        have_nulls = FALSE;
@@ -286,9 +276,6 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col,  in
 
     parseTypeString(res->types[col], &typeOid, &typeMod);
 
-
-
-
     get_type_io_data(typeOid, IOFunc_input,
                         &typlen, &typbyval, &typalign,
                         &typdelim, &typelem, &typinput);
@@ -296,7 +283,6 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col,  in
      * get the input proc
      */
     perm_fmgr_info(typinput, &inputproc);
-
 
     dvalues = (Datum *) palloc(nr * nc * sizeof(Datum));
     nulls = (bool *) palloc(nr * nc * sizeof(bool));
@@ -338,8 +324,8 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col,  in
     pfree(dvalues);
 
     return dvalue;
-
 }
+
 void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
         ReturnSetInfo *rsinfo,plcontainer_result res, int *isNull )
 {
