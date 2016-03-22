@@ -11,13 +11,13 @@ select writeFile();
 -- make sure the file doesn't exist on the host filesystem
 \! ls -l /tmp/foo
 ls: cannot access /tmp/foo: No such file or directory
-select test_spi_tup('select fname, lname,username from users');
+select test_spi_tup('select fname, lname,username from users order by 1,2,3');
     test_spi_tup    
 --------------------
  (jane,doe,j_doe)
- (willem,doe,w_doe)
  (john,doe,johnd)
  (rick,smith,slash)
+ (willem,doe,w_doe)
 (4 rows)
 
 select test_spi_ta('select oid, typname from pg_type where typname = ''oid'' or typname = ''text''');

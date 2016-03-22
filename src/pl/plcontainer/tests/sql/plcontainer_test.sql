@@ -6,7 +6,7 @@ select writeFile();
 -- make sure the file doesn't exist on the host filesystem
 \! ls -l /tmp/foo
 
-select test_spi_tup('select fname, lname,username from users');
+select test_spi_tup('select fname, lname,username from users order by 1,2,3');
 select test_spi_ta('select oid, typname from pg_type where typname = ''oid'' or typname = ''text''');
 select test_mia();
 select rlog100();
