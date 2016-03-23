@@ -17,6 +17,7 @@ typedef struct {
 typedef struct call_req {
     base_message_content;
     procedure proc;
+    char     *retType;
     int       nargs;
     argument *args;
 } call_req, *callreq;

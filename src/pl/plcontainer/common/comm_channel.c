@@ -282,6 +282,7 @@ static int send_call(plcConn *conn, callreq call) {
     res += message_start(conn, MT_CALLREQ);
     res += send_string(conn, call->proc.name);
     res += send_string(conn, call->proc.src);
+    res += send_string(conn, call->retType);
     res += send_integer_4(conn, call->nargs);
 
     for (i = 0; i < call->nargs; i++) {
@@ -572,6 +573,7 @@ static int receive_call(plcConn *conn, message *mCall) {
     req->msgtype   = MT_CALLREQ;
     res += receive_string(conn, &req->proc.name);
     res += receive_string(conn, &req->proc.src);
+    res += receive_string(conn, &req->retType);
     res += receive_integer_4(conn, &req->nargs);
     if (res == 0) {
         req->args = pmalloc(sizeof(*req->args) * req->nargs);

@@ -334,6 +334,7 @@ plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
     req->msgtype = MT_CALLREQ;
     req->proc.name = pinfo->name;
     req->proc.src  = pinfo->src;
+    req->retType   = pinfo->rettype.name;
 
     fill_callreq_arguments(fcinfo, pinfo, req);
 

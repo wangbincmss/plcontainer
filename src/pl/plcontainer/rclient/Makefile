@@ -11,6 +11,7 @@ default: clean all
 .PHONY: clean_common
 clean_common:
 	rm -f $(common_objs)
+	rm -f librcall.so
 
 %.o: %.c
 	$(CC) $(R_CFLAGS) $(CFLAGS) -c -o $@ $^
