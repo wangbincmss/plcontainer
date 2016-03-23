@@ -158,9 +158,8 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
             if (res->rows == 0) {
                 MemoryContextSwitchTo(oldContext);
                 MemoryContextDelete(messageContext);
-                /* pljelog(ERROR, "Resultset return not implemented."); */
                 PG_RETURN_VOID();
-            } else if (pinfo->rettype.name[0] != '_' && res->rows == 1 && res->cols == 1) {
+            } else if (res->rows == 1 && res->cols == 1 && pinfo->rettype.name[0] != '_') {
                /*
                 * handle non array and scalars
                 */
@@ -207,13 +206,14 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
                 int isNull = FALSE;
 
-                if ( fcinfo->flinfo->fn_retset ){
+                if ( fcinfo->flinfo->fn_retset ) {
                     // we have rows and columns
                     ReturnSetInfo      *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
                     get_tuple_store(oldContext, messageContext, rsinfo, res, &isNull);
                     PG_RETURN_NULL();
-                }
-                else{
+                } else {
+                    /* TODO: We get here if it is not set-returning function,
+                       but in fact we can return more than just a single array! */
                     result = get_array_datum(res, pinfo->rettype, 0, &isNull);
                     fcinfo->isnull = isNull;
 
@@ -252,69 +252,59 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col,  in
     FmgrInfo    inputproc;
     Datum      *dvalues = NULL;
     Datum       dvalue;
-    ArrayType  *array;
-    int         nr;
-    int         nc;
-
-#define FIXED_NUM_DIMS        2
-    int         ndims = FIXED_NUM_DIMS;
-    int         dims[FIXED_NUM_DIMS];
-    int         lbs[FIXED_NUM_DIMS];
-#undef FIXED_NUM_DIMS
+    ArrayType  *array = NULL;
+    int         ndims;
+    int        *dims = NULL;
+    int        *lbs = NULL;
     bool       *nulls = NULL;
     bool        have_nulls = FALSE;
+    int         i;
+    plcontainer_array arr;
 
-    int     i,j;
-
-    nr = res->rows;
-    nc = res->cols;
-
+    arr = (plcontainer_array)res->data[0][col].value;
+    ndims = arr->meta->ndims;
+    dims = (int*)palloc(ndims * sizeof(int));
+    lbs = (int*)palloc(ndims * sizeof(int));
+    for (i = 0; i < ndims; i++) {
+        dims[i] = arr->meta->dims[i];
+        lbs[i] = 1;
+    }
 
     /*
     * get the type of the column from the result
     */
-
     parseTypeString(res->types[col], &typeOid, &typeMod);
+    typeOid = get_element_type(typeOid);
 
     get_type_io_data(typeOid, IOFunc_input,
-                        &typlen, &typbyval, &typalign,
-                        &typdelim, &typelem, &typinput);
+                    &typlen,   &typbyval, &typalign,
+                    &typdelim, &typelem,  &typinput);
+
     /*
      * get the input proc
      */
     perm_fmgr_info(typinput, &inputproc);
 
-    dvalues = (Datum *) palloc(nr * nc * sizeof(Datum));
-    nulls = (bool *) palloc(nr * nc * sizeof(bool));
+    dvalues = (Datum *) palloc(arr->meta->size * sizeof(Datum));
+    nulls = (bool *) palloc(arr->meta->size * sizeof(bool));
 
-    for(i = 0; i < nr; i++){
-
-        for (j = 0; j < nc; j++){
-            int idx = (i*nc) + j;
-
-            if (res->data[i][j].isnull){
-                nulls[idx] = TRUE;
-                have_nulls |= TRUE;
-            }
-            else{
-                nulls[idx] = FALSE;
-                dvalues[idx] = FunctionCall3(&inputproc,
-                                        CStringGetDatum(res->data[i][j].value),
-                                        (Datum) 0,
-                                        Int32GetDatum(-1));
-            }
+    for(i = 0; i < arr->meta->size; i++){
+        if (arr->data[i].isnull){
+            nulls[i] = TRUE;
+            have_nulls |= TRUE;
+        } else {
+            nulls[i] = FALSE;
+            dvalues[i] = FunctionCall3(&inputproc,
+                                       CStringGetDatum(arr->data[i].value),
+                                       (Datum) 0,
+                                       Int32GetDatum(-1));
         }
     }
 
-    dims[0] = nr;
-    dims[1] = nc;
-    lbs[0] = 1;
-    lbs[1] = 1;
-
-    if (!have_nulls){
+    if (!have_nulls) {
         array = construct_md_array((Datum *)dvalues, NULL, ndims, dims, lbs,
                                     typeOid, typlen, typbyval, typalign);
-    }else{
+    } else {
         array = construct_md_array((Datum *)dvalues, (bool *)nulls, ndims, dims, lbs,
                                     typeOid, typlen, typbyval, typalign);
     }

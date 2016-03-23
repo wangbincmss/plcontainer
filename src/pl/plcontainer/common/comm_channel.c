@@ -40,6 +40,8 @@ static int send_char(plcConn *conn, char c);
 static int send_integer_4(plcConn *conn, int i);
 static int send_bytes(plcConn *conn, char *s, size_t cnt);
 static int send_string(plcConn *conn, char *s);
+static int send_raw_object(plcConn *conn, raw obj);
+static int send_raw_array_iter(plcConn *conn, plcontainer_iterator iter);
 static int receive_char(plcConn *conn, char *c);
 static int receive_message_type(plcConn *conn, char *c);
 static int receive_uinteger_2(plcConn *conn, unsigned short *i);
@@ -48,6 +50,8 @@ static int receive_uinteger_4(plcConn *conn, unsigned int *i);
 static int receive_bytes(plcConn *conn, char **s, size_t *len);
 static int receive_string(plcConn *conn, char **s);
 static int receive_bytes_prealloc(plcConn *conn, char *s, size_t len);
+static int receive_raw_object(plcConn *conn, raw obj);
+static int receive_array(plcConn *conn, char **data);
 static int send_call(plcConn *conn, callreq call);
 static int send_result(plcConn *conn, plcontainer_result res);
 static int send_exception(plcConn *conn, error_message err);
@@ -155,6 +159,32 @@ static int send_string(plcConn *conn, char *s) {
     return send_bytes(conn, s, cnt);
 }
 
+static int send_raw_object(plcConn *conn, raw obj) {
+    int res = 0;
+    if (obj == NULL) {
+        lprintf(ERROR, "NULL object reference received by send_raw_object");
+    }
+    else if (obj->isnull) {
+        res += send_char(conn, 'N');
+    } else {
+        res += send_char(conn, 'D');
+        res += send_string(conn, obj->value);
+    }
+    return (res < 0) ? -1 : 0;
+}
+
+static int send_raw_array_iter(plcConn *conn, plcontainer_iterator iter) {
+    int res = 0;
+    int i = 0;
+    plcontainer_array_meta meta = (plcontainer_array_meta)iter->meta;
+    res += send_integer_4(conn, meta->ndims);
+    for (i = 0; i < meta->ndims; i++)
+        res += send_integer_4(conn, meta->dims[i]);
+    for (i = 0; i < meta->size && res == 0; i++)
+        res += send_raw_object(conn, iter->next(iter));
+    return (res < 0) ? -1 : 0;
+}
+
 static int receive_char(plcConn *conn, char *c) {
     return plcBufferRead(conn, c, 1);
 }
@@ -207,6 +237,42 @@ static int receive_bytes_prealloc(plcConn *conn, char *s, size_t len) {
     return plcBufferRead(conn, s, len);
 }
 
+static int receive_raw_object(plcConn *conn, raw obj) {
+    int res = 0;
+    char isn;
+    if (obj == NULL) {
+        lprintf(ERROR, "NULL object reference received by receive_raw_object");
+    }
+    res += receive_char(conn, &isn);
+    if (isn == 'N') {
+        obj->isnull = 1;
+        obj->value  = NULL;
+    } else {
+        obj->isnull = 0;
+        res += receive_string(conn, &obj->value);
+    }
+    return (res < 0) ? -1 : 0;
+}
+
+static int receive_array(plcConn *conn, char **data) {
+    int res = 0;
+    int ndims;
+    int i = 0;
+    plcontainer_array arr;
+    res += receive_integer_4(conn, &ndims);
+    arr = plc_alloc_array(ndims);
+    arr->meta->size = 1;
+    for (i = 0; i < ndims; i++) {
+        res += receive_integer_4(conn, &arr->meta->dims[i]);
+        arr->meta->size *= arr->meta->dims[i];
+    }
+    arr->data = (raw)pmalloc(arr->meta->size * sizeof(str_raw));
+    for (i = 0; i < arr->meta->size && res == 0; i++)
+        res += receive_raw_object(conn, &arr->data[i]);
+    *data = (char*)arr;
+    return (res < 0) ? -1 : 0;
+}
+
 /* Send Functions for the Main Engine */
 
 static int send_call(plcConn *conn, callreq call) {
@@ -247,7 +313,11 @@ static int send_result(plcConn *conn, plcontainer_result ret) {
                 res += send_char(conn, 'N');
             } else {
                 res += send_char(conn, 'D');
-                res += send_string(conn, ret->data[i][j].value);
+                if (ret->types[j][0] == '_')
+                    res += send_raw_array_iter(conn,
+                                (plcontainer_iterator)ret->data[i][j].value);
+                else
+                    res += send_string(conn, ret->data[i][j].value);
             }
         }
     }
@@ -312,35 +382,34 @@ static int receive_result(plcConn *conn, message *mRes) {
             ret->types = NULL;
         }
 
-        /* types per column  */
+        /* Read column names and column types of result set */
         ret->types = pmalloc(ret->cols * sizeof(*ret->types));
         ret->names = pmalloc(ret->cols * sizeof(*ret->names));
-
         for (i = 0; i < ret->cols; i++) {
              res += receive_string(conn, &ret->types[i]);
              res += receive_string(conn, &ret->names[i]);
         }
 
-        for (i = 0; i < ret->rows; i++) {
+        /* Receive data */
+        for (i = 0; i < ret->rows && res == 0; i++) {
             if (ret->cols > 0) {
                 ret->data[i] = pmalloc((ret->cols) * sizeof(*ret->data[i]));
+                for (j = 0; j < ret->cols; j++) {
+                    char isn;
+                    res += receive_char(conn, &isn);
+                    if (isn == 'N') {
+                        ret->data[i][j].isnull = 1;
+                        ret->data[i][j].value  = NULL;
+                    } else {
+                        ret->data[i][j].isnull = 0;
+                        if (ret->types[j][0] == '_')
+                            res += receive_array(conn, &ret->data[i][j].value);
+                        else
+                            res += receive_string(conn, &ret->data[i][j].value);
+                    }
+                }
             } else {
                 ret->data[i] = NULL;
-            }
-
-            for (j = 0; j < ret->cols; j++) {
-                char isn;
-                res += receive_char(conn, &isn);
-                if (isn == 'N') {
-                    ret->data[i][j].isnull = 1;
-                    ret->data[i][j].value  = NULL;
-                } else {
-                    ret->data[i][j].isnull = 0;
-                    res += receive_string(conn, &ret->data[i][j].value);
-                }
-            }
-            if (res < 0) {
-                break;
             }
         }
     }

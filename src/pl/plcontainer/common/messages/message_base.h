@@ -8,7 +8,7 @@ typedef struct str_message { base_message_content } str_message, *message;
 typedef struct str_raw {
     int   isnull;
     char *value;
-} * raw;
+} str_raw, *raw;
 
 typedef struct fnc_param {
     char *         type;

@@ -31,8 +31,7 @@
 #include "common/comm_server.h"
 #include "rcall.h"
 
-static SEXP
-coerce_to_char(SEXP rval);
+static SEXP coerce_to_char(SEXP rval);
 SEXP convert_args(callreq req);
 
 #define OPTIONS_NULL_CMD    "options(error = expression(NULL))"
@@ -99,6 +98,9 @@ static char * create_r_func(callreq req);
 
 static char *create_r_func(callreq req);
 static SEXP parse_r_code(const char *code, plcConn* conn, int *errorOccurred);
+
+static plcontainer_iterator matrix_iterator(SEXP mtx);
+static void matrix_iterator_free(plcontainer_iterator iter);
 
 /*
  * set by hook throw_r_error
@@ -197,14 +199,15 @@ error:
 }
 static char *get_base_type(SEXP rval)
 {
-    switch (TYPEOF(rval)){
-    case INTSXP:
-        return "int8";
-    case REALSXP:
-        return "float8";
-    case STRSXP:
-    default:
-        return "text";
+    switch (TYPEOF(rval)) {
+        case INTSXP:
+            return "_int8";
+        case REALSXP:
+            return "_float8";
+        case STRSXP:
+            return "_text";
+        default:
+            return NULL;
     }
 }
 
@@ -220,7 +223,7 @@ void handle_call(callreq req, plcConn* conn) {
     int              i,
                      errorOccurred;
 
-    char             *func,
+    char            *func,
                     *errmsg;
 
     const char *     value;
@@ -277,66 +280,12 @@ void handle_call(callreq req, plcConn* conn) {
             errmsg = realloc(errmsg, strlen(errmsg)+strlen(req->proc.src));
             errmsg = strcat(errmsg, req->proc.src);
         }
-        send_error(conn, last_R_error_msg);
+        send_error(conn, errmsg);
         free(errmsg);
         return;
     }
 
-    if ( isMatrix(strres) ) {
-        int cols;
-        int rows,col, row, idx;
-
-        cols = ncols(strres);
-        rows = nrows(strres);
-
-        res          = pmalloc(sizeof(*res));
-        res->msgtype = MT_RESULT;
-
-        res->types   = pmalloc(sizeof(*res->types)*cols);
-        res->names   = pmalloc(sizeof(*res->names)*cols);
-
-        for (col=0; col < cols; col++){
-            res->names[col]         = pstrdup("1");
-            res->types[col]         = pstrdup(get_base_type(strres));
-        }
-        res->cols=cols;
-        res->rows=rows;
-
-        res->data    = pmalloc(sizeof(*res->data));
-
-        PROTECT(obj =  coerce_to_char(strres));
-
-        /*
-         * in memory the data is 1,2,3,4,5,6,7,8,9,10
-         * however the first row is 1,3,5,7,9 second row
-         * is 2,4,6,8,10
-         */
-
-        /*
-         * pre-allocate the rows
-         */
-        for(row = 0; row < rows; row++)
-        {
-            res->data[row] = pmalloc(cols * sizeof(res->data[0][0]));
-        }
-        col=row=0;
-        for( idx = 0; idx < (rows*cols); idx++)
-        {
-            row = idx % rows;
-            col = idx / rows;
-
-            if (STRING_ELT(obj, idx) != NA_STRING){
-                res->data[row][col].isnull = FALSE;
-                res->data[row][col].value = pstrdup((char *) CHAR(STRING_ELT(obj, idx)));
-            }else{
-                res->data[row][col].isnull = TRUE;
-                res->data[row][col].value = (char *) NULL;
-            }
-
-        }
-        UNPROTECT(1);
-
-    }else if (isFrame(strres) ){
+    if (isFrame(strres) ){
 
         SEXP names;
         PROTECT(names = getAttrib(strres,R_NamesSymbol));
@@ -424,20 +373,33 @@ void handle_call(callreq req, plcConn* conn) {
 
         }
         UNPROTECT(1);
-    }else{
-
+    } else {
         /* this is not a data frame */
         res          = pmalloc(sizeof(*res));
         res->msgtype = MT_RESULT;
         res->types   = pmalloc(sizeof(*res->types));
         res->names   = pmalloc(sizeof(*res->names));
-        res->data     = pmalloc(sizeof(*res->data));
+        res->data    = pmalloc(sizeof(*res->data));
         res->data[0] = pmalloc(sizeof(*res->data[0]));
-        res->rows=res->cols=1;
-        res->types[0]         = pstrdup("text");
+        res->rows = res->cols = 1;
         res->names[0]         = pstrdup("result");
         res->data[0]->isnull  = false;
-        res->data[0]->value   = pstrdup(CHAR(asChar(strres)));
+        if (isMatrix(strres)) {
+            char* basetype = get_base_type(strres);
+            if (basetype == NULL) {
+                char *errmsg = pmalloc(100);
+                sprintf(errmsg,
+                        "Matrices of the type '%d' are not supported yet",
+                        TYPEOF(strres));
+                send_error(conn, errmsg);
+                pfree(errmsg);
+            }
+            res->types[0]         = pstrdup(basetype);
+            res->data[0]->value   = (char*)matrix_iterator(strres);
+        } else {
+            res->types[0]         = pstrdup("text");
+            res->data[0]->value   = pstrdup(CHAR(asChar(strres)));
+        }
     }
 
     /* send the result back */
@@ -451,7 +413,80 @@ void handle_call(callreq req, plcConn* conn) {
     return;
 }
 
+raw matrix_iterator_next (plcontainer_iterator iter) {
+    plcontainer_array_meta meta;
+    int *position;
+    SEXP mtx;
+    raw res;
 
+    meta = (plcontainer_array_meta)iter->meta;
+    position = (int*)iter->position;
+    mtx = (SEXP)iter->data;
+    res = pmalloc(sizeof(str_raw));
+
+    //lprintf(WARNING, "Position: %d, %d", position[0], position[1]);
+
+    if (STRING_ELT(mtx, position[1]*meta->dims[0] + position[0]) != NA_STRING){
+        res->isnull = FALSE;
+        res->value  = pstrdup((char *) CHAR(
+                        STRING_ELT(mtx, position[1]*meta->dims[0] + position[0]))
+                      );
+    } else {
+        res->isnull = FALSE;
+        res->value  = NULL;
+    }
+
+    position[1] += 1;
+    if (position[1] == meta->dims[1]) {
+        position[1] = 0;
+        position[0] += 1;
+    }
+    if (position[0] == meta->dims[0])
+        matrix_iterator_free(iter);
+
+    return res;
+}
+
+static plcontainer_iterator matrix_iterator(SEXP mtx) {
+    plcontainer_array_meta meta;
+    int *position;
+    SEXP obj;
+    plcontainer_iterator iter;
+
+    /* Allocate the iterator */
+    iter = (plcontainer_iterator)pmalloc(sizeof(str_plcontainer_iterator));
+
+    /* Initialize meta */
+    meta = (plcontainer_array_meta)pmalloc(sizeof(str_plcontainer_array_meta));
+    meta->ndims = 2;
+    meta->dims  = (int*)pmalloc(2 * sizeof(int));
+    meta->dims[0] = nrows(mtx);
+    meta->dims[1] = ncols(mtx);
+    meta->size = meta->dims[0] * meta->dims[1];
+    iter->meta = (char*)meta;
+
+    /* Initializing initial position */
+    position = (int*)pmalloc(2 * sizeof(int));
+    position[0] = 0;
+    position[1] = 0;
+    iter->position = (char*)position;
+
+    /* Initializing "data" */
+    PROTECT(obj =  coerce_to_char(mtx));
+    iter->data = (char*)obj;
+
+    /* Initializing "next" function */
+    iter->next = matrix_iterator_next;
+
+    return iter;
+}
+
+static void matrix_iterator_free(plcontainer_iterator iter) {
+    pfree(((plcontainer_array_meta)iter->meta)->dims);
+    pfree(iter->meta);
+    pfree(iter->position);
+    UNPROTECT(1);
+}
 
 static void send_error(plcConn* conn, char *msg) {
     /* an exception was thrown */
@@ -563,7 +598,7 @@ static char * create_r_func(callreq req) {
 
 #define INTEGER_ARG 1
 #define NUMBER_ARG  2
-#define BOOL_ARG 3
+#define BOOL_ARG    3
 #define STRING_ARG  4
 
 /*
@@ -593,7 +628,6 @@ get_r_vector(int type_id, int numels)
     return result;
 }
 
-
 static int find_type(const char *type)
 {
     if ( strcmp(type, "bool") == 0 ) {
@@ -611,8 +645,8 @@ static int find_type(const char *type)
     }else{
         return STRING_ARG;
     }
-
 }
+
 SEXP convert_args(callreq req)
 {
     SEXP    rargs, element;
