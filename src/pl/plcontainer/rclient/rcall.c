@@ -285,20 +285,13 @@ void handle_call(callreq req, plcConn* conn) {
         return;
     }
 
-    if (isFrame(strres) ){
-
+    if (isFrame(strres)) {
         SEXP names;
         PROTECT(names = getAttrib(strres,R_NamesSymbol));
         int cols;
         int rows, col, row;
 
-
-        if( isFrame(strres) ){
-            cols = length(strres);
-        }else{
-            cols = 1;
-        }
-
+        cols = length(strres);
 
         /* allocate a result */
         res          = pmalloc(sizeof(*res));
@@ -306,20 +299,20 @@ void handle_call(callreq req, plcConn* conn) {
         res->types   = pmalloc(sizeof(*res->types)*cols);
         res->names   = pmalloc(sizeof(*res->names)*cols);
 
-        for ( col=0; col < cols; col++){
+        for (col = 0; col < cols; col++) {
 
             res->names[col] = pstrdup(CHAR(STRING_ELT(names,col)));
             res->types[col] = pstrdup("text");
 
-            if (TYPEOF(strres) == VECSXP){
+            if (TYPEOF(strres) == VECSXP) {
                 PROTECT(dfcol = VECTOR_ELT(strres, col));
-            }else if (TYPEOF(strres) == LISTSXP){
+            } else if (TYPEOF(strres) == LISTSXP) {
                 PROTECT(dfcol = CAR(strres));
                 strres = CDR(strres);
-            }else{
-                /* internal error */
-                // TODO send error
-                //elog(ERROR, "plr: bad internal representation of data.frame");
+            } else {
+                errmsg = strdup("plc_r: bad internal representation of data.frame");
+                send_error(conn, errmsg);
+                free(errmsg);
             }
 
             if (ATTRIB(dfcol) == R_NilValue ||
@@ -332,33 +325,25 @@ void handle_call(callreq req, plcConn* conn) {
             /*
              * get the first column just to get the number of rows
              */
-
-            if (col == 0){
-                if (isFrame(strres) || isMatrix(strres) ){
-                    rows = length(obj);
-                }else{
-                    rows = 1;
-                }
-
+            if (col == 0) {
+                rows = length(obj);
 
                 res->data    = pmalloc(sizeof(*res->data) * rows);
                 /*
                  * allocate memory when we do the first column
                  */
-                for (row=0; row< rows;row++){
+                for (row = 0; row < rows; row++) {
                     res->data[row] = pmalloc(cols * sizeof(res->data[0][0]));
                 }
-
                 res->rows = rows;
                 res->cols = cols;
             }
 
-            for (row=0;row < rows; row++){
+            for (row = 0; row < rows; row++) {
 
                 value = strdup(CHAR(STRING_ELT(obj, row)));
-                //int idx = ((row * cols) + col);
 
-                if (STRING_ELT(obj, i) == NA_STRING || value == NULL)
+                if (STRING_ELT(obj, row) == NA_STRING || value == NULL)
                 {
                     res->data[row][col].isnull  = true;
                     res->data[row][col].value   = NULL;
@@ -432,7 +417,7 @@ raw matrix_iterator_next (plcontainer_iterator iter) {
                         STRING_ELT(mtx, position[1]*meta->dims[0] + position[0]))
                       );
     } else {
-        res->isnull = FALSE;
+        res->isnull = TRUE;
         res->value  = NULL;
     }
 

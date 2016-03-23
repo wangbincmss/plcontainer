@@ -223,8 +223,6 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                     return result;
                 }
             }
-
-
         }
 
         MemoryContextSwitchTo(oldContext);
@@ -317,7 +315,7 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col,  in
 }
 
 void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
-        ReturnSetInfo *rsinfo,plcontainer_result res, int *isNull )
+        ReturnSetInfo *rsinfo, plcontainer_result res, int *isNull )
 {
     AttInMetadata      *attinmeta;
     Tuplestorestate    *tupstore = tuplestore_begin_heap(true, false, work_mem);
@@ -331,10 +329,18 @@ void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
     char **values;
     int i,j;
 
+    /* TODO: Returning tuple, you will not have any tuple description for the
+     * function returning setof record. This needs to be fixed */
     /* get the requested return tuple description */
-    tupdesc = CreateTupleDescCopy(rsinfo->expectedDesc);
+    if (rsinfo->expectedDesc != NULL)
+        tupdesc = CreateTupleDescCopy(rsinfo->expectedDesc);
+    else {
+        elog(ERROR, "Functions returning 'record' type are not supported yet");
+        *isNull = TRUE;
+        return;
+    }
 
-    for (j=0; j<res->cols;j++){
+    for (j = 0; j < res->cols; j++) {
         parseTypeString(res->types[j], &typeOid, &typeMod);
         typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
 
@@ -392,7 +398,6 @@ void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
     MemoryContextDelete(messageContext);
 
     *isNull = TRUE;
-
 }
 
 void
