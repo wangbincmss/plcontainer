@@ -234,15 +234,19 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
      * information has changed in the catalog
      */
     if (!plc_procedure_valid(pinfo, procHeapTup)) {
-        /*
-         * Here we are using malloc as the funciton structure should be
+
+    	if ( pinfo != NULL ){
+    		free_proc_info(pinfo);
+    	}
+    	/*
+         * Here we are using malloc as the function structure should be
          * available across the function handler call
          */
         pinfo = malloc(sizeof(plcProcInfo));
         if (pinfo == NULL) {
             elog(FATAL, "Cannot allocate memory for plcProcInfo structure");
         }
-        /* Remember transactional informatin to allow caching */
+        /* Remember transactional information to allow caching */
         pinfo->funcOid = procoid;
         pinfo->fn_xmin = HeapTupleHeaderGetXmin(procHeapTup->t_data);
         pinfo->fn_tid  = procHeapTup->t_self;
