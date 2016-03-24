@@ -235,12 +235,11 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
      */
     if (!plc_procedure_valid(pinfo, procHeapTup)) {
 
-    	if ( pinfo != NULL ){
-    		free_proc_info(pinfo);
-    	}
     	/*
          * Here we are using malloc as the function structure should be
          * available across the function handler call
+         *
+         * Note: we free the procedure from within function_put_cache below
          */
         pinfo = malloc(sizeof(plcProcInfo));
         if (pinfo == NULL) {
