@@ -95,8 +95,10 @@ static plcProcInfo *function_cache_get(Oid funcOid) {
 
 static void function_cache_put(plcProcInfo *func) {
     int i;
+    plcProcInfo *oldFunc;
+    oldFunc = function_cache_get(func->funcOid);
     /* If the function is not cached already */
-    if (!function_cache_get(func->funcOid)) {
+    if (oldFunc == NULL) {
         /* If the last element exists we need to free its memory */
         if (plcFunctionCache[PLC_FUNCTION_CACHE_SIZE-1] != NULL) {
             free_proc_info(plcFunctionCache[PLC_FUNCTION_CACHE_SIZE-1]);
@@ -105,6 +107,9 @@ static void function_cache_put(plcProcInfo *func) {
         for (i = PLC_FUNCTION_CACHE_SIZE-1; i > 0; i--) {
             plcFunctionCache[i] = plcFunctionCache[i-1];
         }
+        plcFunctionCache[0] = func;
+    } else {
+        free_proc_info(oldFunc);
         plcFunctionCache[0] = func;
     }
 }
