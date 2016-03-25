@@ -4,22 +4,16 @@
 #include "message_base.h"
 
 typedef struct {
-    char *src;  /* source code of the procedure */
-    char *name; /* name of procedure */
-} procedure;
-
-typedef struct {
-    char *name;
-    char *value;
-    char *type;
-} argument;
+    char *src;  // source code of the procedure
+    char *name; // name of procedure
+} plcProcSrc;
 
 typedef struct call_req {
     base_message_content;
-    procedure proc;
-    char     *retType;
-    int       nargs;
-    argument *args;
+    plcProcSrc   proc;
+    plcDatatype  retType;
+    int          nargs;
+    plcArgument *args;
 } call_req, *callreq;
 
 /*

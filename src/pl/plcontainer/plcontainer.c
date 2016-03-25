@@ -44,7 +44,7 @@ static void  plcontainer_log_do(log_message);
 static Datum plcontainer_call_hook(PG_FUNCTION_ARGS);
 void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
         ReturnSetInfo *rsinfo,plcontainer_result res, int *isNull );
-Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col, int *isNull);
+Datum get_array_datum(plcontainer_result res, plcTypeInfo *ret_type, int col, int *isNull);
 void perm_fmgr_info(Oid functionId, FmgrInfo *finfo);
 
 Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
@@ -150,7 +150,6 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
             Form_pg_type type;
             Oid          typeOid;
             Datum        rawDatum;
-            int32        typeMod;
 
             /*
              * see if we can return right now
@@ -159,11 +158,13 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                 MemoryContextSwitchTo(oldContext);
                 MemoryContextDelete(messageContext);
                 PG_RETURN_VOID();
-            } else if (res->rows == 1 && res->cols == 1 && pinfo->rettype.name[0] != '_') {
+            } else if (res->rows == 1 && res->cols == 1 && pinfo->rettype.type != PLC_DATA_ARRAY) {
                /*
                 * handle non array and scalars
                 */
-                Datum        ret;
+                Datum    ret;
+                char    *resstr;
+                int      len;
                 if (res->data[0][0].isnull == 1) {
                     MemoryContextSwitchTo(oldContext);
                     MemoryContextDelete(messageContext);
@@ -174,7 +175,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                  * to figure out the method to use to return
                  * the value
                  */
-                parseTypeString(pinfo->rettype.name, &typeOid, &typeMod);
+                typeOid = pinfo->rettype.typeOid;
                 typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
                 if (!HeapTupleIsValid(typetup)) {
                     MemoryContextSwitchTo(oldContext);
@@ -186,12 +187,15 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
                 type = (Form_pg_type)GETSTRUCT(typetup);
 
-                /* TODO: we don't need that since SPI_palloc allocates memory
-                 * from the upper executor context
-                 */
+                /* TODO: temporary solution to make the result be cstring */
+                len = *((int*)res->data[0][0].value);
+                resstr = palloc(len + 1);
+                memcpy(resstr, res->data[0][0].value+4, len);
+                resstr[len] = '\0';
 
-                rawDatum = CStringGetDatum(res->data[0][0].value);
+                rawDatum = CStringGetDatum(resstr);
                 ret      = OidFunctionCall1(type->typinput, rawDatum);
+                pfree(resstr);
                 ReleaseSysCache(typetup);
 
                 MemoryContextSwitchTo(oldContext);
@@ -208,13 +212,17 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
                 if ( fcinfo->flinfo->fn_retset ) {
                     // we have rows and columns
+                    /*
                     ReturnSetInfo      *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
+                    TODO: Not working yet. Plus we can have set-returning function with
+                    a single column, not returning records
                     get_tuple_store(oldContext, messageContext, rsinfo, res, &isNull);
+                    */
                     PG_RETURN_NULL();
                 } else {
                     /* TODO: We get here if it is not set-returning function,
                        but in fact we can return more than just a single array! */
-                    result = get_array_datum(res, pinfo->rettype, 0, &isNull);
+                    result = get_array_datum(res, &pinfo->rettype, 0, &isNull);
                     fcinfo->isnull = isNull;
 
                     MemoryContextSwitchTo(oldContext);
@@ -237,12 +245,11 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     PG_RETURN_NULL();
 }
 
-Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col,  int *isNull)
+Datum get_array_datum(plcontainer_result res, plcTypeInfo *ret_type, int col,  int *isNull)
 {
     bool        typbyval;
     char        typalign;
     Oid         typeOid;
-    int32       typeMod;
     int16       typlen;
     char        typdelim;
     Oid         typinput,
@@ -271,8 +278,7 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col,  in
     /*
     * get the type of the column from the result
     */
-    parseTypeString(res->types[col], &typeOid, &typeMod);
-    typeOid = get_element_type(typeOid);
+    typeOid = get_element_type(ret_type->typeOid);
 
     get_type_io_data(typeOid, IOFunc_input,
                     &typlen,   &typbyval, &typalign,
@@ -287,13 +293,13 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col,  in
     nulls = (bool *) palloc(arr->meta->size * sizeof(bool));
 
     for(i = 0; i < arr->meta->size; i++){
-        if (arr->data[i].isnull){
+        if (arr->nulls[i]){
             nulls[i] = TRUE;
             have_nulls |= TRUE;
         } else {
             nulls[i] = FALSE;
             dvalues[i] = FunctionCall3(&inputproc,
-                                       CStringGetDatum(arr->data[i].value),
+                                       CStringGetDatum(((char**)arr->data)[i]),
                                        (Datum) 0,
                                        Int32GetDatum(-1));
         }
@@ -314,6 +320,7 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo ret_type, int col,  in
     return dvalue;
 }
 
+/*
 void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
         ReturnSetInfo *rsinfo, plcontainer_result res, int *isNull )
 {
@@ -329,9 +336,9 @@ void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
     char **values;
     int i,j;
 
-    /* TODO: Returning tuple, you will not have any tuple description for the
-     * function returning setof record. This needs to be fixed */
-    /* get the requested return tuple description */
+     * TODO: Returning tuple, you will not have any tuple description for the
+     * function returning setof record. This needs to be fixed *
+     * get the requested return tuple description *
     if (rsinfo->expectedDesc != NULL)
         tupdesc = CreateTupleDescCopy(rsinfo->expectedDesc);
     else {
@@ -361,17 +368,17 @@ void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
 
     attinmeta = TupleDescGetAttInMetadata(tupdesc);
 
-    /* OK, go to work */
+    * OK, go to work *
     rsinfo->returnMode = SFRM_Materialize;
     MemoryContextSwitchTo(oldContext);
 
-    /*
+     *
      * SFRM_Materialize mode expects us to return a NULL Datum. The actual
      * tuples are in our tuplestore and passed back through
      * rsinfo->setResult. rsinfo->setDesc is set to the tuple description
      * that we actually used to build our tuples with, so the caller can
      * verify we did what it was expecting.
-     */
+     *
     rsinfo->setDesc = tupdesc;
 
     for (i=0; i<res->rows;i++){
@@ -381,14 +388,14 @@ void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
             values[j] = res->data[i][j].value;
         }
 
-        /* construct the tuple */
+        * construct the tuple *
         tuple = BuildTupleFromCStrings(attinmeta, values);
         pfree(values);
 
-        /* switch to appropriate context while storing the tuple */
+        * switch to appropriate context while storing the tuple *
         oldContext = MemoryContextSwitchTo(messageContext);
 
-        /* now store it */
+        * now store it *
         tuplestore_puttuple(tupstore, tuple);
 
         MemoryContextSwitchTo(oldContext);
@@ -399,6 +406,7 @@ void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
 
     *isNull = TRUE;
 }
+*/
 
 void
 perm_fmgr_info(Oid functionId, FmgrInfo *finfo)

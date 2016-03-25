@@ -51,7 +51,7 @@ static void function_cache_up(int index);
 static plcProcInfo *function_cache_get(Oid funcOid);
 static void function_cache_put(plcProcInfo *func);
 static void free_proc_info(plcProcInfo *proc);
-static void fill_type_info(Oid typoid, plcTypeInfo *type);
+static void fill_type_info(Oid typeOid, plcTypeInfo *type);
 static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup);
 static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo,
                                    callreq req);
@@ -116,32 +116,30 @@ static void function_cache_put(plcProcInfo *func) {
 
 static void free_proc_info(plcProcInfo *proc) {
     int i;
-    for (i = 0; i < proc->nargs; i++) {
+    for (i = 0; i < proc->nargs; i++)
         free(proc->argnames[i]);
-        free(proc->argtypes[i].name);
-    }
     if (proc->nargs > 0) {
         free(proc->argnames);
         free(proc->argtypes);
     }
-    free(proc->rettype.name);
     free(proc);
 }
 
-static void fill_type_info(Oid typoid, plcTypeInfo *type) {
+static void fill_type_info(Oid typeOid, plcTypeInfo *type) {
     HeapTuple    typeTup;
     Form_pg_type typeStruct;
 
-    typeTup = SearchSysCache(TYPEOID, typoid, 0, 0, 0);
+    typeTup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
     if (!HeapTupleIsValid(typeTup))
-        elog(ERROR, "cache lookup failed for type %u", typoid);
+        elog(ERROR, "cache lookup failed for type %u", typeOid);
 
     typeStruct = (Form_pg_type)GETSTRUCT(typeTup);
     ReleaseSysCache(typeTup);
 
-    type->name   = strdup(NameStr(typeStruct->typname));
-    type->output = typeStruct->typoutput;
-    type->input  = typeStruct->typinput;
+    type->output  = typeStruct->typoutput;
+    type->input   = typeStruct->typinput;
+    type->type    = PLC_DATA_TEXT;
+    type->typeOid = typeOid;
 }
 
 /*
@@ -214,17 +212,17 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
         elog(ERROR, "cannot find proc with oid %u", procoid);
     }
 
-    if (fcinfo->nargs >0){
-		/*
-		 * look for the name of the argument so we can pass it to the client
-		 * currently
-		 */
-		argnamesArray = SysCacheGetAttr(PROCOID, procHeapTup,
-										Anum_pg_proc_proargnames, &isnull);
-		if (isnull) {
-			ReleaseSysCache(procHeapTup);
-			elog(ERROR, "Need to name arguments");
-		}
+    if (fcinfo->nargs > 0) {
+        /*
+         * look for the name of the argument so we can pass it to the client
+         * currently
+         */
+        argnamesArray = SysCacheGetAttr(PROCOID, procHeapTup,
+                                        Anum_pg_proc_proargnames, &isnull);
+        if (isnull) {
+            ReleaseSysCache(procHeapTup);
+            elog(ERROR, "Need to name arguments");
+        }
     }
     procTup = (Form_pg_proc)GETSTRUCT(procHeapTup);
 
@@ -235,7 +233,7 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
      */
     if (!plc_procedure_valid(pinfo, procHeapTup)) {
 
-    	/*
+        /*
          * Here we are using malloc as the function structure should be
          * available across the function handler call
          *
@@ -311,25 +309,42 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
 static void
 fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req) {
     int   i;
-    Datum val;
+    char *tmp;
+    int   len;
 
     req->nargs = pinfo->nargs;
     req->args  = pmalloc(sizeof(*req->args) * pinfo->nargs);
 
     for (i = 0; i < pinfo->nargs; i++) {
         req->args[i].name = pinfo->argnames[i];
-        req->args[i].type = pinfo->argtypes[i].name;
+        req->args[i].type = pinfo->argtypes[i].type;
 
         if (fcinfo->argnull[i]) {
-            //TODO: this can't be freed so it will probably fail
-            /*
-             * Use \N to mark NULL
-             */
-            req->args[i].value = pstrdup("\\N");
-        }else{
-            val                = fcinfo->arg[i];
-            req->args[i].value =
-                DatumGetCString(OidFunctionCall1(pinfo->argtypes[i].output, val));
+            req->args[i].data.isnull = 1;
+            req->args[i].data.value = NULL;
+        } else {
+            req->args[i].data.isnull = 0;
+            switch(req->args[i].type) {
+                case PLC_DATA_TEXT:
+                    /* TODO: This is not right, we need separately data and length! */
+                    tmp = DatumGetCString(OidFunctionCall1(pinfo->argtypes[i].output, fcinfo->arg[i]));
+                    len = strlen(tmp);
+                    req->args[i].data.value = (char*)pmalloc(len + 5);
+                    memcpy(req->args[i].data.value, &len, 4);
+                    memcpy(req->args[i].data.value + 4, tmp, len+1);
+                    break;
+                case PLC_DATA_INT1:
+                case PLC_DATA_INT2:
+                case PLC_DATA_INT4:
+                case PLC_DATA_INT8:
+                case PLC_DATA_FLOAT4:
+                case PLC_DATA_FLOAT8:
+                case PLC_DATA_ARRAY:
+                case PLC_DATA_RECORD:
+                case PLC_DATA_UDT:
+                default:
+                    lprintf(ERROR, "Type %d is not yet supported by Python container", (int)req->args[i].type);
+            }
         }
     }
 }
@@ -342,7 +357,7 @@ plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
     req->msgtype = MT_CALLREQ;
     req->proc.name = pinfo->name;
     req->proc.src  = pinfo->src;
-    req->retType   = pinfo->rettype.name;
+    req->retType   = pinfo->rettype.type;
 
     fill_callreq_arguments(fcinfo, pinfo, req);
 

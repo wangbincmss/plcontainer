@@ -1,6 +1,8 @@
 #ifndef PLPGJ_MESSAGE_SQL_H
 #define PLPGJ_MESSAGE_SQL_H
 
+#include "message_base.h"
+
 typedef enum {
     SQL_TYPE_INVALID = 0,
     SQL_TYPE_STATEMENT,
@@ -51,7 +53,7 @@ typedef struct str_sql_pexecute {
     sql_message_content;
     int planid;
     int nparams;
-    pparam params;
+    plcArgument *params;
     sql_action action;
 } * sql_pexecute;
 
@@ -78,9 +80,9 @@ typedef struct str_sql_msg_cursor_fetch {
     base_message_content;
     sql_message_content;
     char *cursorname;
-    unsigned int count;
+    int count;
     /** direction: 0 if forward, 1 backward */
-    unsigned short direction;
+    short direction;
 
 } * sql_msg_cursor_fetch;
 
@@ -118,8 +120,8 @@ typedef struct str_sql_msg_blob_read {
 typedef struct str_sql_msg_blob_write {
     base_message_content;
     sql_message_content;
-    long blobid;
-    raw data;
+    long     blobid;
+    rawdata *data;
 } sql_msg_blob_write;
 
 typedef struct str_sql_msg_blob_seek {

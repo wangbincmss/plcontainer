@@ -23,13 +23,14 @@ interpreted as representing official policies, either expressed or implied, of t
 #ifndef PLC_MESSAGE_FNS
 #define PLC_MESSAGE_FNS
 
-#include "common/messages/messages.h"
 #include "fmgr.h"
+#include "common/messages/messages.h"
 
 #define PLC_FUNCTION_CACHE_SIZE 5
 
 typedef struct {
-    char *name;
+    plcDatatype  type;
+    Oid          typeOid;
     RegProcedure output, input; /* used to convert a given value from/to "...." */
 } plcTypeInfo;
 
@@ -43,7 +44,7 @@ typedef struct {
     char            *src;
     int              nargs;
     plcTypeInfo      rettype;
-    char           **argnames;//[FUNC_MAX_ARGS];
+    char           **argnames;
     plcTypeInfo     *argtypes;
 } plcProcInfo;
 

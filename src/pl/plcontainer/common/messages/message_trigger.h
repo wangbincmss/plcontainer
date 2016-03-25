@@ -30,8 +30,8 @@ typedef struct {
     int colcount;
     char **colnames;
     char **coltypes;
-    pparam *_new;
-    pparam *_old;
+    plcArgument *_new;
+    plcArgument *_old;
 } str_msg_trigger_callreq;
 
 typedef str_msg_trigger_callreq *trigger_callreq;
@@ -41,7 +41,7 @@ typedef struct {
     char *tablename;
     char **colnames;
     int colcount;
-    pparam *_tuple;
+    plcArgument *_tuple;
 } str_msg_trigger_tupleresult;
 
 typedef str_msg_trigger_tupleresult *trigger_tupleres;

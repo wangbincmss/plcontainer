@@ -398,16 +398,16 @@ void handle_call(callreq req, plcConn* conn) {
     return;
 }
 
-raw matrix_iterator_next (plcontainer_iterator iter) {
+rawdata *matrix_iterator_next (plcontainer_iterator iter) {
     plcontainer_array_meta meta;
-    int *position;
-    SEXP mtx;
-    raw res;
+    int     *position;
+    SEXP     mtx;
+    rawdata *res;
 
     meta = (plcontainer_array_meta)iter->meta;
     position = (int*)iter->position;
     mtx = (SEXP)iter->data;
-    res = pmalloc(sizeof(str_raw));
+    res = pmalloc(sizeof(rawdata));
 
     //lprintf(WARNING, "Position: %d, %d", position[0], position[1]);
 

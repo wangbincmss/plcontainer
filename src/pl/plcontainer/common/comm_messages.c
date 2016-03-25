@@ -21,16 +21,15 @@ interpreted as representing official policies, either expressed or implied, of t
 */
 
 /**
- * file:			commm_messages.c
- * author:			PostgreSQL developement group.
- * author:			Laszlo Hornyak
+ * file:            commm_messages.c
+ * author:            PostgreSQL developement group.
+ * author:            Laszlo Hornyak
  */
 
 #include <stdlib.h>
 
 #include "comm_logging.h"
-#include "messages/message_callreq.h"
-#include "messages/message_result.h"
+#include "messages/messages.h"
 
 void free_callreq(callreq req) {
     int i;
@@ -42,8 +41,7 @@ void free_callreq(callreq req) {
     /* free the arguments */
     for (i = 0; i < req->nargs; i++) {
         pfree(req->args[i].name);
-        pfree(req->args[i].value);
-        pfree(req->args[i].type);
+        pfree(req->args[i].data.value);
     }
     pfree(req->args);
 
@@ -54,22 +52,20 @@ void free_callreq(callreq req) {
 void free_result(plcontainer_result res) {
     int i,j;
 
-    /* free the types array */
-    for (i = 0; i < res->cols; i++) {
-        pfree(res->types[i]);
-        pfree(res->names[i]);
-    }
+    /* free the types and names arrays */
     pfree(res->types);
+    for (i = 0; i < res->cols; i++)
+        pfree(res->names[i]);
     pfree(res->names);
 
     /* free the data array */
     for (i = 0; i < res->rows; i++) {
-    	for (j=0; j < res->cols;j++){
-    		if (res->data[i][j].value){
-    			/* free the data if it is not null */
-    			pfree(res->data[i][j].value);
-    		}
-    	}
+        for (j = 0; j < res->cols; j++) {
+            if (res->data[i][j].value) {
+                /* free the data if it is not null */
+                pfree(res->data[i][j].value);
+            }
+        }
         /* free the row */
         pfree(res->data[i]);
     }
@@ -90,10 +86,13 @@ plcontainer_array plc_alloc_array(int ndims) {
 
 void plc_free_array(plcontainer_array arr) {
     int i;
-    for (i = 0; i < arr->meta->size; i++)
-        if (arr->data[i].value)
-            pfree(arr->data[i].value);
+    if (arr->meta->type == PLC_DATA_TEXT) {
+        for (i = 0; i < arr->meta->size; i++)
+            if ( ((char**)arr->data)[i] != NULL )
+                pfree(((char**)arr->data)[i]);
+    }
     pfree(arr->data);
+    pfree(arr->nulls);
     pfree(arr->meta->dims);
     pfree(arr->meta);
     pfree(arr);

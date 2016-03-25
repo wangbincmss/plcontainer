@@ -38,7 +38,7 @@ void python_init() {
 
 void handle_call(callreq req, plcConn* conn) {
     int              i;
-    int                 returnedNull = false;
+    int              returnedNull = false;
     char *           func, *txt;
     plcontainer_result res;
     error_message    err;
@@ -77,14 +77,29 @@ void handle_call(callreq req, plcConn* conn) {
     /* create the argument list */
     args = PyTuple_New(req->nargs);
     for (i = 0; i < req->nargs; i++) {
-        PyObject *arg;
-        /*
-        *  Use \N as null
-        */
-        if ( strcmp( req->args[i].value, "\\N" ) == 0 ) {
+        PyObject *arg = NULL;
+
+        if (req->args[i].data.isnull) {
             Py_INCREF(Py_None);
             arg = Py_None;
         } else {
+            switch (req->args[i].type) {
+                case PLC_DATA_TEXT:
+                    arg = PyString_FromString((char *)(req->args[i].data.value+4));
+                    break;
+                case PLC_DATA_INT1:
+                case PLC_DATA_INT2:
+                case PLC_DATA_INT4:
+                case PLC_DATA_INT8:
+                case PLC_DATA_FLOAT4:
+                case PLC_DATA_FLOAT8:
+                case PLC_DATA_ARRAY:
+                case PLC_DATA_RECORD:
+                case PLC_DATA_UDT:
+                default:
+                    lprintf(ERROR, "Type %d is not yet supported by Python container", (int)req->args[i].type);
+            }
+            /*
             if ( strcmp(req->args[i].type, "bool") == 0 ) {
                 if( strcmp(req->args[i].value,"t") == 0 ) {
                     Py_INCREF(Py_True);
@@ -107,10 +122,10 @@ void handle_call(callreq req, plcConn* conn) {
                 arg = PyFloat_FromString(PyString_FromString((char *)req->args[i].value), NULL);
             } else if (strcmp(req->args[i].type, "float8") == 0) {
                 arg = PyFloat_FromString(PyString_FromString((char *)req->args[i].value), NULL);
-
             } else {
                 lprintf(ERROR, "unknown type %s", req->args[i].type);
             }
+            */
         }
         if (arg == NULL) {
             goto error;
@@ -127,7 +142,7 @@ void handle_call(callreq req, plcConn* conn) {
         goto error;
     }
     if (retval == Py_None){
-        returnedNull=true;
+        returnedNull = true;
         txt = NULL;
     } else {
         val = PyObject_Str(retval);
@@ -155,13 +170,17 @@ void handle_call(callreq req, plcConn* conn) {
 
     /* use strdup since free_result assumes values are on the heap */
     res->names[0] = pstrdup("result");
-    res->types[0] = pstrdup("text");
+    res->types[0] = PLC_DATA_TEXT;
 
-    res->data[0]->isnull = returnedNull;
-    if ( returnedNull ){
-    	res->data[0]->value  = NULL;
-    }else{
-    	res->data[0]->value  = pstrdup(txt);
+    res->data[0][0].isnull = returnedNull;
+    if (returnedNull) {
+        res->data[0][0].value  = NULL;
+    } else {
+        int len = 0;
+        len = strlen(txt);
+        res->data[0][0].value = (char*)pmalloc(len + 5);
+        memcpy(res->data[0][0].value, &len, 4);
+        memcpy(res->data[0][0].value+4, txt, len+1);
     }
 
     /* send the result back */
@@ -263,12 +282,14 @@ static char * create_python_func(callreq req) {
 /* plpy methods */
 
 static PyObject * plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
-    int                i, j;
-    int                res = 0;
-    sql_msg_statement  msg;
-    plcontainer_result result;
-    message            resp;
-    PyObject *         pyresult, *pydict, *pyval, *tmp;
+    int                 i, j;
+    int                 res = 0;
+    sql_msg_statement   msg;
+    plcontainer_result  result;
+    message             resp;
+    PyObject           *pyresult,
+                       *pydict,
+                       *pyval;
 
     if (!PyString_Check(pyquery)) {
         PyErr_SetString(PyExc_TypeError, "expected the query string");
@@ -316,23 +337,41 @@ receive:
         pydict = PyDict_New();
 
         for (j = 0; j < result->cols; j++) {
-            /* just look at the first char, hacky */
-            switch (result->types[j][0]) {
-            case 'i':
-                pyval = PyLong_FromString(result->data[i][j].value, NULL, 0);
-                break;
-            case 'f':
-                tmp   = PyString_FromString(result->data[i][j].value);
-                pyval = PyFloat_FromString(tmp, NULL);
-                Py_DECREF(tmp);
-                break;
-            case 't':
-                pyval = PyString_FromString(result->data[i][j].value);
-                break;
-            default:
-                PyErr_Format(PyExc_TypeError, "unknown type %s",
-                             result->types[i]);
-                return NULL;
+            switch (result->types[j]) {
+                case PLC_DATA_TEXT:
+                    pyval = PyString_FromString(result->data[i][j].value+4);
+                    break;
+                case PLC_DATA_INT1:
+                case PLC_DATA_INT2:
+                case PLC_DATA_INT4:
+                case PLC_DATA_INT8:
+                case PLC_DATA_FLOAT4:
+                case PLC_DATA_FLOAT8:
+                case PLC_DATA_ARRAY:
+                case PLC_DATA_RECORD:
+                case PLC_DATA_UDT:
+                default:
+                    PyErr_Format(PyExc_TypeError,
+                                 "Type %d is not yet supported by Python container",
+                                 (int)result->types[j]);
+                    return NULL;
+                /*
+                case 'i':
+                    pyval = PyLong_FromString(result->data[i][j].value, NULL, 0);
+                    break;
+                case 'f':
+                    tmp   = PyString_FromString(result->data[i][j].value);
+                    pyval = PyFloat_FromString(tmp, NULL);
+                    Py_DECREF(tmp);
+                    break;
+                case 't':
+                    pyval = PyString_FromString(result->data[i][j].value);
+                    break;
+                default:
+                    PyErr_Format(PyExc_TypeError, "unknown type %d",
+                                 result->types[i]);
+                    return NULL;
+                */
             }
 
             if (PyDict_SetItemString(pydict, result->names[j], pyval) != 0) {
