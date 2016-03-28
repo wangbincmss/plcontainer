@@ -11,6 +11,13 @@ select test_spi_tup('select fname, lname,username from users order by 1,2,3');
 select test_spi_ta('select oid, typname from pg_type where typname = ''oid'' or typname = ''text''');
 */
 select test_mia();
+select rint2(1);
+select rint4(1);
+select rint8(1);
+select rbool('t');
+select rbool('f');
+select rfloat4(1.234);
+select rfloat8(1.234);
 select rlog100();
 select pg_spi_exec('select 1');
 select pyint(NULL::int2);

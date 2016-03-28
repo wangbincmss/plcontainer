@@ -138,7 +138,34 @@ static void fill_type_info(Oid typeOid, plcTypeInfo *type) {
 
     type->output  = typeStruct->typoutput;
     type->input   = typeStruct->typinput;
-    type->type    = PLC_DATA_TEXT;
+
+    switch(typeOid){
+    	case BOOLOID:
+    		type->type = PLC_DATA_INT1;
+    		break;
+    	case INT2OID:
+    		type->type = PLC_DATA_INT2;
+    		break;
+    	case INT4OID:
+    		type->type = PLC_DATA_INT4;
+    		break;
+    	case INT8OID:
+    		type->type = PLC_DATA_INT8;
+    		break;
+    	case FLOAT4OID:
+    		type->type = PLC_DATA_FLOAT4;
+    		break;
+    	case FLOAT8OID:
+    		type->type = PLC_DATA_FLOAT8;
+    		break;
+    	case TEXTOID:
+    	case VARCHAROID:
+    	case CHAROID:
+    	default:
+    		type->type = PLC_DATA_TEXT;
+    		break;
+
+    }
     type->typeOid = typeOid;
 }
 
@@ -334,16 +361,34 @@ fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req)
                     memcpy(req->args[i].data.value + 4, tmp, len+1);
                     break;
                 case PLC_DATA_INT1:
+                    req->args[i].data.value = (char*)pmalloc(1);
+                    req->args[i].data.value[0] = DatumGetBool(fcinfo->arg[i]);
+                	break;
                 case PLC_DATA_INT2:
+                    req->args[i].data.value = (char*)pmalloc(2);
+                    memcpy(req->args[i].data.value, &fcinfo->arg[i], 2);
+                	break;
                 case PLC_DATA_INT4:
+                    req->args[i].data.value = (char*)pmalloc(4);
+                    memcpy(req->args[i].data.value, &fcinfo->arg[i], 4);
+                	break;
                 case PLC_DATA_INT8:
+                    req->args[i].data.value = (char*)pmalloc(8);
+                    memcpy(req->args[i].data.value, &fcinfo->arg[i], 8);
+                	break;
                 case PLC_DATA_FLOAT4:
+                    req->args[i].data.value = (char*)pmalloc(4);
+                    memcpy(req->args[i].data.value, &fcinfo->arg[i], 4);
+                    break;
                 case PLC_DATA_FLOAT8:
+                    req->args[i].data.value = (char*)pmalloc(8);
+                    memcpy(req->args[i].data.value, &fcinfo->arg[i], 8);
+                    break;
                 case PLC_DATA_ARRAY:
                 case PLC_DATA_RECORD:
                 case PLC_DATA_UDT:
                 default:
-                    lprintf(ERROR, "Type %d is not yet supported by Python container", (int)req->args[i].type);
+                    lprintf(ERROR, "Type %d is not yet supported by PLcontainer", (int)req->args[i].type);
             }
         }
     }

@@ -197,17 +197,16 @@ error:
     return;
 
 }
-static char *get_base_type(SEXP rval)
+static plcDatatype get_base_type(SEXP rval)
 {
     switch (TYPEOF(rval)) {
         case INTSXP:
-            return "_int8";
+            return PLC_DATA_INT8;
         case REALSXP:
-            return "_float8";
+            return PLC_DATA_FLOAT8;
         case STRSXP:
-            return "_text";
         default:
-            return NULL;
+            return PLC_DATA_TEXT;
     }
 }
 
@@ -302,7 +301,7 @@ void handle_call(callreq req, plcConn* conn) {
         for (col = 0; col < cols; col++) {
 
             res->names[col] = pstrdup(CHAR(STRING_ELT(names,col)));
-            res->types[col] = pstrdup("text");
+            res->types[col] = PLC_DATA_TEXT;
 
             if (TYPEOF(strres) == VECSXP) {
                 PROTECT(dfcol = VECTOR_ELT(strres, col));
@@ -369,9 +368,9 @@ void handle_call(callreq req, plcConn* conn) {
         res->rows = res->cols = 1;
         res->names[0]         = pstrdup("result");
         res->data[0]->isnull  = false;
-        if (isMatrix(strres)) {
-            char* basetype = get_base_type(strres);
-            if (basetype == NULL) {
+        if ( isMatrix(strres) && req->retType != PLC_DATA_TEXT ) {
+            plcDatatype basetype = get_base_type(strres);
+            if (basetype > PLC_DATA_TEXT) {
                 char *errmsg = pmalloc(100);
                 sprintf(errmsg,
                         "Matrices of the type '%d' are not supported yet",
@@ -379,11 +378,51 @@ void handle_call(callreq req, plcConn* conn) {
                 send_error(conn, errmsg);
                 pfree(errmsg);
             }
-            res->types[0]         = pstrdup(basetype);
+            res->types[0]         = basetype;
             res->data[0]->value   = (char*)matrix_iterator(strres);
         } else {
-            res->types[0]         = pstrdup("text");
-            res->data[0]->value   = pstrdup(CHAR(asChar(strres)));
+        	char *ret = NULL;
+            switch(res->types[0] = req->retType){
+            	case PLC_DATA_INT1:
+                    ret = pmalloc(1);
+                    *((bool *)ret) = asLogical(strres);
+            		break;
+            	case PLC_DATA_INT2:
+                    ret = (char *)pmalloc(sizeof(int16));
+                    *((int16 *)ret) = asInteger(strres);
+            		break;
+            	case PLC_DATA_INT4:
+                    ret = (char *)pmalloc(sizeof(int32));
+                    *((int32 *)ret) = asInteger(strres);
+            		break;
+            	case PLC_DATA_INT8:
+                    ret = (char *)pmalloc(sizeof(int64));
+                    //TODO: THIS IS WRONG
+                    *((int64 *)ret) = asInteger(strres);
+            		break;
+
+            	case PLC_DATA_FLOAT4:
+                    ret = (char *)pmalloc(sizeof(float4));
+                    *((float4 *)ret) = (float4)asReal(strres);
+                    break;
+            	case PLC_DATA_FLOAT8:
+                    ret = (char *)pmalloc(sizeof(float8));
+                    *((float8 *)ret) = asReal(strres);
+                    break;
+            	case PLC_DATA_TEXT:
+                    ret   = pstrdup(CHAR(asChar(strres)));
+                    break;
+            	case PLC_DATA_ARRAY:
+            	case PLC_DATA_RECORD:
+            	case PLC_DATA_UDT:
+                    res->data[0]->value   = pstrdup("NOT IMPLEMENTED");
+                    break;
+
+
+
+            }
+            res->data[0]->value = ret;
+
         }
     }
 
@@ -397,6 +436,7 @@ void handle_call(callreq req, plcConn* conn) {
 
     return;
 }
+
 
 rawdata *matrix_iterator_next (plcontainer_iterator iter) {
     plcontainer_array_meta meta;
@@ -581,30 +621,29 @@ static char * create_r_func(callreq req) {
     return mrc;
 }
 
-#define INTEGER_ARG 1
-#define NUMBER_ARG  2
-#define BOOL_ARG    3
-#define STRING_ARG  4
 
 /*
  * create an R vector of a given type and size based on pg output function oid
  */
 static SEXP
-get_r_vector(int type_id, int numels)
+get_r_vector(plcDatatype type_id, int numels)
 {
     SEXP result;
 
     switch (type_id){
-    case INTEGER_ARG:
+    case PLC_DATA_INT2:
+    case PLC_DATA_INT4:
         PROTECT( result = NEW_INTEGER(numels) );
         break;
-    case NUMBER_ARG:
+    case PLC_DATA_INT8:
+    case PLC_DATA_FLOAT4:
+    case PLC_DATA_FLOAT8:
         PROTECT( result = NEW_NUMERIC(numels) );
         break;
-    case BOOL_ARG:
+    case PLC_DATA_INT1:
         PROTECT( result = NEW_LOGICAL(numels) );
         break;
-    case STRING_ARG:
+    case PLC_DATA_TEXT:
         default:
         PROTECT( result = NEW_CHARACTER(numels) );
         break;
@@ -612,32 +651,32 @@ get_r_vector(int type_id, int numels)
     UNPROTECT(1);
     return result;
 }
-
-static int find_type(const char *type)
+#ifdef XXX
+static plcDatatype find_type(const char *type)
 {
     if ( strcmp(type, "bool") == 0 ) {
-        return BOOL_ARG;
+        return PLC_DATA_INT1;
     } else if ( (strcmp(type, "varchar") == 0)
              || (strcmp(type, "text") == 0) ) {
-        return STRING_ARG;
-    } else if ( (strcmp(type, "int2") == 0)
-            || (strcmp(type, "int4") == 0) ) {
-        return INTEGER_ARG;
+        return PLC_DATA_TEXT;
+    } else if ( strcmp(type, "int2") == 0 ){
+        return PLC_DATA_INT2;
+    }else if ( strcmp(type, "int4") == 0 ) {
+        return PLC_DATA_INT4;
     } else if ( (strcmp(type, "int8") == 0)
             || (strcmp(type, "float4") == 0)
             || (strcmp(type, "float8") == 0) ){
-        return NUMBER_ARG;
+        return PLC_DATA_FLOAT8;
     }else{
         return STRING_ARG;
     }
 }
-
+#endif
 SEXP convert_args(callreq req)
 {
     SEXP    rargs, element;
 
-    int    i,
-           arg_type;
+    int    i;
 
     /* create the argument list */
     PROTECT(rargs = allocVector(VECSXP, req->nargs));
@@ -647,41 +686,59 @@ SEXP convert_args(callreq req)
         /*
         *  Use \N as null
         */
-        if ( strcmp( req->args[i].value, "\\N" ) == 0 ) {
+        if ( req->args[i].data.isnull == TRUE ) {
             SET_VECTOR_ELT( rargs, i, R_NilValue );
         } else {
-            arg_type =  find_type(req->args[i].type);
-            switch(arg_type){
+            switch( req->args[i].type ){
 
-            case BOOL_ARG:
-                PROTECT(element = get_r_vector(BOOL_ARG,1));
-                LOGICAL_DATA(element)[0] = (req->args[i].value[0]=='t'?1:0);
+            case PLC_DATA_INT1:
+                PROTECT(element = get_r_vector(PLC_DATA_INT1,1));
+                LOGICAL(element)[0] = *((bool*)req->args[i].data.value);
                 SET_VECTOR_ELT( rargs, i, element );
                 UNPROTECT(1);
                 break;
 
-            case STRING_ARG:
+            case PLC_DATA_TEXT:
 
-                PROTECT(element = get_r_vector(STRING_ARG,1));
-                SET_STRING_ELT(element, 0, COPY_TO_USER_STRING((char *)(req->args[i].value)));
+                PROTECT(element = get_r_vector(PLC_DATA_TEXT,1));
+                SET_STRING_ELT(element, 0, COPY_TO_USER_STRING((char *)(req->args[i].data.value+4)));
                 SET_VECTOR_ELT( rargs, i, element );
                 break;
 
-            case INTEGER_ARG:
-
-                PROTECT(element = get_r_vector(INTEGER_ARG,1));
-                INTEGER_DATA(element)[0] = atof((char *)req->args[i].value);
+            case PLC_DATA_INT2:
+                PROTECT(element = get_r_vector(PLC_DATA_INT2,1));
+                INTEGER(element)[0] = *((short *)req->args[i].data.value);
+                SET_VECTOR_ELT( rargs, i, element );
+                break;
+            case PLC_DATA_INT4:
+                PROTECT(element = get_r_vector(PLC_DATA_INT4,1));
+                INTEGER(element)[0] = *((int *)req->args[i].data.value);
                 SET_VECTOR_ELT( rargs, i, element );
                 break;
 
-            case NUMBER_ARG:
-                PROTECT(element = get_r_vector(NUMBER_ARG,1));
-                REAL(element)[0] = atof((char *)req->args[i].value);
+            case PLC_DATA_INT8:
+                PROTECT(element = get_r_vector(PLC_DATA_INT8,1));
+                float tmp = *((int64 *)req->args[i].data.value);
+                REAL(element)[0] = tmp ;
                 SET_VECTOR_ELT( rargs, i, element );
                 break;
 
+            case PLC_DATA_FLOAT4:
+                PROTECT(element = get_r_vector(PLC_DATA_FLOAT4,1));
+                REAL(element)[0] = *((float4 *)req->args[i].data.value);
+                SET_VECTOR_ELT( rargs, i, element );
+                break;
+            case PLC_DATA_FLOAT8:
+                PROTECT(element = get_r_vector(PLC_DATA_FLOAT8,1));
+                REAL(element)[0] = *((float8 *)req->args[i].data.value);
+                SET_VECTOR_ELT( rargs, i, element );
+                break;
+
+            case PLC_DATA_ARRAY:
+            case PLC_DATA_RECORD:
+            case PLC_DATA_UDT:
             default:
-                lprintf(ERROR, "unknown type %s", req->args[i].type);
+                lprintf(ERROR, "unknown type %d", req->args[i].type);
             }
         }
     }
@@ -753,18 +810,22 @@ plr_quote_ident(SEXP rval)
  * given a single non-array pg value, convert to its R value representation
  */
 static void
-pg_get_one_r(char *value,  int column_type, SEXP *obj, int elnum)
+pg_get_one_r(char *value,  plcDatatype column_type, SEXP *obj, int elnum)
 {
     switch (column_type)
     {
-        case INTEGER_ARG:
+        case PLC_DATA_INT2:
+        case PLC_DATA_INT4:
             /* 2 and 4 byte integer pgsql datatype => use R INTEGER */
             if (value)
                 INTEGER_DATA(*obj)[elnum] = atoi(value);
             else
                 INTEGER_DATA(*obj)[elnum] = NA_INTEGER;
             break;
-        case NUMBER_ARG:
+        case PLC_DATA_INT8:
+        case PLC_DATA_FLOAT4:
+        case PLC_DATA_FLOAT8:
+
             /*
              * Other numeric types => use R REAL
              * Note pgsql int8 is mapped to R REAL
@@ -775,12 +836,13 @@ pg_get_one_r(char *value,  int column_type, SEXP *obj, int elnum)
             else
                 NUMERIC_DATA(*obj)[elnum] = NA_REAL;
             break;
-        case BOOL_ARG:
+        case PLC_DATA_INT1:
             if (value)
                 LOGICAL_DATA(*obj)[elnum] = ((*value == 't') ? 1 : 0);
             else
                 LOGICAL_DATA(*obj)[elnum] = NA_LOGICAL;
             break;
+        case PLC_DATA_TEXT:
         default:
             /* Everything else is defaulted to string */
             if (value)
@@ -803,8 +865,8 @@ plr_SPI_exec( SEXP rsql )
                     fldvec;
 
     int             res = 0,
-                    i,j,
-                    column_type;
+                    i,j;
+
     char             buf[256];
 
     sql_msg_statement  msg;
@@ -877,16 +939,15 @@ plr_SPI_exec( SEXP rsql )
          * set the names of the column
          */
         SET_STRING_ELT(names, j, Rf_mkChar(result->names[j]));
-        column_type = find_type(result->types[0]);
 
         //create a vector of the type that is rows long
-        PROTECT(fldvec = get_r_vector(column_type, result->rows));
+        PROTECT(fldvec = get_r_vector(result->types[0], result->rows));
 
         for ( i=0; i<result->rows; i++ ){
             /*
              * store the value
              */
-            pg_get_one_r(result->data[i][j].value, column_type, &fldvec, i);
+            pg_get_one_r(result->data[i][j].value, result->types[0], &fldvec, i);
         }
 
         UNPROTECT(1);

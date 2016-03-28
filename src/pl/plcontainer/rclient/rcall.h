@@ -11,6 +11,7 @@
 
 // Processing of the Greenplum function call
 void handle_call(callreq req, plcConn* conn);
-raw matrix_iterator_next (plcontainer_iterator iter);
-
+/*
+ * raw matrix_iterator_next (plcontainer_iterator iter);
+*/
 #endif /* __RCALL_H__ */

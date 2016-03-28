@@ -13,6 +13,30 @@ create or replace function test_mia() returns int[] as $$
 as.matrix(array(1:10,c(2,5)))
 $$
 language 'plcontainer';
+CREATE OR REPLACE FUNCTION rint2(i int2) RETURNS int2 AS $$
+# container: plc_r
+return (as.integer(i))
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rint4(i int4) RETURNS int4 AS $$
+# container: plc_r
+return (as.integer(i))
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rint8(i int8) RETURNS int8 AS $$
+# container: plc_r
+return (as.integer(i))
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rbool(b bool) RETURNS bool AS $$
+# container: plc_r
+return (as.logical(b))
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rfloat4(f float4) RETURNS float4 AS $$
+# container: plc_r
+return (as.numeric(f))
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rfloat8(f float8) RETURNS float8 AS $$
+# container: plc_r
+return (as.numeric(f))
+$$ LANGUAGE plcontainer;
 /* really stupid function just to get the module loaded
 */
 CREATE OR REPLACE FUNCTION rlog100() RETURNS text AS $$
