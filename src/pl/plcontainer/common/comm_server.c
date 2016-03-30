@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 
 #include "comm_channel.h"
-#include "comm_logging.h"
+#include "comm_utils.h"
 #include "comm_connectivity.h"
 #include "comm_server.h"
 

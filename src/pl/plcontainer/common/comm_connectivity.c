@@ -8,7 +8,7 @@
 #include <stdio.h>
 #include <arpa/inet.h>
 
-#include "comm_logging.h"
+#include "comm_utils.h"
 #include "comm_connectivity.h"
 
 static ssize_t plcSocketRecv(plcConn *conn, void *ptr, size_t len);
@@ -48,16 +48,16 @@ plcConn * plcConnInit(int sock) {
     plcConn *conn;
 
     // Initializing main structures
-    conn = (plcConn*)malloc(sizeof(plcConn));
-    conn->buffer[PLC_INPUT_BUFFER]  = (plcBuffer*)malloc(sizeof(plcBuffer));
-    conn->buffer[PLC_OUTPUT_BUFFER] = (plcBuffer*)malloc(sizeof(plcBuffer));
+    conn = (plcConn*)plc_top_alloc(sizeof(plcConn));
+    conn->buffer[PLC_INPUT_BUFFER]  = (plcBuffer*)plc_top_alloc(sizeof(plcBuffer));
+    conn->buffer[PLC_OUTPUT_BUFFER] = (plcBuffer*)plc_top_alloc(sizeof(plcBuffer));
 
     // Initializing buffers
-    conn->buffer[PLC_INPUT_BUFFER]->data = (char*)malloc(PLC_BUFFER_SIZE);
+    conn->buffer[PLC_INPUT_BUFFER]->data = (char*)plc_top_alloc(PLC_BUFFER_SIZE);
     conn->buffer[PLC_INPUT_BUFFER]->bufSize = PLC_BUFFER_SIZE;
     conn->buffer[PLC_INPUT_BUFFER]->pStart = 0;
     conn->buffer[PLC_INPUT_BUFFER]->pEnd = 0;
-    conn->buffer[PLC_OUTPUT_BUFFER]->data = (char*)malloc(PLC_BUFFER_SIZE);
+    conn->buffer[PLC_OUTPUT_BUFFER]->data = (char*)plc_top_alloc(PLC_BUFFER_SIZE);
     conn->buffer[PLC_OUTPUT_BUFFER]->bufSize = PLC_BUFFER_SIZE;
     conn->buffer[PLC_OUTPUT_BUFFER]->pStart = 0;
     conn->buffer[PLC_OUTPUT_BUFFER]->pEnd = 0;
@@ -113,11 +113,11 @@ error:
 void plcDisconnect(plcConn *conn) {
     if (conn != NULL) {
         close(conn->sock);
-        free(conn->buffer[PLC_INPUT_BUFFER]->data);
-        free(conn->buffer[PLC_OUTPUT_BUFFER]->data);
-        free(conn->buffer[PLC_INPUT_BUFFER]);
-        free(conn->buffer[PLC_OUTPUT_BUFFER]);
-        free(conn);
+        pfree(conn->buffer[PLC_INPUT_BUFFER]->data);
+        pfree(conn->buffer[PLC_OUTPUT_BUFFER]->data);
+        pfree(conn->buffer[PLC_INPUT_BUFFER]);
+        pfree(conn->buffer[PLC_OUTPUT_BUFFER]);
+        pfree(conn);
     }
     return;
 }
@@ -155,13 +155,13 @@ static int plcBufferMaybeFlush (plcConn *conn, int isForse) {
          */
         if (buf->bufSize - buf->pEnd > PLC_BUFFER_SIZE) {
             int newSize = (buf->pEnd / PLC_BUFFER_SIZE + 1 ) * PLC_BUFFER_SIZE;
-            newBuffer = (char*)malloc(newSize);
+            newBuffer = (char*)plc_top_alloc(newSize);
             if (newBuffer == NULL) {
                 lprintf(ERROR, "plcBufferMaybeFlush: Cannot allocate %d bytes "
                                "for output buffer", newSize);
                 return -1;
             }
-            free(buf->data);
+            pfree(buf->data);
             buf->data = newBuffer;
             buf->bufSize = newSize;
         }
@@ -213,7 +213,7 @@ static int plcBufferMaybeGrow (plcConn *conn, int bufType, size_t bufAppend) {
     // If not enough space in buffer to handle this size of data
     if (buf->bufSize - buf->pEnd - PLC_BUFFER_MIN_FREE < (int)bufAppend) {
         newSize = ((buf->pEnd + bufAppend) / PLC_BUFFER_SIZE + 1) * PLC_BUFFER_SIZE;
-        newBuffer = (char*)malloc(newSize);
+        newBuffer = (char*)plc_top_alloc(newSize);
         if (newBuffer == NULL) {
             lprintf(ERROR, "plcBufferMaybeGrow: Cannot allocate %d bytes for buffer",
                            newSize);
@@ -222,7 +222,7 @@ static int plcBufferMaybeGrow (plcConn *conn, int bufType, size_t bufAppend) {
         memcpy(newBuffer,
                buf->data + buf->pStart,
                (size_t)(buf->pEnd - buf->pStart));
-        free(buf->data);
+        pfree(buf->data);
         buf->data = newBuffer;
         buf->pEnd = buf->pEnd - buf->pStart;
         buf->pStart = 0;

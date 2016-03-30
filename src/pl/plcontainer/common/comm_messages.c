@@ -28,7 +28,7 @@ interpreted as representing official policies, either expressed or implied, of t
 
 #include <stdlib.h>
 
-#include "comm_logging.h"
+#include "comm_utils.h"
 #include "messages/messages.h"
 
 void free_callreq(callreq req) {

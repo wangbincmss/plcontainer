@@ -43,7 +43,7 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "utils/datum.h"
 
 /* message and function definitions */
-#include "common/comm_logging.h"
+#include "common/comm_utils.h"
 #include "common/messages/messages.h"
 #include "message_fns.h"
 
@@ -117,12 +117,12 @@ static void function_cache_put(plcProcInfo *func) {
 static void free_proc_info(plcProcInfo *proc) {
     int i;
     for (i = 0; i < proc->nargs; i++)
-        free(proc->argnames[i]);
+        pfree(proc->argnames[i]);
     if (proc->nargs > 0) {
-        free(proc->argnames);
-        free(proc->argtypes);
+        pfree(proc->argnames);
+        pfree(proc->argtypes);
     }
-    free(proc);
+    pfree(proc);
 }
 
 static void fill_type_info(Oid typeOid, plcTypeInfo *type) {
@@ -136,6 +136,7 @@ static void fill_type_info(Oid typeOid, plcTypeInfo *type) {
     typeStruct = (Form_pg_type)GETSTRUCT(typeTup);
     ReleaseSysCache(typeTup);
 
+    type->typeOid = typeOid;
     type->output  = typeStruct->typoutput;
     type->input   = typeStruct->typinput;
 
@@ -166,7 +167,6 @@ static void fill_type_info(Oid typeOid, plcTypeInfo *type) {
     		break;
 
     }
-    type->typeOid = typeOid;
 }
 
 /*
@@ -261,12 +261,12 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
     if (!plc_procedure_valid(pinfo, procHeapTup)) {
 
         /*
-         * Here we are using malloc as the function structure should be
+         * Here we are using plc_top_alloc as the function structure should be
          * available across the function handler call
          *
          * Note: we free the procedure from within function_put_cache below
          */
-        pinfo = malloc(sizeof(plcProcInfo));
+        pinfo = plc_top_alloc(sizeof(plcProcInfo));
         if (pinfo == NULL) {
             elog(FATAL, "Cannot allocate memory for plcProcInfo structure");
         }
@@ -279,7 +279,7 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
 
         pinfo->nargs = procTup->pronargs;
         if (pinfo->nargs > 0) {
-            pinfo->argtypes = malloc(pinfo->nargs * sizeof(plcTypeInfo));
+            pinfo->argtypes = plc_top_alloc(pinfo->nargs * sizeof(plcTypeInfo));
             for (i = 0; i < pinfo->nargs; i++) {
                 fill_type_info(procTup->proargtypes.values[i], pinfo->argtypes + i);
             }
@@ -303,10 +303,10 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
                 elog(FATAL, "something bad happened, nargs != len");
             }
 
-            pinfo->argnames = malloc(pinfo->nargs * sizeof(char*));
+            pinfo->argnames = plc_top_alloc(pinfo->nargs * sizeof(char*));
             for (i = 0; i < pinfo->nargs; i++) {
                 pinfo->argnames[i] =
-                    strdup(DatumGetCString(
+                    plc_top_strdup(DatumGetCString(
                             DirectFunctionCall1(textout, argnames[i])
                         ));
             }
@@ -320,11 +320,11 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
         srcdatum = SysCacheGetAttr(PROCOID, procHeapTup, Anum_pg_proc_prosrc, &isnull);
         if (isnull)
             elog(ERROR, "null prosrc");
-        pinfo->src = strdup(DatumGetCString(DirectFunctionCall1(textout, srcdatum)));
+        pinfo->src = plc_top_strdup(DatumGetCString(DirectFunctionCall1(textout, srcdatum)));
         namedatum = SysCacheGetAttr(PROCOID, procHeapTup, Anum_pg_proc_proname, &isnull);
         if (isnull)
             elog(ERROR, "null proname");
-        pinfo->name = strdup(DatumGetCString(DirectFunctionCall1(nameout, namedatum)));
+        pinfo->name = plc_top_strdup(DatumGetCString(DirectFunctionCall1(nameout, namedatum)));
 
         /* Cache the function for later use */
         function_cache_put(pinfo);

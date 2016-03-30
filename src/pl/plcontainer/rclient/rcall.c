@@ -26,7 +26,7 @@
 #undef ERROR
 
 #include "common/comm_channel.h"
-#include "common/comm_logging.h"
+#include "common/comm_utils.h"
 #include "common/comm_connectivity.h"
 #include "common/comm_server.h"
 #include "rcall.h"
