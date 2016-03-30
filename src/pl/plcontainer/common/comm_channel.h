@@ -32,6 +32,14 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "comm_connectivity.h"
 #include "messages/messages.h"
 
+//#define PLCONTAINER_CHANNEL_DEBUG
+
+#ifdef PLCONTAINER_CHANNEL_DEBUG
+    #define debug_print(...) lprintf(__VA_ARGS__)
+#else
+    #define debug_print(...)
+#endif
+
 int plcontainer_channel_send(plcConn *conn, message msg);
 int plcontainer_channel_receive(plcConn *conn, message *plcMsg);
 

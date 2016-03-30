@@ -27,7 +27,7 @@ interpreted as representing official policies, either expressed or implied, of t
  */
 
 #include "comm_channel.h"
-#include "comm_logging.h"
+#include "comm_utils.h"
 #include "comm_connectivity.h"
 
 #include <stdio.h>
@@ -147,42 +147,42 @@ static int message_end(plcConn *conn) {
 }
 
 static int send_char(plcConn *conn, char c) {
-    lprintf(WARNING, "    ===> sending int8 '%d'", (int)c);
+    debug_print(WARNING, "    ===> sending int8 '%d'", (int)c);
     return plcBufferAppend(conn, &c, 1);
 }
 
 static int send_int16(plcConn *conn, short i) {
-    lprintf(WARNING, "    ===> sending int16 '%d'", (int)i);
+    debug_print(WARNING, "    ===> sending int16 '%d'", (int)i);
     return plcBufferAppend(conn, (char*)&i, 2);
 }
 
 static int send_int32(plcConn *conn, int i) {
-    lprintf(WARNING, "    ===> sending int32 '%d'", i);
+    debug_print(WARNING, "    ===> sending int32 '%d'", i);
     return plcBufferAppend(conn, (char*)&i, 4);
 }
 
 static int send_int64(plcConn *conn, long long i) {
-    lprintf(WARNING, "    ===> sending int64 '%lld'", i);
+    debug_print(WARNING, "    ===> sending int64 '%lld'", i);
     return plcBufferAppend(conn, (char*)&i, 8);
 }
 
 static int send_float4(plcConn *conn, float f) {
-    lprintf(WARNING, "    ===> sending float4 '%f'", f);
+    debug_print(WARNING, "    ===> sending float4 '%f'", f);
     return plcBufferAppend(conn, (char*)&f, 4);
 }
 
 static int send_float8(plcConn *conn, double f) {
-    lprintf(WARNING, "    ===> sending float8 '%f'", f);
+    debug_print(WARNING, "    ===> sending float8 '%f'", f);
     return plcBufferAppend(conn, (char*)&f, 8);
 }
 
 static int send_raw(plcConn *conn, char *s, int cnt) {
-    lprintf(WARNING, "    ===> sending %d raw bytes '%s'", cnt, s);
+    debug_print(WARNING, "    ===> sending %d raw bytes '%s'", cnt, s);
     return plcBufferAppend(conn, s, cnt);
 }
 
 static int send_cstring(plcConn *conn, char *s) {
-    lprintf(WARNING, "    ===> sending cstring '%s'", s);
+    debug_print(WARNING, "    ===> sending cstring '%s'", s);
     int res = 0;
     int cnt = strlen(s);
     res |= send_int32(conn, cnt);
@@ -197,10 +197,10 @@ static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj) {
     int len = 0;
     if (obj->isnull) {
         res |= send_char(conn, 'N');
-        lprintf(WARNING, "Object is null");
+        debug_print(WARNING, "Object is null");
     } else {
         res |= send_char(conn, 'D');
-        lprintf(WARNING, "Object value is:");
+        debug_print(WARNING, "Object value is:");
         switch (type) {
             case PLC_DATA_INT1:
                 res |= send_char(conn, *((char*)obj->value));
@@ -267,43 +267,43 @@ static int receive_message_type(plcConn *conn, char *c) {
 
 static int receive_char(plcConn *conn, char *c) {
     int res = plcBufferRead(conn, c, 1);
-    lprintf(WARNING, "    <=== receiving int8 '%d'", (int)*c);
+    debug_print(WARNING, "    <=== receiving int8 '%d'", (int)*c);
     return res;
 }
 
 static int receive_int16(plcConn *conn, short *i) {
     int res = plcBufferRead(conn, (char*)i, 2);
-    lprintf(WARNING, "    <=== receiving int16 '%d'", (int)*i);
+    debug_print(WARNING, "    <=== receiving int16 '%d'", (int)*i);
     return res;
 }
 
 static int receive_int32(plcConn *conn, int *i) {
     int res = plcBufferRead(conn, (char*)i, 4);
-    lprintf(WARNING, "    <=== receiving int32 '%d'", *i);
+    debug_print(WARNING, "    <=== receiving int32 '%d'", *i);
     return res;
 }
 
 static int receive_int64(plcConn *conn, long long *i) {
     int res = plcBufferRead(conn, (char*)i, 8);
-    lprintf(WARNING, "    <=== receiving int64 '%lld'", *i);
+    debug_print(WARNING, "    <=== receiving int64 '%lld'", *i);
     return res;
 }
 
 static int receive_float4(plcConn *conn, float *f) {
     int res = plcBufferRead(conn, (char*)f, 4);
-    lprintf(WARNING, "    <=== receiving float4 '%f'", *f);
+    debug_print(WARNING, "    <=== receiving float4 '%f'", *f);
     return res;
 }
 
 static int receive_float8(plcConn *conn, double *f) {
     int res = plcBufferRead(conn, (char*)f, 8);
-    lprintf(WARNING, "    <=== receiving float8 '%f'", *f);
+    debug_print(WARNING, "    <=== receiving float8 '%f'", *f);
     return res;
 }
 
 static int receive_raw(plcConn *conn, char *s, size_t len) {
     int res = plcBufferRead(conn, s, len);
-    lprintf(WARNING, "    <=== receiving raw '%d' bytes '%s'", (int)len, s);
+    debug_print(WARNING, "    <=== receiving raw '%d' bytes '%s'", (int)len, s);
     return res;
 }
 
@@ -320,7 +320,7 @@ static int receive_cstring(plcConn *conn, char **s) {
     }
     (*s)[cnt] = 0;
 
-    lprintf(WARNING, "    <=== receiving cstring '%s'", *s);
+    debug_print(WARNING, "    <=== receiving cstring '%s'", *s);
     return res;
 }
 
@@ -334,11 +334,11 @@ static int receive_raw_object(plcConn *conn, plcDatatype type, rawdata *obj)  {
     if (isn == 'N') {
         obj->isnull = 1;
         obj->value  = NULL;
-        lprintf(WARNING, "Object is null");
+        debug_print(WARNING, "Object is null");
     } else {
         int len = 0;
         obj->isnull = 0;
-        lprintf(WARNING, "Object value is:");
+        debug_print(WARNING, "Object value is:");
         switch (type) {
             case PLC_DATA_INT1:
                 obj->value = (char*)pmalloc(1);
@@ -476,9 +476,9 @@ static int receive_array(plcConn *conn, rawdata *obj) {
 
 static int send_argument(plcConn *conn, plcArgument *arg) {
     int res = 0;
-    lprintf(WARNING, "Function argument '%s'", arg->name);
+    debug_print(WARNING, "Function argument '%s'", arg->name);
     res |= send_cstring(conn, arg->name);
-    lprintf(WARNING, "Argument type is '%d'", (int)arg->type);
+    debug_print(WARNING, "Argument type is '%d'", (int)arg->type);
     res |= send_char(conn, (char)arg->type);
     res |= send_raw_object(conn, arg->type, &arg->data);
     return res;
@@ -488,22 +488,22 @@ static int send_call(plcConn *conn, callreq call) {
     int res = 0;
     int i;
 
-    lprintf(WARNING, "Sending call request for function '%s'", call->proc.name);
+    debug_print(WARNING, "Sending call request for function '%s'", call->proc.name);
     res |= message_start(conn, MT_CALLREQ);
     res |= send_cstring(conn, call->proc.name);
-    lprintf(WARNING, "Function source code:");
-    lprintf(WARNING, "%s", call->proc.src);
+    debug_print(WARNING, "Function source code:");
+    debug_print(WARNING, "%s", call->proc.src);
     res |= send_cstring(conn, call->proc.src);
-    lprintf(WARNING, "Function return type is '%d'", (int)call->retType);
+    debug_print(WARNING, "Function return type is '%d'", (int)call->retType);
     res |= send_char(conn, (char)call->retType);
-    lprintf(WARNING, "Function number of arguments is '%d'", call->nargs);
+    debug_print(WARNING, "Function number of arguments is '%d'", call->nargs);
     res |= send_int32(conn, call->nargs);
 
     for (i = 0; i < call->nargs; i++)
         res |= send_argument(conn, &call->args[i]);
 
     res |= message_end(conn);
-    lprintf(WARNING, "Finished call request for function '%s'", call->proc.name);
+    debug_print(WARNING, "Finished call request for function '%s'", call->proc.name);
     return res;
 }
 
@@ -512,14 +512,14 @@ static int send_result(plcConn *conn, plcontainer_result ret) {
     int i, j;
 
     res |= message_start(conn, MT_RESULT);
-    lprintf(WARNING, "Sending result of %d rows and %d columns", ret->rows, ret->cols);
+    debug_print(WARNING, "Sending result of %d rows and %d columns", ret->rows, ret->cols);
     res |= send_int32(conn, ret->rows);
     res |= send_int32(conn, ret->cols);
 
     /* send columns types and names */
-    lprintf(WARNING, "Sending types and names of %d columns", ret->cols);
+    debug_print(WARNING, "Sending types and names of %d columns", ret->cols);
     for (i = 0; i < ret->cols; i++) {
-        lprintf(WARNING, "Column '%s' with type '%d'", ret->names[i], (int)ret->types[i]);
+        debug_print(WARNING, "Column '%s' with type '%d'", ret->names[i], (int)ret->types[i]);
         res |= send_char(conn, (char)ret->types[i]);
         res |= send_cstring(conn, ret->names[i]);
     }
@@ -527,12 +527,12 @@ static int send_result(plcConn *conn, plcontainer_result ret) {
     /* send rows */
     for (i = 0; i < ret->rows; i++)
         for (j = 0; j < ret->cols; j++) {
-            lprintf(WARNING, "Sending row %d column %d", i, j);
+            debug_print(WARNING, "Sending row %d column %d", i, j);
             res |= send_raw_object(conn, ret->types[j], &ret->data[i][j]);
         }
 
     res |= message_end(conn);
-    lprintf(WARNING, "Finished sending function result");
+    debug_print(WARNING, "Finished sending function result");
     return res;
 }
 
@@ -585,7 +585,7 @@ static int receive_result(plcConn *conn, message *mRes) {
     ret->msgtype = MT_RESULT;
     res |= receive_int32(conn, &ret->rows);
     res |= receive_int32(conn, &ret->cols);
-    lprintf(WARNING, "Receiving function result of %d rows and %d columns",
+    debug_print(WARNING, "Receiving function result of %d rows and %d columns",
             ret->rows, ret->cols);
 
     if (res == 0) {
@@ -597,14 +597,14 @@ static int receive_result(plcConn *conn, message *mRes) {
         }
 
         /* Read column names and column types of result set */
-        lprintf(WARNING, "Receiving types and names of %d columns", ret->cols);
+        debug_print(WARNING, "Receiving types and names of %d columns", ret->cols);
         ret->types = pmalloc(ret->cols * sizeof(plcDatatype));
         ret->names = pmalloc(ret->cols * sizeof(*ret->names));
         for (i = 0; i < ret->cols; i++) {
              res |= receive_char(conn, &type);
              ret->types[i] = (int)type;
              res |= receive_cstring(conn, &ret->names[i]);
-             lprintf(WARNING, "Column '%s' with type '%d'", ret->names[i], (int)ret->types[i]);
+             debug_print(WARNING, "Column '%s' with type '%d'", ret->names[i], (int)ret->types[i]);
         }
 
         /* Receive data */
@@ -612,7 +612,7 @@ static int receive_result(plcConn *conn, message *mRes) {
             if (ret->cols > 0) {
                 ret->data[i] = pmalloc((ret->cols) * sizeof(*ret->data[i]));
                 for (j = 0; j < ret->cols; j++) {
-                    lprintf(WARNING, "Receiving row %d column %d", i, j);
+                    debug_print(WARNING, "Receiving row %d column %d", i, j);
                     res |= receive_raw_object(conn, ret->types[j], &ret->data[i][j]);
                 }
             } else {
@@ -621,7 +621,7 @@ static int receive_result(plcConn *conn, message *mRes) {
         }
     }
 
-    lprintf(WARNING, "Finished receiving function result");
+    debug_print(WARNING, "Finished receiving function result");
     return res;
 }
 
@@ -773,10 +773,10 @@ static int receive_argument(plcConn *conn, plcArgument *arg) {
     int res = 0;
     char type;
     res |= receive_cstring(conn, &arg->name);
-    lprintf(WARNING, "Function argument '%s'", arg->name);
+    debug_print(WARNING, "Function argument '%s'", arg->name);
     res |= receive_char(conn, &type);
     arg->type = (int)type;
-    lprintf(WARNING, "Argument type is '%d'", (int)arg->type);
+    debug_print(WARNING, "Argument type is '%d'", (int)arg->type);
     res |= receive_raw_object(conn, arg->type, &arg->data);
     return res;
 }
@@ -791,21 +791,21 @@ static int receive_call(plcConn *conn, message *mCall) {
     req            = (callreq) *mCall;
     req->msgtype   = MT_CALLREQ;
     res |= receive_cstring(conn, &req->proc.name);
-    lprintf(WARNING, "Receiving call request for function '%s'", req->proc.name);
+    debug_print(WARNING, "Receiving call request for function '%s'", req->proc.name);
     res |= receive_cstring(conn, &req->proc.src);
-    lprintf(WARNING, "Function source code:");
-    lprintf(WARNING, "%s", req->proc.src);
+    debug_print(WARNING, "Function source code:");
+    debug_print(WARNING, "%s", req->proc.src);
     res |= receive_char(conn, &type);
     req->retType = (int)type;
-    lprintf(WARNING, "Function return type is '%d'", (int)req->retType);
+    debug_print(WARNING, "Function return type is '%d'", (int)req->retType);
     res |= receive_int32(conn, &req->nargs);
-    lprintf(WARNING, "Function number of arguments is '%d'", req->nargs);
+    debug_print(WARNING, "Function number of arguments is '%d'", req->nargs);
     if (res == 0) {
         req->args = pmalloc(sizeof(*req->args) * req->nargs);
         for (i = 0; i < req->nargs && res == 0; i++)
             res |= receive_argument(conn, &req->args[i]);
     }
-    lprintf(WARNING, "Finished call request for function '%s'", req->proc.name);
+    debug_print(WARNING, "Finished call request for function '%s'", req->proc.name);
     return res;
 }
 
