@@ -219,13 +219,15 @@ void handle_call(callreq req, plcConn* conn) {
                      obj,
                      args;
 
-    int              i,
+    int              i,len,
                      errorOccurred;
 
     char            *func,
                     *errmsg;
 
-    const char *     value;
+    const char 		*value,
+					*txt;
+
     plcontainer_result res;
 
     /*
@@ -397,7 +399,6 @@ void handle_call(callreq req, plcConn* conn) {
             		break;
             	case PLC_DATA_INT8:
                     ret = (char *)pmalloc(sizeof(int64));
-                    //TODO: THIS IS WRONG
                     *((int64 *)ret) = asInteger(strres);
             		break;
 
@@ -410,7 +411,14 @@ void handle_call(callreq req, plcConn* conn) {
                     *((float8 *)ret) = asReal(strres);
                     break;
             	case PLC_DATA_TEXT:
-                    ret   = pstrdup(CHAR(asChar(strres)));
+
+
+                    txt= CHAR(asChar(strres));
+                    len = strlen(txt);
+
+					ret = (char*)pmalloc(len + 5);
+					memcpy(ret, &len, 4);
+					memcpy(ret+4, txt, len+1);
                     break;
             	case PLC_DATA_ARRAY:
             	case PLC_DATA_RECORD:
@@ -615,8 +623,7 @@ static char * create_r_func(callreq req) {
     }
 
     /* finish the function definition from where we left off */
-    plen = snprintf(mrc+plen, mlen, ") {\n%s\n}\n%s()\n", req->proc.src,
-                    req->proc.name);
+    plen = snprintf(mrc+plen, mlen, ") {%s}", req->proc.src);
     assert(plen >= 0 && ((size_t)plen) < mlen);
     return mrc;
 }
@@ -687,7 +694,9 @@ SEXP convert_args(callreq req)
         *  Use \N as null
         */
         if ( req->args[i].data.isnull == TRUE ) {
-            SET_VECTOR_ELT( rargs, i, R_NilValue );
+        	PROTECT(element=R_NilValue);
+            SET_VECTOR_ELT( rargs, i, element );
+            UNPROTECT(1);
         } else {
             switch( req->args[i].type ){
 
