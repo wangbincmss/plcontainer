@@ -6,7 +6,7 @@
 #include "sqlhandler.h"
 #include "c.h"
 #include "common/comm_channel.h"
-#include "common/comm_logging.h"
+#include "common/comm_utils.h"
 #include "executor/spi_priv.h"
 #include "lib/stringinfo.h"
 #include "nodes/makefuncs.h"
@@ -90,15 +90,25 @@ create_sql_result() {
     for (i = 0; i < result->rows; i++) {
         result->data[i] = palloc(result->cols * sizeof(*result->data[i]));
         for (j = 0; j < result->cols; j++) {
-            HeapTuple typtup;
-            char *    val;
+            HeapTuple  typtup;
+            char      *val;
+
             typtup = SearchSysCache(
                 TYPEOID, res_tuptable->tupdesc->attrs[j]->atttypid, 0, 0, 0);
             ReleaseSysCache(typtup);
             val = SPI_getvalue(res_tuptable->vals[i], res_tuptable->tupdesc,
                                j + 1);
-            result->data[i][j].isnull = 0;
-            result->data[i][j].value  = val;
+            if (val == NULL) {
+                result->data[i][j].isnull = 1;
+                result->data[i][j].value = NULL;
+            } else {
+                int len = strlen(val);
+                result->data[i][j].isnull = 0;
+                result->data[i][j].value = palloc(len+4);
+                memcpy(result->data[i][j].value, &len, 4);
+                memcpy(result->data[i][j].value+4, val, len);
+                pfree(val);
+            }
         }
     }
     return result;
