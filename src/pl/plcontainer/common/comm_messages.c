@@ -74,17 +74,19 @@ void free_result(plcontainer_result res) {
     pfree(res);
 }
 
-plcontainer_array plc_alloc_array(int ndims) {
-    plcontainer_array arr;
-    arr = (plcontainer_array)pmalloc(sizeof(str_plcontainer_array));
-    arr->meta = (plcontainer_array_meta)pmalloc(sizeof(str_plcontainer_array_meta));
+plcArray *plc_alloc_array(int ndims) {
+    plcArray *arr;
+    arr = (plcArray*)pmalloc(sizeof(plcArray));
+    arr->meta = (plcArrayMeta*)pmalloc(sizeof(plcArrayMeta));
     arr->meta->ndims = ndims;
-    arr->meta->dims = (int*)pmalloc(ndims * sizeof(int));
+    arr->meta->dims  = NULL;
+    if (ndims > 0)
+        arr->meta->dims = (int*)pmalloc(ndims * sizeof(int));
     arr->meta->size = 0;
     return arr;
 }
 
-void plc_free_array(plcontainer_array arr) {
+void plc_free_array(plcArray *arr) {
     int i;
     if (arr->meta->type == PLC_DATA_TEXT) {
         for (i = 0; i < arr->meta->size; i++)

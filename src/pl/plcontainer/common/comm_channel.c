@@ -46,7 +46,7 @@ static int send_float8(plcConn *conn, double f);
 static int send_raw(plcConn *conn, char *s, int cnt);
 static int send_cstring(plcConn *conn, char *s);
 static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj);
-static int send_raw_array_iter(plcConn *conn, plcontainer_iterator iter);
+static int send_raw_array_iter(plcConn *conn, plcIterator *iter);
 
 static int receive_message_type(plcConn *conn, char *c);
 static int receive_char(plcConn *conn, char *c);
@@ -200,7 +200,7 @@ static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj) {
         debug_print(WARNING, "Object is null");
     } else {
         res |= send_char(conn, 'D');
-        debug_print(WARNING, "Object value is:");
+        debug_print(WARNING, "Object type is %d and value is:", (int)type);
         switch (type) {
             case PLC_DATA_INT1:
                 res |= send_char(conn, *((char*)obj->value));
@@ -226,7 +226,7 @@ static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj) {
                 res |= send_raw(conn, obj->value + 4, len);
                 break;
             case PLC_DATA_ARRAY:
-                res |= send_raw_array_iter(conn, (plcontainer_iterator)obj->value);
+                res |= send_raw_array_iter(conn, (plcIterator*)obj->value);
                 break;
             case PLC_DATA_RECORD:
                 lprintf(ERROR, "Record data type not implemented yet");
@@ -242,10 +242,10 @@ static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj) {
     return res;
 }
 
-static int send_raw_array_iter(plcConn *conn, plcontainer_iterator iter) {
+static int send_raw_array_iter(plcConn *conn, plcIterator *iter) {
     int res = 0;
     int i = 0;
-    plcontainer_array_meta meta = (plcontainer_array_meta)iter->meta;
+    plcArrayMeta *meta = (plcArrayMeta*)iter->meta;
     res |= send_char(conn, (char)meta->type);
     res |= send_int32(conn, meta->ndims);
     for (i = 0; i < meta->ndims; i++)
@@ -394,80 +394,82 @@ static int receive_array(plcConn *conn, rawdata *obj) {
     int ndims;
     int entrylen = 0;
     char isnull;
-    plcontainer_array arr;
+    plcArray *arr;
     res |= receive_char(conn, &type);
     res |= receive_int32(conn, &ndims);
     arr = plc_alloc_array(ndims);
     obj->value = (char*)arr;
     arr->meta->type = (plcDatatype)((int)type);
-    arr->meta->size = 1;
+    arr->meta->size = ndims > 0 ? 1 : 0;
     for (i = 0; i < ndims; i++) {
         res |= receive_int32(conn, &arr->meta->dims[i]);
         arr->meta->size *= arr->meta->dims[i];
     }
-    switch (arr->meta->type) {
-        case PLC_DATA_INT1:   entrylen = 1; break;
-        case PLC_DATA_INT2:   entrylen = 2; break;
-        case PLC_DATA_INT4:   entrylen = 4; break;
-        case PLC_DATA_INT8:   entrylen = 8; break;
-        case PLC_DATA_FLOAT4: entrylen = 4; break;
-        case PLC_DATA_FLOAT8: entrylen = 8; break;
-        case PLC_DATA_TEXT:   break;
-        case PLC_DATA_ARRAY:
-            lprintf(ERROR, "Array cannot be part of the array. "
-                    "Multi-dimensional arrays should be passed in a single entry");
-            break;
-        case PLC_DATA_RECORD:
-            lprintf(ERROR, "Record data type not implemented yet");
-            break;
-        case PLC_DATA_UDT:
-            lprintf(ERROR, "User-defined data types are not implemented yet");
-            break;
-        default:
-            lprintf(ERROR, "Received unsupported argument type: %d", arr->meta->type);
-            break;
-    }
+    if (arr->meta->size > 0) {
+        switch (arr->meta->type) {
+            case PLC_DATA_INT1:   entrylen = 1; break;
+            case PLC_DATA_INT2:   entrylen = 2; break;
+            case PLC_DATA_INT4:   entrylen = 4; break;
+            case PLC_DATA_INT8:   entrylen = 8; break;
+            case PLC_DATA_FLOAT4: entrylen = 4; break;
+            case PLC_DATA_FLOAT8: entrylen = 8; break;
+            case PLC_DATA_TEXT:   break;
+            case PLC_DATA_ARRAY:
+                lprintf(ERROR, "Array cannot be part of the array. "
+                        "Multi-dimensional arrays should be passed in a single entry");
+                break;
+            case PLC_DATA_RECORD:
+                lprintf(ERROR, "Record data type not implemented yet");
+                break;
+            case PLC_DATA_UDT:
+                lprintf(ERROR, "User-defined data types are not implemented yet");
+                break;
+            default:
+                lprintf(ERROR, "Received unsupported argument type: %d", arr->meta->type);
+                break;
+        }
 
-    switch (arr->meta->type) {
-        case PLC_DATA_INT1:
-        case PLC_DATA_INT2:
-        case PLC_DATA_INT4:
-        case PLC_DATA_INT8:
-        case PLC_DATA_FLOAT4:
-        case PLC_DATA_FLOAT8:
-            arr->nulls = (char*)pmalloc(arr->meta->size * 1);
-            arr->data = (char*)pmalloc(arr->meta->size * entrylen);
-            for (i = 0; i < arr->meta->size && res == 0; i++) {
-                res |= receive_char(conn, &isnull);
-                if (isnull == 'N') {
-                    arr->nulls[i] = 1;
-                } else {
-                    arr->nulls[i] = 0;
-                    res |= receive_raw(conn, arr->data + i*entrylen, entrylen);
+        switch (arr->meta->type) {
+            case PLC_DATA_INT1:
+            case PLC_DATA_INT2:
+            case PLC_DATA_INT4:
+            case PLC_DATA_INT8:
+            case PLC_DATA_FLOAT4:
+            case PLC_DATA_FLOAT8:
+                arr->nulls = (char*)pmalloc(arr->meta->size * 1);
+                arr->data = (char*)pmalloc(arr->meta->size * entrylen);
+                for (i = 0; i < arr->meta->size && res == 0; i++) {
+                    res |= receive_char(conn, &isnull);
+                    if (isnull == 'N') {
+                        arr->nulls[i] = 1;
+                    } else {
+                        arr->nulls[i] = 0;
+                        res |= receive_raw(conn, arr->data + i*entrylen, entrylen);
+                    }
                 }
-            }
-            break;
-        case PLC_DATA_TEXT:
-            arr->data = (char*)pmalloc(arr->meta->size * sizeof(char*));
-            for (i = 0; i < arr->meta->size && res == 0; i++) {
-                res |= receive_char(conn, &isnull);
-                if (isnull == 'N') {
-                    arr->nulls[i] = 1;
-                    ((char**)arr->data)[i] = NULL;
-                } else {
-                    char* rctext;
-                    arr->nulls[i] = 0;
-                    res |= receive_int32(conn, &entrylen);
-                    rctext = (char*)pmalloc(entrylen + 4);
-                    *((int*)rctext) = entrylen;
-                    res |= receive_raw(conn, rctext + 4, entrylen);
-                    ((char**)arr->data)[i] = rctext;
+                break;
+            case PLC_DATA_TEXT:
+                arr->data = (char*)pmalloc(arr->meta->size * sizeof(char*));
+                for (i = 0; i < arr->meta->size && res == 0; i++) {
+                    res |= receive_char(conn, &isnull);
+                    if (isnull == 'N') {
+                        arr->nulls[i] = 1;
+                        ((char**)arr->data)[i] = NULL;
+                    } else {
+                        char* rctext;
+                        arr->nulls[i] = 0;
+                        res |= receive_int32(conn, &entrylen);
+                        rctext = (char*)pmalloc(entrylen + 4);
+                        *((int*)rctext) = entrylen;
+                        res |= receive_raw(conn, rctext + 4, entrylen);
+                        ((char**)arr->data)[i] = rctext;
+                    }
                 }
-            }
-            break;
-        default:
-            lprintf(FATAL, "Should not get here");
-            break;
+                break;
+            default:
+                lprintf(FATAL, "Should not get here");
+                break;
+        }
     }
     return res;
 }

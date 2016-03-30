@@ -28,11 +28,19 @@ interpreted as representing official policies, either expressed or implied, of t
 
 #define PLC_FUNCTION_CACHE_SIZE 5
 
-typedef struct {
-    plcDatatype  type;
-    Oid          typeOid;
-    RegProcedure output, input; /* used to convert a given value from/to "...." */
-} plcTypeInfo;
+typedef struct plcTypeInfo plcTypeInfo;
+
+ struct plcTypeInfo {
+    plcDatatype   type;
+    Oid           typeOid;
+    RegProcedure  output, input; /* used to convert a given value from/to "...." */
+    Oid           typioparam;
+    bool          typbyval;
+    int16         typlen;
+    char          typalign;
+    int           nSubTypes;
+    plcTypeInfo  *subTypes;
+};
 
 typedef struct {
     /* Greenplum Function Information */

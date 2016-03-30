@@ -41,6 +41,7 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "executor/spi.h"
 #include "fmgr.h"
 #include "utils/datum.h"
+#include "utils/lsyscache.h"
 
 /* message and function definitions */
 #include "common/comm_utils.h"
@@ -50,11 +51,14 @@ interpreted as representing official policies, either expressed or implied, of t
 static void function_cache_up(int index);
 static plcProcInfo *function_cache_get(Oid funcOid);
 static void function_cache_put(plcProcInfo *func);
+static void free_subtypes(plcTypeInfo *types, int ntypes);
 static void free_proc_info(plcProcInfo *proc);
 static void fill_type_info(Oid typeOid, plcTypeInfo *type);
 static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup);
-static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo,
-                                   callreq req);
+static rawdata *plc_backend_array_next(plcIterator *self);
+static plcIterator *init_array_iter(Datum d, plcTypeInfo *argType);
+static char *fill_callreq_value(Datum funcArg, plcTypeInfo *argType);
+static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req);
 
 static plcProcInfo *plcFunctionCache[PLC_FUNCTION_CACHE_SIZE];
 static int plcFunctionCacheInitialized = 0;
@@ -114,10 +118,23 @@ static void function_cache_put(plcProcInfo *func) {
     }
 }
 
+static void free_subtypes(plcTypeInfo *types, int ntypes) {
+    int i = 0;
+    for (i = 0; i < ntypes; i++) {
+        if (types->nSubTypes > 0)
+            free_subtypes(types->subTypes, types->nSubTypes);
+    }
+    pfree(types);
+}
+
 static void free_proc_info(plcProcInfo *proc) {
     int i;
-    for (i = 0; i < proc->nargs; i++)
+    for (i = 0; i < proc->nargs; i++) {
         pfree(proc->argnames[i]);
+        if (proc->argtypes[i].nSubTypes > 0)
+            free_subtypes(proc->argtypes[i].subTypes,
+                          proc->argtypes[i].nSubTypes);
+    }
     if (proc->nargs > 0) {
         pfree(proc->argnames);
         pfree(proc->argtypes);
@@ -128,6 +145,7 @@ static void free_proc_info(plcProcInfo *proc) {
 static void fill_type_info(Oid typeOid, plcTypeInfo *type) {
     HeapTuple    typeTup;
     Form_pg_type typeStruct;
+    char		 dummy_delim;
 
     typeTup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
     if (!HeapTupleIsValid(typeTup))
@@ -139,33 +157,47 @@ static void fill_type_info(Oid typeOid, plcTypeInfo *type) {
     type->typeOid = typeOid;
     type->output  = typeStruct->typoutput;
     type->input   = typeStruct->typinput;
+    get_type_io_data(typeOid, IOFunc_input,
+                     &type->typlen, &type->typbyval, &type->typalign,
+                     &dummy_delim,
+                     &type->typioparam, &type->input);
+    type->nSubTypes = 0;
+    type->subTypes = NULL;
 
     switch(typeOid){
-    	case BOOLOID:
-    		type->type = PLC_DATA_INT1;
-    		break;
-    	case INT2OID:
-    		type->type = PLC_DATA_INT2;
-    		break;
-    	case INT4OID:
-    		type->type = PLC_DATA_INT4;
-    		break;
-    	case INT8OID:
-    		type->type = PLC_DATA_INT8;
-    		break;
-    	case FLOAT4OID:
-    		type->type = PLC_DATA_FLOAT4;
-    		break;
-    	case FLOAT8OID:
-    		type->type = PLC_DATA_FLOAT8;
-    		break;
-    	case TEXTOID:
-    	case VARCHAROID:
-    	case CHAROID:
-    	default:
-    		type->type = PLC_DATA_TEXT;
-    		break;
-
+        case BOOLOID:
+            type->type = PLC_DATA_INT1;
+            break;
+        case INT2OID:
+            type->type = PLC_DATA_INT2;
+            break;
+        case INT4OID:
+            type->type = PLC_DATA_INT4;
+            break;
+        case INT8OID:
+            type->type = PLC_DATA_INT8;
+            break;
+        case FLOAT4OID:
+            type->type = PLC_DATA_FLOAT4;
+            break;
+        case FLOAT8OID:
+            type->type = PLC_DATA_FLOAT8;
+            break;
+        case TEXTOID:
+        case VARCHAROID:
+        case CHAROID:
+            type->type = PLC_DATA_TEXT;
+            break;
+        default:
+            if (typeStruct->typelem != 0) {
+                type->type = PLC_DATA_ARRAY;
+                type->nSubTypes = 1;
+                type->subTypes = (plcTypeInfo*)plc_top_alloc(sizeof(plcTypeInfo));
+                fill_type_info(typeStruct->typelem, &type->subTypes[0]);
+            } else {
+                elog(ERROR, "Data type with OID %d is not supported", typeOid);
+            }
+            break;
     }
 }
 
@@ -333,11 +365,129 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
     return pinfo;
 }
 
+static rawdata *plc_backend_array_next(plcIterator *self) {
+    plcArrayMeta *meta;
+    ArrayType    *array;
+    plcTypeInfo  *typ;
+    int          *lbounds;
+    int          *pos;
+    int           dim;
+    bool          isnull = 0;
+    Datum         el;
+    rawdata      *res;
+
+    res     = palloc(sizeof(rawdata));
+    meta    = (plcArrayMeta*)self->meta;
+    array   = (ArrayType*)self->data;
+    typ     = ((plcTypeInfo**)self->position)[0];
+    lbounds = (int*)self->position + 2;
+    pos     = (int*)self->position + 2 + meta->ndims;
+
+    el = array_ref(array, meta->ndims, pos, typ->typlen,
+                   typ->subTypes[0].typlen, typ->subTypes[0].typbyval,
+                   typ->subTypes[0].typalign, &isnull);
+    if (isnull) {
+        res->isnull = 1;
+        res->value  = NULL;
+    } else {
+        res->isnull = 0;
+        res->value = fill_callreq_value(el, &typ->subTypes[0]);
+    }
+
+    dim     = meta->ndims - 1;
+    while (dim >= 0 && pos[dim]-lbounds[dim] < meta->dims[dim]) {
+        pos[dim] += 1;
+        if (pos[dim]-lbounds[dim] >= meta->dims[dim]) {
+            pos[dim] = lbounds[dim];
+            dim -= 1;
+        } else {
+            break;
+        }
+    }
+
+    return res;
+}
+
+static plcIterator *init_array_iter(Datum d, plcTypeInfo *argType) {
+    ArrayType    *array = DatumGetArrayTypeP(d);
+    plcIterator  *iter;
+    plcArrayMeta *meta;
+    int           i;
+
+    iter = (plcIterator*)palloc(sizeof(plcIterator));
+    meta = (plcArrayMeta*)palloc(sizeof(plcArrayMeta));
+    iter->meta = (char*)meta;
+
+    meta->type = argType->subTypes[0].type;
+    meta->ndims = ARR_NDIM(array);
+    meta->dims = (int*)palloc(meta->ndims * sizeof(int));
+    iter->position = (char*)palloc(sizeof(int) * meta->ndims * 2 + 2);
+    ((plcTypeInfo**)iter->position)[0] = argType;
+    meta->size = meta->ndims > 0 ? 1 : 0;
+    for (i = 0; i < meta->ndims; i++) {
+        meta->dims[i] = ARR_DIMS(array)[i];
+        meta->size *= ARR_DIMS(array)[i];
+        ((int*)iter->position)[i + 2] = ARR_LBOUND(array)[i];
+        ((int*)iter->position)[i + meta->ndims + 2] = ARR_LBOUND(array)[i];
+    }
+    iter->data = (char*)array;
+    iter->next = plc_backend_array_next;
+    return iter;
+}
+
+static char *fill_callreq_value(Datum funcArg, plcTypeInfo *argType) {
+    char *out = NULL;
+    switch(argType->type) {
+        case PLC_DATA_INT1:
+            out = (char*)pmalloc(1);
+            *((char*)out) = DatumGetBool(funcArg);
+            break;
+        case PLC_DATA_INT2:
+            out = (char*)pmalloc(2);
+            *((int16*)out) = DatumGetInt16(funcArg);
+            break;
+        case PLC_DATA_INT4:
+            out = (char*)pmalloc(4);
+            *((int32*)out) = DatumGetInt32(funcArg);
+            break;
+        case PLC_DATA_INT8:
+            out = (char*)pmalloc(8);
+            *((int64*)out) = DatumGetInt64(funcArg);
+            break;
+        case PLC_DATA_FLOAT4:
+            out = (char*)pmalloc(4);
+            *((float4*)out) = DatumGetFloat4(funcArg);
+            break;
+        case PLC_DATA_FLOAT8:
+            out = (char*)pmalloc(8);
+            *((float8*)out) = DatumGetFloat8(funcArg);
+            break;
+        case PLC_DATA_TEXT:
+            do {
+                /* TODO: This is not right, we need separately data and length! */
+                int len;
+                char *tmp;
+                tmp = DatumGetCString(OidFunctionCall1(argType->output, funcArg));
+                len = strlen(tmp);
+                out = (char*)pmalloc(len + 5);
+                memcpy(out, &len, 4);
+                memcpy(out + 4, tmp, len+1);
+            } while (0);
+            break;
+        case PLC_DATA_ARRAY:
+            out = (char*)init_array_iter(funcArg, argType);
+            break;
+        case PLC_DATA_RECORD:
+        case PLC_DATA_UDT:
+        default:
+            lprintf(ERROR, "Type %d is not yet supported by PLcontainer", (int)argType->type);
+    }
+    return out;
+}
+
 static void
 fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req) {
     int   i;
-    char *tmp;
-    int   len;
 
     req->nargs = pinfo->nargs;
     req->args  = pmalloc(sizeof(*req->args) * pinfo->nargs);
@@ -351,45 +501,7 @@ fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req)
             req->args[i].data.value = NULL;
         } else {
             req->args[i].data.isnull = 0;
-            switch(req->args[i].type) {
-                case PLC_DATA_TEXT:
-                    /* TODO: This is not right, we need separately data and length! */
-                    tmp = DatumGetCString(OidFunctionCall1(pinfo->argtypes[i].output, fcinfo->arg[i]));
-                    len = strlen(tmp);
-                    req->args[i].data.value = (char*)pmalloc(len + 5);
-                    memcpy(req->args[i].data.value, &len, 4);
-                    memcpy(req->args[i].data.value + 4, tmp, len+1);
-                    break;
-                case PLC_DATA_INT1:
-                    req->args[i].data.value = (char*)pmalloc(1);
-                    req->args[i].data.value[0] = DatumGetBool(fcinfo->arg[i]);
-                	break;
-                case PLC_DATA_INT2:
-                    req->args[i].data.value = (char*)pmalloc(2);
-                    memcpy(req->args[i].data.value, &fcinfo->arg[i], 2);
-                	break;
-                case PLC_DATA_INT4:
-                    req->args[i].data.value = (char*)pmalloc(4);
-                    memcpy(req->args[i].data.value, &fcinfo->arg[i], 4);
-                	break;
-                case PLC_DATA_INT8:
-                    req->args[i].data.value = (char*)pmalloc(8);
-                    memcpy(req->args[i].data.value, &fcinfo->arg[i], 8);
-                	break;
-                case PLC_DATA_FLOAT4:
-                    req->args[i].data.value = (char*)pmalloc(4);
-                    memcpy(req->args[i].data.value, &fcinfo->arg[i], 4);
-                    break;
-                case PLC_DATA_FLOAT8:
-                    req->args[i].data.value = (char*)pmalloc(8);
-                    memcpy(req->args[i].data.value, &fcinfo->arg[i], 8);
-                    break;
-                case PLC_DATA_ARRAY:
-                case PLC_DATA_RECORD:
-                case PLC_DATA_UDT:
-                default:
-                    lprintf(ERROR, "Type %d is not yet supported by PLcontainer", (int)req->args[i].type);
-            }
+            req->args[i].data.value = fill_callreq_value(fcinfo->arg[i], &pinfo->argtypes[i]);
         }
     }
 }

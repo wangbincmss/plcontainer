@@ -3,29 +3,29 @@
 
 #include "message_base.h"
 
-typedef struct str_plcontainer_iterator *plcontainer_iterator, str_plcontainer_iterator;
+typedef struct plcIterator plcIterator;
 
-struct str_plcontainer_iterator {
+struct plcIterator {
     char *data;
     char *meta;
     char *position;
-    rawdata *(*next)(plcontainer_iterator self);
+    rawdata *(*next)(plcIterator *self);
 };
 
-typedef struct str_plcontainer_array_meta {
+typedef struct plcArrayMeta {
     plcDatatype  type;
     int          ndims;
     int          size;
     int         *dims;
-} str_plcontainer_array_meta, *plcontainer_array_meta;
+} plcArrayMeta;
 
-typedef struct str_plcontainer_array {
-    plcontainer_array_meta meta;
-    char *data;
-    char *nulls;
-} str_plcontainer_array, *plcontainer_array;
+typedef struct plcArray {
+    plcArrayMeta *meta;
+    char         *data;
+    char         *nulls;
+} plcArray;
 
-plcontainer_array plc_alloc_array(int ndims);
-void plc_free_array(plcontainer_array arr);
+plcArray *plc_alloc_array(int ndims);
+void plc_free_array(plcArray *arr);
 
 #endif /* PLC_MESSAGE_DATA_H */

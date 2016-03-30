@@ -191,41 +191,42 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                 type = (Form_pg_type)GETSTRUCT(typetup);
 
                 switch (res->types[0]){
-					case PLC_DATA_TEXT:
-					case PLC_DATA_ARRAY:
-						/* TODO: temporary solution to make the result be cstring */
-						len = *((int*)res->data[0][0].value);
-						resstr = palloc(len + 1);
-						memcpy(resstr, res->data[0][0].value+4, len);
-						resstr[len] = '\0';
+                    case PLC_DATA_TEXT:
+                    case PLC_DATA_ARRAY:
+                        /* TODO: temporary solution to make the result be cstring */
+                        len = *((int*)res->data[0][0].value);
+                        resstr = palloc(len + 1);
+                        memcpy(resstr, res->data[0][0].value+4, len);
+                        resstr[len] = '\0';
 
-						rawDatum = CStringGetDatum(resstr);
-						ret      = OidFunctionCall1(type->typinput, rawDatum);
-						pfree(resstr);
-						break;
-					case PLC_DATA_INT1:
-						ret = BoolGetDatum(*((bool*)res->data[0][0].value));
-						break;
-					case PLC_DATA_INT2:
-						ret = Int16GetDatum(*((int16*)res->data[0][0].value));
-						break;
-					case PLC_DATA_INT4:
-						ret = Int32GetDatum(*((int32*)res->data[0][0].value));
-						break;
-					case PLC_DATA_INT8:
-						ret = Int64GetDatum(*((int64*)res->data[0][0].value));
-						break;
-					case PLC_DATA_FLOAT4:
-						ret = Float4GetDatum(*((float4*)res->data[0][0].value));
-						break;
-					case PLC_DATA_FLOAT8:
-						ret = Float8GetDatum(*((float8*)res->data[0][0].value));
-						break;
-					case PLC_DATA_UDT:
-					case PLC_DATA_RECORD:
-						 elog(ERROR, "Data Type not handled: %d",res->types[0] );
-						 fcinfo->isnull=1;
-						 ret = (Datum)0;
+                        rawDatum = CStringGetDatum(resstr);
+                        ret      = OidFunctionCall1(type->typinput, rawDatum);
+                        pfree(resstr);
+                        break;
+                    case PLC_DATA_INT1:
+                        ret = BoolGetDatum(*((bool*)res->data[0][0].value));
+                        break;
+                    case PLC_DATA_INT2:
+                        ret = Int16GetDatum(*((int16*)res->data[0][0].value));
+                        break;
+                    case PLC_DATA_INT4:
+                        ret = Int32GetDatum(*((int32*)res->data[0][0].value));
+                        break;
+                    case PLC_DATA_INT8:
+                        ret = Int64GetDatum(*((int64*)res->data[0][0].value));
+                        break;
+                    case PLC_DATA_FLOAT4:
+                        ret = Float4GetDatum(*((float4*)res->data[0][0].value));
+                        break;
+                    case PLC_DATA_FLOAT8:
+                        ret = Float8GetDatum(*((float8*)res->data[0][0].value));
+                        break;
+                    case PLC_DATA_UDT:
+                    case PLC_DATA_RECORD:
+                    default:
+                         elog(ERROR, "Data Type not handled: %d",res->types[0] );
+                         fcinfo->isnull=1;
+                         ret = (Datum)0;
 
                 }
                 ReleaseSysCache(typetup);
@@ -296,9 +297,9 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo *ret_type, int col,  i
     bool       *nulls = NULL;
     bool        have_nulls = FALSE;
     int         i;
-    plcontainer_array arr;
+    plcArray   *arr;
 
-    arr = (plcontainer_array)res->data[0][col].value;
+    arr = (plcArray*)res->data[0][col].value;
     ndims = arr->meta->ndims;
     dims = (int*)palloc(ndims * sizeof(int));
     lbs = (int*)palloc(ndims * sizeof(int));

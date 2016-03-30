@@ -20,7 +20,8 @@ typedef enum {
     PLC_DATA_TEXT,     // Text - transferred as a set of bytes of predefined length
     PLC_DATA_ARRAY,    // Array - array type specification should follow
     PLC_DATA_RECORD,   // Anonymous record, supported only as return type
-    PLC_DATA_UDT       // User-defined type, specification to follow
+    PLC_DATA_UDT,      // User-defined type, specification to follow
+    PLC_DATA_INVALID   // Invalid data type
 } plcDatatype;
 
 typedef struct {

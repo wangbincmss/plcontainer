@@ -99,8 +99,8 @@ static char * create_r_func(callreq req);
 static char *create_r_func(callreq req);
 static SEXP parse_r_code(const char *code, plcConn* conn, int *errorOccurred);
 
-static plcontainer_iterator matrix_iterator(SEXP mtx);
-static void matrix_iterator_free(plcontainer_iterator iter);
+static plcIterator *matrix_iterator(SEXP mtx);
+static void matrix_iterator_free(plcIterator *iter);
 
 /*
  * set by hook throw_r_error
@@ -423,9 +423,9 @@ void handle_call(callreq req, plcConn* conn) {
             	case PLC_DATA_ARRAY:
             	case PLC_DATA_RECORD:
             	case PLC_DATA_UDT:
+                default:
                     res->data[0]->value   = pstrdup("NOT IMPLEMENTED");
                     break;
-
 
 
             }
@@ -446,13 +446,13 @@ void handle_call(callreq req, plcConn* conn) {
 }
 
 
-rawdata *matrix_iterator_next (plcontainer_iterator iter) {
-    plcontainer_array_meta meta;
+rawdata *matrix_iterator_next (plcIterator *iter) {
+    plcArrayMeta *meta;
     int     *position;
     SEXP     mtx;
     rawdata *res;
 
-    meta = (plcontainer_array_meta)iter->meta;
+    meta = (plcArrayMeta*)iter->meta;
     position = (int*)iter->position;
     mtx = (SEXP)iter->data;
     res = pmalloc(sizeof(rawdata));
@@ -480,17 +480,17 @@ rawdata *matrix_iterator_next (plcontainer_iterator iter) {
     return res;
 }
 
-static plcontainer_iterator matrix_iterator(SEXP mtx) {
-    plcontainer_array_meta meta;
+static plcIterator *matrix_iterator(SEXP mtx) {
+    plcArrayMeta *meta;
     int *position;
     SEXP obj;
-    plcontainer_iterator iter;
+    plcIterator *iter;
 
     /* Allocate the iterator */
-    iter = (plcontainer_iterator)pmalloc(sizeof(str_plcontainer_iterator));
+    iter = (plcIterator*)pmalloc(sizeof(plcIterator));
 
     /* Initialize meta */
-    meta = (plcontainer_array_meta)pmalloc(sizeof(str_plcontainer_array_meta));
+    meta = (plcArrayMeta*)pmalloc(sizeof(plcArrayMeta));
     meta->ndims = 2;
     meta->dims  = (int*)pmalloc(2 * sizeof(int));
     meta->dims[0] = nrows(mtx);
@@ -514,8 +514,8 @@ static plcontainer_iterator matrix_iterator(SEXP mtx) {
     return iter;
 }
 
-static void matrix_iterator_free(plcontainer_iterator iter) {
-    pfree(((plcontainer_array_meta)iter->meta)->dims);
+static void matrix_iterator_free(plcIterator *iter) {
+    pfree(((plcArrayMeta*)iter->meta)->dims);
     pfree(iter->meta);
     pfree(iter->position);
     UNPROTECT(1);
