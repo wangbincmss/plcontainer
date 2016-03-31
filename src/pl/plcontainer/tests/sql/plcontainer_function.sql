@@ -35,6 +35,11 @@ CREATE OR REPLACE FUNCTION rfloat(f float8) RETURNS float8 AS $$
 return (as.numeric(f)+2)
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION rtext(arg varchar) RETURNS varchar AS $$
+# container: plc_r
+return(paste(arg,'foo',sep=''))
+$$ LANGUAGE plcontainer;
+
 create or replace function rtest_mia() returns int[] as $$
 #container:plc_r
 as.matrix(array(1:10,c(2,5)))

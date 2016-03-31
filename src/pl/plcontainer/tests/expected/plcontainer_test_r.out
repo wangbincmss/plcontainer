@@ -52,6 +52,12 @@ select rfloat(3.1415926535897932384626433832::float8);
  5.14159265358979
 (1 row)
 
+select rtext('123');
+ rtext  
+--------
+ 123foo
+(1 row)
+
 --select rtest_mia();
 select rlog100_shared();
  rlog100_shared 

@@ -7,6 +7,7 @@ select rint(234::int4);
 select rint(345::int8);
 select rfloat(3.1415926535897932384626433832::float4);
 select rfloat(3.1415926535897932384626433832::float8);
+select rtext('123');
 --select rtest_mia();
 select rlog100_shared();
 select rpg_spi_exec('select 1');
