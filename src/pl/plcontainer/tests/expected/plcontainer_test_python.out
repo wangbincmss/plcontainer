@@ -23,7 +23,7 @@ select pybool('t');
 (1 row)
 
 select pyint(NULL::int2);
-ERROR:  exception occurred: (plcontainer.c:479)
+ERROR:  exception occurred: (plcontainer.c:471)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
@@ -63,6 +63,66 @@ select pytext('text');
  pytext  
 ---------
  textbar
+(1 row)
+
+select pyintarr(null::int8[]);
+ pyintarr 
+----------
+         
+(1 row)
+
+select pyintarr('{}'::int8[]);
+ pyintarr 
+----------
+        0
+(1 row)
+
+select pyintarr(array[1]::int8[]);
+ pyintarr 
+----------
+        1
+(1 row)
+
+select pyintarr(array[1,2,3,4,5]::int8[]);
+ pyintarr 
+----------
+       15
+(1 row)
+
+select pyintarr(array[array[1,2,3,4,5],array[6,7,8,9,10]]::int8[]);
+ pyintarr 
+----------
+       55
+(1 row)
+
+select pyfloatarr(array[1.1,2.2,3.3]::float8[]);
+ pyfloatarr 
+------------
+        2.2
+(1 row)
+
+select pyfloatarr(array[array[1.1,3.3,5.5,7.7],array[3.3,4.4,5.5,6.6]]::float8[]);
+ pyfloatarr 
+------------
+      4.675
+(1 row)
+
+select pytextarr(array['aaa','bbb','ccc']::varchar[]);
+  pytextarr   
+--------------
+ |aaa|bbb|ccc
+(1 row)
+
+select pyintnulls(array[1,2,3,4,5,null]::int8[]);
+ pyintnulls 
+------------
+          1
+(1 row)
+
+select pyintnulls(array[null,null,null]::int8[]);
+ pyintnulls 
+------------
+          3
 (1 row)
 
 -- Test that container cannot access filesystem of the host
@@ -108,14 +168,14 @@ select pynested_call_one('a');
 (1 row)
 
 select pyinvalid_function();
-ERROR:  exception occurred: (plcontainer.c:479)
+ERROR:  exception occurred: (plcontainer.c:471)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
   File "<string>", line 5, in pyinvalid_function
 AttributeError: 'module' object has no attribute 'foobar'
 select pyinvalid_syntax();
-ERROR:  exception occurred: (plcontainer.c:479)
+ERROR:  exception occurred: (plcontainer.c:471)
 DETAIL:  
  Cannot compile function in Python 
  SyntaxError: ('invalid syntax', ('<string>', 7, 1, '\n'))

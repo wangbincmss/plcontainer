@@ -9,6 +9,16 @@ select pyint(345::int8);
 select pyfloat(3.1415926535897932384626433832::float4);
 select pyfloat(3.1415926535897932384626433832::float8);
 select pytext('text');
+select pyintarr(null::int8[]);
+select pyintarr('{}'::int8[]);
+select pyintarr(array[1]::int8[]);
+select pyintarr(array[1,2,3,4,5]::int8[]);
+select pyintarr(array[array[1,2,3,4,5],array[6,7,8,9,10]]::int8[]);
+select pyfloatarr(array[1.1,2.2,3.3]::float8[]);
+select pyfloatarr(array[array[1.1,3.3,5.5,7.7],array[3.3,4.4,5.5,6.6]]::float8[]);
+select pytextarr(array['aaa','bbb','ccc']::varchar[]);
+select pyintnulls(array[1,2,3,4,5,null]::int8[]);
+select pyintnulls(array[null,null,null]::int8[]);
 -- Test that container cannot access filesystem of the host
 select pywriteFile();
 \! ls -l /tmp/foo

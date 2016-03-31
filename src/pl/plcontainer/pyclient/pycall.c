@@ -282,6 +282,86 @@ receive:
     return pyresult;
 }
 
+static PyObject *plcarray_dim_to_list(plcArray *arr, int *idx, int *pos, int dim) {
+    PyObject *res = NULL;
+    lprintf(WARNING, "Processing dimension %d", dim);
+    if (dim == arr->meta->ndims) {
+        lprintf(WARNING, "Processing position %d", *pos);
+        if (arr->nulls[*pos] != 0) {
+            res = Py_None;
+            Py_INCREF(Py_None);
+        } else {
+            switch (arr->meta->type) {
+                case PLC_DATA_INT1:
+                    res = PyLong_FromLong( (long) ((char*)arr->data)[*pos] );
+                    break;
+                case PLC_DATA_INT2:
+                    res = PyLong_FromLong( (long) ((short*)arr->data)[*pos] );
+                    break;
+                case PLC_DATA_INT4:
+                    res = PyLong_FromLong( (long) ((int*)arr->data)[*pos] );
+                    break;
+                case PLC_DATA_INT8:
+                    lprintf(WARNING, "Long long %lld", ((long long*)arr->data)[*pos]);
+                    res = PyLong_FromLongLong( ((long long*)arr->data)[*pos] );
+                    break;
+                case PLC_DATA_FLOAT4:
+                    res = PyFloat_FromDouble( (double) ((float*)arr->data)[*pos] );
+                    break;
+                case PLC_DATA_FLOAT8:
+                    res = PyFloat_FromDouble( ((double*)arr->data)[*pos] );
+                    break;
+                case PLC_DATA_TEXT:
+                    res = PyString_FromString( ((char**)arr->data)[*pos] );
+                    break;
+                case PLC_DATA_ARRAY:
+                    raise_execution_error(plcconn,
+                                          "Nested arrays are not supported");
+                    break;
+                case PLC_DATA_RECORD:
+                case PLC_DATA_UDT:
+                default:
+                    raise_execution_error(plcconn,
+                                          "Type %d is not yet supported by Python container",
+                                          (int)arr->meta->type);
+                    break;
+            }
+        }
+        *pos += 1;
+    } else {
+        res = PyList_New(arr->meta->dims[dim]);
+        for (idx[dim] = 0; idx[dim] < arr->meta->dims[dim]; idx[dim]++) {
+            PyObject *obj;
+            obj = plcarray_dim_to_list(arr, idx, pos, dim+1);
+            if (obj == NULL) {
+                Py_DECREF(res);
+                return NULL;
+            }
+            PyList_SetItem(res, idx[dim], obj);
+        }
+    }
+    return res;
+}
+
+static PyObject *plcarray_to_list (plcArray *arr) {
+    PyObject *res = NULL;
+
+    lprintf(WARNING, "Received array. Start parsing it");
+    if (arr->meta->ndims == 0) {
+        lprintf(WARNING, "Array has 0 dimensions! Returning empty list");
+        res = PyList_New(0);
+    } else {
+        int *idx;
+        int pos = 0;
+        lprintf(WARNING, "Array has %d dimensions", arr->meta->ndims);
+        idx = malloc(sizeof(int) * arr->meta->ndims);
+        memset(idx, 0, sizeof(int) * arr->meta->ndims);
+        res = plcarray_dim_to_list(arr, idx, &pos, 0);
+    }
+
+    return res;
+}
+
 static PyObject *arguments_to_pytuple (callreq req) {
     PyObject *args;
     int i;
@@ -317,6 +397,10 @@ static PyObject *arguments_to_pytuple (callreq req) {
                     arg = PyString_FromString(req->args[i].data.value);
                     break;
                 case PLC_DATA_ARRAY:
+                    arg = plcarray_to_list((plcArray*)req->args[i].data.value);
+                    if (arg == NULL)
+                        return NULL;
+                    break;
                 case PLC_DATA_RECORD:
                 case PLC_DATA_UDT:
                 default:
