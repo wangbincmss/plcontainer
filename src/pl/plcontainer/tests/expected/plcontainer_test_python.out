@@ -23,8 +23,12 @@ select pybool('t');
 (1 row)
 
 select pyint(NULL::int2);
-ERROR:  exception occurred: (plcontainer.c:478)
-DETAIL:  unsupported operand type(s) for +: 'NoneType' and 'int'
+ERROR:  exception occurred: (plcontainer.c:479)
+DETAIL:  
+ Function produced NULL output 
+ Traceback (most recent call last):
+  File "<string>", line 4, in pyint
+TypeError: unsupported operand type(s) for +: 'NoneType' and 'int'
 select pyint(123::int2);
  pyint 
 -------
@@ -104,11 +108,17 @@ select pynested_call_one('a');
 (1 row)
 
 select pyinvalid_function();
-ERROR:  exception occurred: (plcontainer.c:478)
-DETAIL:  'module' object has no attribute 'foobar'
+ERROR:  exception occurred: (plcontainer.c:479)
+DETAIL:  
+ Function produced NULL output 
+ Traceback (most recent call last):
+  File "<string>", line 5, in pyinvalid_function
+AttributeError: 'module' object has no attribute 'foobar'
 select pyinvalid_syntax();
-ERROR:  exception occurred: (plcontainer.c:478)
-DETAIL:  ('invalid syntax', ('<string>', 7, 1, '\n'))
+ERROR:  exception occurred: (plcontainer.c:479)
+DETAIL:  
+ Cannot compile function in Python 
+ SyntaxError: ('invalid syntax', ('<string>', 7, 1, '\n'))
 select pylog100_shared();
  pylog100_shared 
 -----------------

@@ -19,7 +19,8 @@ static PyObject *arguments_to_pytuple (callreq req);
 static int process_call_results(plcConn *conn, PyObject *retval, plcDatatype type);
 static long long python_get_longlong(PyObject *obj);
 static double python_get_double(PyObject *obj);
-static void raise_python_error(plcConn *conn);
+static char *get_python_error();
+static void raise_execution_error (plcConn *conn, const char *format, ...);
 
 static PyMethodDef moddef[] = {
     {"execute", plpy_execute, METH_O, NULL}, {NULL},
@@ -43,7 +44,6 @@ void python_init() {
 
 void handle_call(callreq req, plcConn *conn) {
     char            *func;
-    int              rescode = -1;
     PyObject        *val = NULL;
     PyObject        *retval = NULL;
     PyObject        *dict = NULL;
@@ -56,43 +56,59 @@ void handle_call(callreq req, plcConn *conn) {
 
     /* import __main__ to get the builtin functions */
     val = PyImport_ImportModule("__main__");
-    if (val != NULL) {
-        dict = PyModule_GetDict(val);
-        dict = PyDict_Copy(dict);
-
-        /* wrap the input in a function and evaluate the result */
-        func = create_python_func(req);
-        /* the function will be in the dictionary because it was wrapped with "def proc.name:... " */
-        val  = PyRun_String(func, Py_single_input, dict, dict);
-        if (val != NULL) {
-            Py_DECREF(val);
-            free(func);
-
-            /* get the function from the global dictionary */
-            val = PyDict_GetItemString(dict, req->proc.name);
-            Py_INCREF(val);
-            if (!PyCallable_Check(val)) {
-                lprintf(FATAL, "object not callable");
-            }
-
-            args = arguments_to_pytuple(req);
-            if (args != NULL) {
-                /* call the function */
-                retval = PyObject_Call(val, args, NULL);
-                rescode = process_call_results(conn, retval, req->retType);
-            }
-        }
+    if (val == NULL) {
+        raise_execution_error(conn, "Cannot import '__main__' module in Python");
+        return;
     }
+
+    dict = PyModule_GetDict(val);
+    dict = PyDict_Copy(dict);
+    if (dict == NULL) {
+        raise_execution_error(conn, "Cannot get '__main__' module contents in Python");
+        return;
+    }
+
+    /* wrap the input in a function and evaluate the result */
+    func = create_python_func(req);
+
+    /* the function will be in the dictionary because it was wrapped with "def proc.name:... " */
+    val = PyRun_String(func, Py_single_input, dict, dict);
+    if (val == NULL) {
+        raise_execution_error(conn, "Cannot compile function in Python");
+        return;
+    }
+    Py_DECREF(val);
+    free(func);
+
+    /* get the function from the global dictionary */
+    val = PyDict_GetItemString(dict, req->proc.name);
+    Py_INCREF(val);
+    if (!PyCallable_Check(val)) {
+        raise_execution_error(conn, "Object produced by function is not callable");
+        return;
+    }
+
+    args = arguments_to_pytuple(req);
+    if (args == NULL) {
+        return;
+    }
+
+    /* call the function */
+    retval = PyObject_Call(val, args, NULL);
+    if (retval == NULL) {
+        raise_execution_error(conn, "Function produced NULL output");
+        return;
+    }
+    process_call_results(conn, retval, req->retType);
+
     Py_XDECREF(args);
     Py_XDECREF(dict);
     Py_XDECREF(val);
     Py_XDECREF(retval);
-    if (rescode != 0)
-        raise_python_error(conn);
     return;
 }
 
-static char * create_python_func(callreq req) {
+static char *create_python_func(callreq req) {
     int         i, plen;
     const char *sp;
     char *      mrc, *mp;
@@ -120,7 +136,7 @@ static char * create_python_func(callreq req) {
     }
     mlen += 1; /* null byte */
 
-    mrc  = pmalloc(mlen);
+    mrc  = malloc(mlen);
     plen = snprintf(mrc, mlen, "def %s(", name);
     assert(plen >= 0 && ((size_t)plen) < mlen);
 
@@ -159,7 +175,7 @@ static char * create_python_func(callreq req) {
 
 /* plpy methods */
 
-static PyObject * plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
+static PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
     int                 i, j;
     int                 res = 0;
     sql_msg_statement   msg;
@@ -170,11 +186,11 @@ static PyObject * plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
                        *pyval;
 
     if (!PyString_Check(pyquery)) {
-        PyErr_SetString(PyExc_TypeError, "expected the query string");
+        raise_execution_error(plcconn, "plpy expected the query string");
         return NULL;
     }
 
-    msg            = pmalloc(sizeof(*msg));
+    msg            = malloc(sizeof(*msg));
     msg->msgtype   = MT_SQL;
     msg->sqltype   = SQL_TYPE_STATEMENT;
     msg->statement = PyString_AsString(pyquery);
@@ -182,7 +198,7 @@ static PyObject * plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
     plcontainer_channel_send(plcconn, (message)msg);
 
     /* we don't need it anymore */
-    pfree(msg);
+    free(msg);
 
 receive:
     res = plcontainer_channel_receive(plcconn, &resp);
@@ -230,9 +246,8 @@ receive:
                 case PLC_DATA_RECORD:
                 case PLC_DATA_UDT:
                 default:
-                    PyErr_Format(PyExc_TypeError,
-                                 "Type %d is not yet supported by Python container",
-                                 (int)result->types[j]);
+                    raise_execution_error(plcconn, "Type %d is not yet supported by Python container",
+                                          (int)result->types[j]);
                     return NULL;
                 /*
                 case 'i':
@@ -307,21 +322,31 @@ static PyObject *arguments_to_pytuple (callreq req) {
                 case PLC_DATA_RECORD:
                 case PLC_DATA_UDT:
                 default:
-                    /* TODO: Return error to the client */
-                    lprintf(ERROR, "Type %d is not yet supported by Python container", (int)req->args[i].type);
+                    raise_execution_error(plcconn,
+                                          "Type %d is not yet supported by Python container",
+                                          (int)req->args[i].type);
+                    return NULL;
             }
         }
-        if (arg == NULL)
+        if (arg == NULL) {
+            raise_execution_error(plcconn,
+                                  "Converting parameter '%s' to Python type failed",
+                                  req->args[i].name);
             return NULL;
+        }
 
-        if (PyTuple_SetItem(args, i, arg) != 0)
+        if (PyTuple_SetItem(args, i, arg) != 0) {
+            raise_execution_error(plcconn,
+                                  "Setting Python list element %d for argument '%s' has failed",
+                                  i, req->args[i].name);
             return NULL;
+        }
     }
     return args;
 }
 
 static long long python_get_longlong(PyObject *obj) {
-    long long ll = NULL;
+    long long ll = 0;
     if (PyInt_Check(obj))
         ll = (long long)PyInt_AsLong(obj);
     else if (PyLong_Check(obj))
@@ -329,15 +354,15 @@ static long long python_get_longlong(PyObject *obj) {
     else if (PyFloat_Check(obj))
         ll = (long long)PyFloat_AsDouble(obj);
     else {
-        /* TODO: Should return expeption to the client here */
-        lprintf(ERROR, "Function expects integer return type but got '%s'",
-                        PyString_AsString(PyObject_Str(obj)));
+        raise_execution_error(plcconn,
+                              "Function expects integer return type but got '%s'",
+                              PyString_AsString(PyObject_Str(obj)));
     }
     return ll;
 }
 
 static double python_get_double(PyObject *obj) {
-    double d;
+    double d = 0;
     if (PyInt_Check(obj))
         d = (double)PyInt_AsLong(obj);
     else if (PyLong_Check(obj))
@@ -345,34 +370,29 @@ static double python_get_double(PyObject *obj) {
     else if (PyFloat_Check(obj))
         d = (double)PyFloat_AsDouble(obj);
     else {
-        /* TODO: Should return expeption to the client here */
-        lprintf(ERROR, "Function expects floating point return type but got '%s'",
-                        PyString_AsString(PyObject_Str(obj)));
+        raise_execution_error(plcconn,
+                              "Function expects floating point return type but got '%s'",
+                              PyString_AsString(PyObject_Str(obj)));
     }
     return d;
 }
 
 static int process_call_results(plcConn *conn, PyObject *retval, plcDatatype type) {
-    int    result = -1;
     char  *txt;
     int    len = 0;
     plcontainer_result res;
 
-    if (retval == NULL) {
-        return result;
-    }
-
     /* allocate a result */
-    res          = pmalloc(sizeof(*res));
+    res          = malloc(sizeof(*res));
     res->msgtype = MT_RESULT;
-    res->names   = pmalloc(sizeof(*res->types));
-    res->names   = pmalloc(sizeof(*res->names));
-    res->types   = pmalloc(sizeof(*res->types));
+    res->names   = malloc(sizeof(*res->types));
+    res->names   = malloc(sizeof(*res->names));
+    res->types   = malloc(sizeof(*res->types));
     res->rows = res->cols = 1;
-    res->data    = pmalloc(sizeof( *res->data) * res->rows);
-    res->data[0] = pmalloc(sizeof(**res->data) * res->cols);
+    res->data    = malloc(sizeof( *res->data) * res->rows);
+    res->data[0] = malloc(sizeof(**res->data) * res->cols);
     res->types[0] = type;
-    res->names[0] = pstrdup("result");
+    res->names[0] = strdup("result");
 
     if (retval == Py_None) {
         res->data[0][0].isnull = 1;
@@ -382,33 +402,33 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcDatatype typ
         res->data[0][0].isnull = 0;
         switch (type) {
             case PLC_DATA_INT1:
-                res->data[0][0].value = pmalloc(1);
+                res->data[0][0].value = malloc(1);
                 *((char*)res->data[0][0].value) = (char)python_get_longlong(retval);
                 break;
             case PLC_DATA_INT2:
-                res->data[0][0].value = pmalloc(2);
+                res->data[0][0].value = malloc(2);
                 *((short*)res->data[0][0].value) = (short)python_get_longlong(retval);
                 break;
             case PLC_DATA_INT4:
-                res->data[0][0].value = pmalloc(4);
+                res->data[0][0].value = malloc(4);
                 *((int*)res->data[0][0].value) = (int)python_get_longlong(retval);
                 break;
             case PLC_DATA_INT8:
-                res->data[0][0].value = pmalloc(8);
+                res->data[0][0].value = malloc(8);
                 *((long long*)res->data[0][0].value) = (long long)python_get_longlong(retval);
                 break;
             case PLC_DATA_FLOAT4:
-                res->data[0][0].value = pmalloc(4);
+                res->data[0][0].value = malloc(4);
                 *((float*)res->data[0][0].value) = (float)python_get_double(retval);
                 break;
             case PLC_DATA_FLOAT8:
-                res->data[0][0].value = pmalloc(8);
+                res->data[0][0].value = malloc(8);
                 *((double*)res->data[0][0].value) = (double)python_get_double(retval);
                 break;
             case PLC_DATA_TEXT:
                 txt = PyString_AsString(PyObject_Str(retval));
                 len = strlen(txt);
-                res->data[0][0].value = (char*)pmalloc(len + 5);
+                res->data[0][0].value = (char*)malloc(len + 5);
                 memcpy(res->data[0][0].value, &len, 4);
                 memcpy(res->data[0][0].value+4, txt, len+1);
                 break;
@@ -416,8 +436,11 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcDatatype typ
             case PLC_DATA_RECORD:
             case PLC_DATA_UDT:
             default:
-                /* TODO: Return error to the client */
-                lprintf(ERROR, "Type %d is not yet supported by Python container", (int)type);
+                raise_execution_error(plcconn,
+                                      "Type %d is not yet supported by Python container",
+                                      (int)type);
+                free_result(res);
+                return -1;
         }
     }
 
@@ -426,31 +449,91 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcDatatype typ
 
     free_result(res);
 
-    result = 0;
-
-    return result;
+    return 0;
 }
 
-static void raise_python_error (plcConn *conn) {
-    PyObject      *exc, *val, *tb, *str;
-    error_message  err;
+static char *get_python_error() {
+    // Python equivilant:
+    // import traceback, sys
+    // return "".join(traceback.format_exception(sys.exc_type,
+    //    sys.exc_value, sys.exc_traceback))
 
-    PyErr_Fetch(&exc, &val, &tb);
-    str = PyObject_Str(val);
-    if (str == NULL) {
-        lprintf(FATAL, "cannot convert error to string");
+    PyObject *type, *value, *traceback;
+    PyObject *tracebackModule;
+    char *chrRetval = "";
+
+    if (PyErr_Occurred()) {
+        PyErr_Fetch(&type, &value, &traceback);
+
+        tracebackModule = PyImport_ImportModule("traceback");
+        if (tracebackModule != NULL)
+        {
+            PyObject *tbList, *emptyString, *strRetval;
+
+            tbList = PyObject_CallMethod(
+                tracebackModule,
+                "format_exception",
+                "OOO",
+                type,
+                value == NULL ? Py_None : value,
+                traceback == NULL ? Py_None : traceback);
+
+            emptyString = PyString_FromString("");
+            strRetval = PyObject_CallMethod(emptyString, "join",
+                "O", tbList);
+
+            chrRetval = strdup(PyString_AsString(strRetval));
+
+            Py_DECREF(tbList);
+            Py_DECREF(emptyString);
+            Py_DECREF(strRetval);
+            Py_DECREF(tracebackModule);
+        } else {
+            PyObject *strRetval;
+
+            strRetval = PyObject_Str(value);
+            chrRetval = strdup(PyString_AsString(strRetval));
+
+            Py_DECREF(strRetval);
+        }
+
+        Py_DECREF(type);
+        Py_XDECREF(value);
+        Py_XDECREF(traceback);
     }
 
-    /* an exception was thrown */
-    err             = pmalloc(sizeof(*err));
-    err->msgtype    = MT_EXCEPTION;
-    err->message    = PyString_AsString(str);
-    err->stacktrace = "";
+    return chrRetval;
+}
 
-    /* send the result back */
-    plcontainer_channel_send(conn, (message)err);
+static void raise_execution_error (plcConn *conn, const char *format, ...) {
+    va_list        args;
+    error_message  err;
+    char          *msg;
+    int            len, res;
+
+    if (format == NULL) {
+        lprintf(FATAL, "Error message cannot be NULL");
+        return;
+    }
+
+    va_start(args, format);
+    len = 100 + 2 * strlen(format);
+    msg = (char*)malloc(len + 1);
+    res = vsnprintf(msg, len, format, args);
+    if (res < 0 || res >= len) {
+        lprintf(FATAL, "Error formatting error message string");
+    } else {
+        /* an exception to be thrown */
+        err             = malloc(sizeof(*err));
+        err->msgtype    = MT_EXCEPTION;
+        err->message    = msg;
+        err->stacktrace = get_python_error();
+
+        /* send the result back */
+        plcontainer_channel_send(conn, (message)err);
+    }
 
     /* free the objects */
     free(err);
-    Py_DECREF(str);
+    free(msg);
 }
