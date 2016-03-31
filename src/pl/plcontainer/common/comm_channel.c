@@ -416,6 +416,7 @@ static int receive_array(plcConn *conn, rawdata *obj) {
                 break;
         }
 
+        arr->nulls = (char*)pmalloc(arr->meta->size * 1);
         switch (arr->meta->type) {
             case PLC_DATA_INT1:
             case PLC_DATA_INT2:
@@ -423,7 +424,6 @@ static int receive_array(plcConn *conn, rawdata *obj) {
             case PLC_DATA_INT8:
             case PLC_DATA_FLOAT4:
             case PLC_DATA_FLOAT8:
-                arr->nulls = (char*)pmalloc(arr->meta->size * 1);
                 arr->data = (char*)pmalloc(arr->meta->size * entrylen);
                 for (i = 0; i < arr->meta->size && res == 0; i++) {
                     res |= receive_char(conn, &isnull);
