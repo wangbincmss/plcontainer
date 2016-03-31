@@ -463,16 +463,7 @@ static char *fill_callreq_value(Datum funcArg, plcTypeInfo *argType) {
             *((float8*)out) = DatumGetFloat8(funcArg);
             break;
         case PLC_DATA_TEXT:
-            do {
-                /* TODO: This is not right, we need separately data and length! */
-                int len;
-                char *tmp;
-                tmp = DatumGetCString(OidFunctionCall1(argType->output, funcArg));
-                len = strlen(tmp);
-                out = (char*)pmalloc(len + 5);
-                memcpy(out, &len, 4);
-                memcpy(out + 4, tmp, len+1);
-            } while (0);
+            out = DatumGetCString(OidFunctionCall1(argType->output, funcArg));
             break;
         case PLC_DATA_ARRAY:
             out = (char*)init_array_iter(funcArg, argType);

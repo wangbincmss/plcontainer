@@ -164,8 +164,6 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                 * handle non array and scalars
                 */
                 Datum    ret;
-                char    *resstr;
-                int      len;
                 if (res->data[0][0].isnull == 1) {
                     MemoryContextSwitchTo(oldContext);
                     MemoryContextDelete(messageContext);
@@ -190,18 +188,12 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
                 type = (Form_pg_type)GETSTRUCT(typetup);
 
-                switch (res->types[0]){
+                switch (res->types[0]) {
                     case PLC_DATA_TEXT:
                     case PLC_DATA_ARRAY:
-                        /* TODO: temporary solution to make the result be cstring */
-                        len = *((int*)res->data[0][0].value);
-                        resstr = palloc(len + 1);
-                        memcpy(resstr, res->data[0][0].value+4, len);
-                        resstr[len] = '\0';
-
-                        rawDatum = CStringGetDatum(resstr);
+                        /* TODO: temporary solution for array to make the result be cstring */
+                        rawDatum = CStringGetDatum(res->data[0][0].value);
                         ret      = OidFunctionCall1(type->typinput, rawDatum);
-                        pfree(resstr);
                         break;
                     case PLC_DATA_INT1:
                         ret = BoolGetDatum(*((bool*)res->data[0][0].value));

@@ -219,14 +219,13 @@ void handle_call(callreq req, plcConn* conn) {
                      obj,
                      args;
 
-    int              i,len,
+    int              i,
                      errorOccurred;
 
     char            *func,
                     *errmsg;
 
-    const char 		*value,
-					*txt;
+    const char 		*value;
 
     plcontainer_result res;
 
@@ -401,7 +400,6 @@ void handle_call(callreq req, plcConn* conn) {
                     ret = (char *)pmalloc(sizeof(int64));
                     *((int64 *)ret) = asInteger(strres);
             		break;
-
             	case PLC_DATA_FLOAT4:
                     ret = (char *)pmalloc(sizeof(float4));
                     *((float4 *)ret) = (float4)asReal(strres);
@@ -411,14 +409,7 @@ void handle_call(callreq req, plcConn* conn) {
                     *((float8 *)ret) = asReal(strres);
                     break;
             	case PLC_DATA_TEXT:
-
-
-                    txt= CHAR(asChar(strres));
-                    len = strlen(txt);
-
-					ret = (char*)pmalloc(len + 5);
-					memcpy(ret, &len, 4);
-					memcpy(ret+4, txt, len+1);
+                    ret = strdup(CHAR(asChar(strres)));
                     break;
             	case PLC_DATA_ARRAY:
             	case PLC_DATA_RECORD:
@@ -426,8 +417,6 @@ void handle_call(callreq req, plcConn* conn) {
                 default:
                     res->data[0]->value   = pstrdup("NOT IMPLEMENTED");
                     break;
-
-
             }
             res->data[0]->value = ret;
 
@@ -710,7 +699,7 @@ SEXP convert_args(callreq req)
             case PLC_DATA_TEXT:
 
                 PROTECT(element = get_r_vector(PLC_DATA_TEXT,1));
-                SET_STRING_ELT(element, 0, COPY_TO_USER_STRING((char *)(req->args[i].data.value+4)));
+                SET_STRING_ELT(element, 0, COPY_TO_USER_STRING(req->args[i].data.value));
                 SET_VECTOR_ELT( rargs, i, element );
                 break;
 

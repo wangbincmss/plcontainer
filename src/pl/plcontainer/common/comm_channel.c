@@ -43,7 +43,6 @@ static int send_int32(plcConn *conn, int i);
 static int send_int64(plcConn *conn, long long i);
 static int send_float4(plcConn *conn, float f);
 static int send_float8(plcConn *conn, double f);
-static int send_raw(plcConn *conn, char *s, int cnt);
 static int send_cstring(plcConn *conn, char *s);
 static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj);
 static int send_raw_array_iter(plcConn *conn, plcIterator *iter);
@@ -176,11 +175,6 @@ static int send_float8(plcConn *conn, double f) {
     return plcBufferAppend(conn, (char*)&f, 8);
 }
 
-static int send_raw(plcConn *conn, char *s, int cnt) {
-    debug_print(WARNING, "    ===> sending %d raw bytes '%s'", cnt, s);
-    return plcBufferAppend(conn, s, cnt);
-}
-
 static int send_cstring(plcConn *conn, char *s) {
     debug_print(WARNING, "    ===> sending cstring '%s'", s);
     int res = 0;
@@ -194,7 +188,6 @@ static int send_cstring(plcConn *conn, char *s) {
 
 static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj) {
     int res = 0;
-    int len = 0;
     if (obj->isnull) {
         res |= send_char(conn, 'N');
         debug_print(WARNING, "Object is null");
@@ -221,9 +214,7 @@ static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj) {
                 res |= send_float8(conn, *((double*)obj->value));
                 break;
             case PLC_DATA_TEXT:
-                len = *((int*)obj->value);
-                res |= send_int32(conn, len);
-                res |= send_raw(conn, obj->value + 4, len);
+                res |= send_cstring(conn, obj->value);
                 break;
             case PLC_DATA_ARRAY:
                 res |= send_raw_array_iter(conn, (plcIterator*)obj->value);
@@ -336,7 +327,6 @@ static int receive_raw_object(plcConn *conn, plcDatatype type, rawdata *obj)  {
         obj->value  = NULL;
         debug_print(WARNING, "Object is null");
     } else {
-        int len = 0;
         obj->isnull = 0;
         debug_print(WARNING, "Object value is:");
         switch (type) {
@@ -365,10 +355,7 @@ static int receive_raw_object(plcConn *conn, plcDatatype type, rawdata *obj)  {
                 res |= receive_float8(conn, (double*)obj->value);
                 break;
             case PLC_DATA_TEXT:
-                res |= receive_int32(conn, &len);
-                obj->value = (char*)pmalloc(len + 4);
-                *((int*)obj->value) = len;
-                res |= receive_raw(conn, obj->value + 4, len);
+                res |= receive_cstring(conn, &obj->value);
                 break;
             case PLC_DATA_ARRAY:
                 res |= receive_array(conn, obj);
@@ -456,13 +443,8 @@ static int receive_array(plcConn *conn, rawdata *obj) {
                         arr->nulls[i] = 1;
                         ((char**)arr->data)[i] = NULL;
                     } else {
-                        char* rctext;
                         arr->nulls[i] = 0;
-                        res |= receive_int32(conn, &entrylen);
-                        rctext = (char*)pmalloc(entrylen + 4);
-                        *((int*)rctext) = entrylen;
-                        res |= receive_raw(conn, rctext + 4, entrylen);
-                        ((char**)arr->data)[i] = rctext;
+                        receive_cstring(conn, &((char**)arr->data)[i]);
                     }
                 }
                 break;

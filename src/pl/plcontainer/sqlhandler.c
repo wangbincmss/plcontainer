@@ -102,12 +102,8 @@ create_sql_result() {
                 result->data[i][j].isnull = 1;
                 result->data[i][j].value = NULL;
             } else {
-                int len = strlen(val);
                 result->data[i][j].isnull = 0;
-                result->data[i][j].value = palloc(len+4);
-                memcpy(result->data[i][j].value, &len, 4);
-                memcpy(result->data[i][j].value+4, val, len);
-                pfree(val);
+                result->data[i][j].value = val;
             }
         }
     }

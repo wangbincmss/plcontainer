@@ -233,8 +233,7 @@ receive:
         for (j = 0; j < result->cols; j++) {
             switch (result->types[j]) {
                 case PLC_DATA_TEXT:
-                    pyval = PyString_FromStringAndSize((char *)(result->data[i][j].value+4),
-                                                      *((int*)result->data[i][j].value));
+                    pyval = PyString_FromString(result->data[i][j].value);
                     break;
                 case PLC_DATA_INT1:
                 case PLC_DATA_INT2:
@@ -315,8 +314,7 @@ static PyObject *arguments_to_pytuple (callreq req) {
                     arg = PyFloat_FromDouble( *((double*)req->args[i].data.value) );
                     break;
                 case PLC_DATA_TEXT:
-                    arg = PyString_FromStringAndSize((char *)(req->args[i].data.value+4),
-                                                     *((int*)req->args[i].data.value));
+                    arg = PyString_FromString(req->args[i].data.value);
                     break;
                 case PLC_DATA_ARRAY:
                 case PLC_DATA_RECORD:
@@ -378,8 +376,7 @@ static double python_get_double(PyObject *obj) {
 }
 
 static int process_call_results(plcConn *conn, PyObject *retval, plcDatatype type) {
-    char  *txt;
-    int    len = 0;
+    PyObject *obj;
     plcontainer_result res;
 
     /* allocate a result */
@@ -426,11 +423,8 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcDatatype typ
                 *((double*)res->data[0][0].value) = (double)python_get_double(retval);
                 break;
             case PLC_DATA_TEXT:
-                txt = PyString_AsString(PyObject_Str(retval));
-                len = strlen(txt);
-                res->data[0][0].value = (char*)malloc(len + 5);
-                memcpy(res->data[0][0].value, &len, 4);
-                memcpy(res->data[0][0].value+4, txt, len+1);
+                obj = PyObject_Str(retval);
+                res->data[0][0].value = strdup(PyString_AsString(obj));
                 break;
             case PLC_DATA_ARRAY:
             case PLC_DATA_RECORD:
