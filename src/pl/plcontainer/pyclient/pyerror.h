@@ -1,9 +1,9 @@
-#ifndef __PYERROR_H__
-#define __PYERROR_H__
+#ifndef PLC_PYERROR_H
+#define PLC_PYERROR_H
 
 #include "common/comm_connectivity.h"
 
 // Raising exception to the backend
 void raise_execution_error (plcConn *conn, const char *format, ...);
 
-#endif /* __PYERROR_H__ */
+#endif /* PLC_PYERROR_H */
