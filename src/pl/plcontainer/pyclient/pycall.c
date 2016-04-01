@@ -283,9 +283,7 @@ receive:
 
 static PyObject *plcarray_dim_to_list(plcArray *arr, int *idx, int *pos, int dim) {
     PyObject *res = NULL;
-    lprintf(WARNING, "Processing dimension %d", dim);
     if (dim == arr->meta->ndims) {
-        lprintf(WARNING, "Processing position %d", *pos);
         if (arr->nulls[*pos] != 0) {
             res = Py_None;
             Py_INCREF(Py_None);
@@ -301,7 +299,6 @@ static PyObject *plcarray_dim_to_list(plcArray *arr, int *idx, int *pos, int dim
                     res = PyLong_FromLong( (long) ((int*)arr->data)[*pos] );
                     break;
                 case PLC_DATA_INT8:
-                    lprintf(WARNING, "Long long %lld", ((long long*)arr->data)[*pos]);
                     res = PyLong_FromLongLong( ((long long*)arr->data)[*pos] );
                     break;
                 case PLC_DATA_FLOAT4:
@@ -345,14 +342,11 @@ static PyObject *plcarray_dim_to_list(plcArray *arr, int *idx, int *pos, int dim
 static PyObject *plcarray_to_list (plcArray *arr) {
     PyObject *res = NULL;
 
-    lprintf(WARNING, "Received array. Start parsing it");
     if (arr->meta->ndims == 0) {
-        lprintf(WARNING, "Array has 0 dimensions! Returning empty list");
         res = PyList_New(0);
     } else {
         int *idx;
         int pos = 0;
-        lprintf(WARNING, "Array has %d dimensions", arr->meta->ndims);
         idx = malloc(sizeof(int) * arr->meta->ndims);
         memset(idx, 0, sizeof(int) * arr->meta->ndims);
         res = plcarray_dim_to_list(arr, idx, &pos, 0);
