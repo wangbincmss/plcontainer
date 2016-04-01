@@ -4,6 +4,8 @@ override CFLAGS += $(DEBUG) -I../ -I../../../include -DCOMM_STANDALONE -Wall -We
 
 common_src = $(shell find ../common -name "*.c")
 common_objs = $(foreach src,$(common_src),$(subst .c,.o,$(src)))
+python_src = $(shell find . -name "*.c")
+python_objs = $(foreach src,$(python_src),$(subst .c,.o,$(src)))
 
 .PHONY: default
 default: clean all
@@ -15,7 +17,7 @@ clean_common:
 %.o: %.c
 	$(CC) $(PYTHON_CFLAGS) $(CFLAGS) -c -o $@ $^
 
-client: client.o pycall.o $(common_objs)
+client: $(python_objs) $(common_objs)
 	$(CC) -o $@ $^ $(PYTHON_LDLAGS)
 
 debug: DEBUG = -D_DEBUG_CLIENT -g
