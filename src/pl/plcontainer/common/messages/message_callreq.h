@@ -8,10 +8,18 @@ typedef struct {
     char *name; // name of procedure
 } plcProcSrc;
 
+typedef struct plcType plcType;
+
+struct plcType {
+   plcDatatype  type;
+   short        nSubTypes;
+   plcType     *subTypes;
+};
+
 typedef struct call_req {
     base_message_content;
     plcProcSrc   proc;
-    plcDatatype  retType;
+    plcType      retType;
     int          nargs;
     plcArgument *args;
 } call_req, *callreq;

@@ -30,7 +30,7 @@ interpreted as representing official policies, either expressed or implied, of t
 
 typedef struct plcTypeInfo plcTypeInfo;
 
- struct plcTypeInfo {
+struct plcTypeInfo {
     plcDatatype   type;
     Oid           typeOid;
     RegProcedure  output, input; /* used to convert a given value from/to "...." */

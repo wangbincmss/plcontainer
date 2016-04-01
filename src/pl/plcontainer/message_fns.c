@@ -497,6 +497,19 @@ fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req)
     }
 }
 
+static void fill_type_value(plcType *pType, plcTypeInfo *typeInfo) {
+    int i = 0;
+    pType->type = typeInfo->type;
+    pType->nSubTypes = typeInfo->nSubTypes;
+    if (pType->nSubTypes > 0) {
+        pType->subTypes = (plcType*)pmalloc(pType->nSubTypes * sizeof(plcType));
+        for (i = 0; i < pType->nSubTypes; i++)
+            fill_type_value(&pType->subTypes[i], &typeInfo->subTypes[i]);
+    } else {
+        pType->subTypes = NULL;
+    }
+}
+
 callreq
 plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
     callreq   req;
@@ -505,7 +518,7 @@ plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
     req->msgtype = MT_CALLREQ;
     req->proc.name = pinfo->name;
     req->proc.src  = pinfo->src;
-    req->retType   = pinfo->rettype.type;
+    fill_type_value(&req->retType, &pinfo->rettype);
 
     fill_callreq_arguments(fcinfo, pinfo, req);
 

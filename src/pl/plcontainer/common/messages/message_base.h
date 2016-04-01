@@ -22,7 +22,7 @@ typedef enum {
     PLC_DATA_ARRAY,    // Array - array type specification should follow
     PLC_DATA_RECORD,   // Anonymous record, supported only as return type
     PLC_DATA_UDT,      // User-defined type, specification to follow
-    //PLC_DATA_BYTEA,    // Arbitrary set of bytes, stored and transferred as length + data
+    PLC_DATA_BYTEA,    // Arbitrary set of bytes, stored and transferred as length + data
     PLC_DATA_INVALID   // Invalid data type
 } plcDatatype;
 

@@ -5,7 +5,7 @@
 #include "common/messages/messages.h"
 
 typedef PyObject *(*plcPyInputFunc)(char*);
-typedef int (*plcPyOutputFunc)(PyObject*, char**, char);
+typedef int (*plcPyOutputFunc)(PyObject*, char**);
 
 typedef struct plcPyTypeConverter {
     plcPyInputFunc  inputfunc;

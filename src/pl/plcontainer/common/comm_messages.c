@@ -31,6 +31,16 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "comm_utils.h"
 #include "messages/messages.h"
 
+/* Recursive function to free up the type structure */
+static void free_subtypes(plcType *typArr) {
+    if (typArr->nSubTypes > 0) {
+        int i = 0;
+        for (i = 0; i < typArr->nSubTypes; i++)
+            free_subtypes(&typArr->subTypes[i]);
+        pfree(typArr->subTypes);
+    }
+}
+
 void free_callreq(callreq req) {
     int i;
 
@@ -44,6 +54,8 @@ void free_callreq(callreq req) {
         pfree(req->args[i].data.value);
     }
     pfree(req->args);
+
+    free_subtypes(&req->retType);
 
     /* free the top-level request */
     pfree(req);

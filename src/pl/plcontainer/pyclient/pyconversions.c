@@ -15,14 +15,14 @@ static PyObject *plc_pyobject_from_array_dim(plcArray *arr, plcPyInputFunc infun
                     int *idx, int *ipos, char **pos, int vallen, int dim);
 static PyObject *plc_pyobject_from_array (char *input);
 
-static int plc_pyobject_as_int1(PyObject *input, char **output, bool allocResult);
-static int plc_pyobject_as_int2(PyObject *input, char **output, bool allocResult);
-static int plc_pyobject_as_int4(PyObject *input, char **output, bool allocResult);
-static int plc_pyobject_as_int8(PyObject *input, char **output, bool allocResult);
-static int plc_pyobject_as_float4(PyObject *input, char **output, bool allocResult);
-static int plc_pyobject_as_float8(PyObject *input, char **output, bool allocResult);
-static int plc_pyobject_as_text(PyObject *input, char **output, bool allocResult);
-static int plc_pyobject_as_array(PyObject *input, char **output, bool allocResult);
+static int plc_pyobject_as_int1(PyObject *input, char **output);
+static int plc_pyobject_as_int2(PyObject *input, char **output);
+static int plc_pyobject_as_int4(PyObject *input, char **output);
+static int plc_pyobject_as_int8(PyObject *input, char **output);
+static int plc_pyobject_as_float4(PyObject *input, char **output);
+static int plc_pyobject_as_float8(PyObject *input, char **output);
+static int plc_pyobject_as_text(PyObject *input, char **output);
+static int plc_pyobject_as_array(PyObject *input, char **output);
 
 static int plc_get_type_length(plcDatatype dt);
 static plcPyInputFunc plc_get_input_function(plcDatatype dt);
@@ -119,12 +119,10 @@ static PyObject *plc_pyobject_from_array (char *input) {
     return res;
 }
 
-static int plc_pyobject_as_int1(PyObject *input, char **output, char allocResult) {
+static int plc_pyobject_as_int1(PyObject *input, char **output) {
     int res = 0;
-    char *out;
-    if (allocResult)
-        *output = (char*)malloc(1);
-    out = *output;
+    char *out = (char*)malloc(1);
+    *output = out;
     if (PyLong_Check(input))
         *out = (char)PyLong_AsLongLong(input);
     else if (PyInt_Check(input))
@@ -136,12 +134,10 @@ static int plc_pyobject_as_int1(PyObject *input, char **output, char allocResult
     return res;
 }
 
-static int plc_pyobject_as_int2(PyObject *input, char **output, char allocResult) {
+static int plc_pyobject_as_int2(PyObject *input, char **output) {
     int res = 0;
-    char *out;
-    if (allocResult)
-        *output = (char*)malloc(2);
-    out = *output;
+    char *out = (char*)malloc(2);
+    *output = out;
     if (PyLong_Check(input))
         *((short*)out) = (short)PyLong_AsLongLong(input);
     else if (PyInt_Check(input))
@@ -153,12 +149,10 @@ static int plc_pyobject_as_int2(PyObject *input, char **output, char allocResult
     return res;
 }
 
-static int plc_pyobject_as_int4(PyObject *input, char **output, char allocResult) {
+static int plc_pyobject_as_int4(PyObject *input, char **output) {
     int res = 0;
-    char *out;
-    if (allocResult)
-        *output = (char*)malloc(4);
-    out = *output;
+    char *out = (char*)malloc(4);
+    *output = out;
     if (PyLong_Check(input))
         *((int*)out) = (int)PyLong_AsLongLong(input);
     else if (PyInt_Check(input))
@@ -170,12 +164,10 @@ static int plc_pyobject_as_int4(PyObject *input, char **output, char allocResult
     return res;
 }
 
-static int plc_pyobject_as_int8(PyObject *input, char **output, char allocResult) {
+static int plc_pyobject_as_int8(PyObject *input, char **output) {
     int res = 0;
-    char *out;
-    if (allocResult)
-        *output = (char*)malloc(8);
-    out = *output;
+    char *out = (char*)malloc(8);
+    *output = out;
     if (PyLong_Check(input))
         *((long long*)out) = (long long)PyLong_AsLongLong(input);
     else if (PyInt_Check(input))
@@ -187,12 +179,10 @@ static int plc_pyobject_as_int8(PyObject *input, char **output, char allocResult
     return res;
 }
 
-static int plc_pyobject_as_float4(PyObject *input, char **output, char allocResult) {
+static int plc_pyobject_as_float4(PyObject *input, char **output) {
     int res = 0;
-    char *out;
-    if (allocResult)
-        *output = (char*)malloc(4);
-    out = *output;
+    char *out = (char*)malloc(4);
+    *output = out;
     if (PyFloat_Check(input))
         *((float*)out) = (float)PyFloat_AsDouble(input);
     else if (PyLong_Check(input))
@@ -204,12 +194,10 @@ static int plc_pyobject_as_float4(PyObject *input, char **output, char allocResu
     return res;
 }
 
-static int plc_pyobject_as_float8(PyObject *input, char **output, char allocResult) {
+static int plc_pyobject_as_float8(PyObject *input, char **output) {
     int res = 0;
-    char *out;
-    if (allocResult)
-        *output = (char*)malloc(8);
-    out = *output;
+    char *out = (char*)malloc(8);
+    *output = out;
     if (PyFloat_Check(input))
         *((double*)out) = (double)PyFloat_AsDouble(input);
     else if (PyLong_Check(input))
@@ -221,15 +209,12 @@ static int plc_pyobject_as_float8(PyObject *input, char **output, char allocResu
     return res;
 }
 
-static int plc_pyobject_as_text(PyObject *input, char **output, char allocResult) {
+static int plc_pyobject_as_text(PyObject *input, char **output) {
     int res = 0;
     PyObject *obj;
     obj = PyObject_Str(input);
     if (obj != NULL) {
-        if (allocResult)
-            *output = strdup(PyString_AsString(obj));
-        else
-            lprintf(FATAL, "Cannot call plc_pyobject_as_text with allocResult = false");
+        *output = strdup(PyString_AsString(obj));
         Py_DECREF(obj);
     } else {
         res = -1;
@@ -237,9 +222,9 @@ static int plc_pyobject_as_text(PyObject *input, char **output, char allocResult
     return res;
 }
 
-static int plc_pyobject_as_array(PyObject *input, char **output, char allocResult) {
+static int plc_pyobject_as_array(PyObject *input, char **output) {
     // TODO: Implement it in a right way
-    return plc_pyobject_as_text(input, output, allocResult);
+    return plc_pyobject_as_text(input, output);
 }
 
 static int plc_get_type_length(plcDatatype dt) {
@@ -370,7 +355,7 @@ plcPyCallReq *plc_init_call_conversions(callreq call) {
 
     /* Get output convertion function for output argument */
     rescall->outconv[0].inputfunc = NULL;
-    rescall->outconv[0].outputfunc = plc_get_output_function(call->retType);
+    rescall->outconv[0].outputfunc = plc_get_output_function(call->retType.type);
 
     return rescall;
 }

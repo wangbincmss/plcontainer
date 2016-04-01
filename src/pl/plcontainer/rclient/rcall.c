@@ -369,7 +369,7 @@ void handle_call(callreq req, plcConn* conn) {
         res->rows = res->cols = 1;
         res->names[0]         = pstrdup("result");
         res->data[0]->isnull  = false;
-        if ( isMatrix(strres) && req->retType != PLC_DATA_TEXT ) {
+        if ( isMatrix(strres) && req->retType.type != PLC_DATA_TEXT ) {
             plcDatatype basetype = get_base_type(strres);
             if (basetype > PLC_DATA_TEXT) {
                 char *errmsg = pmalloc(100);
@@ -383,7 +383,7 @@ void handle_call(callreq req, plcConn* conn) {
             res->data[0]->value   = (char*)matrix_iterator(strres);
         } else {
         	char *ret = NULL;
-            switch(res->types[0] = req->retType){
+            switch(res->types[0] = req->retType.type){
             	case PLC_DATA_INT1:
                     ret = pmalloc(1);
                     *((bool *)ret) = asLogical(strres);

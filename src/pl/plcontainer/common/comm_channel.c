@@ -46,6 +46,7 @@ static int send_float8(plcConn *conn, double f);
 static int send_cstring(plcConn *conn, char *s);
 static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj);
 static int send_raw_array_iter(plcConn *conn, plcIterator *iter);
+static int send_type(plcConn *conn, plcType *type);
 
 static int receive_message_type(plcConn *conn, char *c);
 static int receive_char(plcConn *conn, char *c);
@@ -58,6 +59,7 @@ static int receive_raw(plcConn *conn, char *s, size_t len);
 static int receive_cstring(plcConn *conn, char **s);
 static int receive_raw_object(plcConn *conn, plcDatatype type, rawdata *obj);
 static int receive_array(plcConn *conn, rawdata *obj);
+static int receive_type(plcConn *conn, plcType *type);
 
 static int send_call(plcConn *conn, callreq call);
 static int send_result(plcConn *conn, plcontainer_result res);
@@ -243,6 +245,21 @@ static int send_raw_array_iter(plcConn *conn, plcIterator *iter) {
         res |= send_int32(conn, meta->dims[i]);
     for (i = 0; i < meta->size && res == 0; i++)
         res |= send_raw_object(conn, meta->type, iter->next(iter));
+    return res;
+}
+
+static int send_type(plcConn *conn, plcType *type) {
+    int res = 0;
+    int i = 0;
+
+    res |= send_char(conn, (char)type->type);
+    // TODO: Add UDT here
+    if (type->type == PLC_DATA_ARRAY) {
+        res |= send_int16(conn, type->nSubTypes);
+        for (i = 0; i < type->nSubTypes && res == 0; i++)
+            res |= send_type(conn, &type->subTypes[i]);
+    }
+
     return res;
 }
 
@@ -456,6 +473,29 @@ static int receive_array(plcConn *conn, rawdata *obj) {
     return res;
 }
 
+static int receive_type(plcConn *conn, plcType *type) {
+    int res = 0;
+    int i = 0;
+    char typ;
+
+    res |= receive_char(conn, &typ);
+    type->type = (int)typ;
+    // TODO: Add UDT here
+    if (type->type == PLC_DATA_ARRAY) {
+        res |= receive_int16(conn, &type->nSubTypes);
+        if (type->nSubTypes > 0) {
+            type->subTypes = (plcType*)pmalloc(type->nSubTypes * sizeof(plcType));
+            for (i = 0; i < type->nSubTypes && res == 0; i++)
+                res |= receive_type(conn, &type->subTypes[i]);
+        }
+    } else {
+        type->nSubTypes = 0;
+        type->subTypes = NULL;
+    }
+
+    return res;
+}
+
 /* Send Functions for the Main Engine */
 
 static int send_argument(plcConn *conn, plcArgument *arg) {
@@ -478,8 +518,8 @@ static int send_call(plcConn *conn, callreq call) {
     debug_print(WARNING, "Function source code:");
     debug_print(WARNING, "%s", call->proc.src);
     res |= send_cstring(conn, call->proc.src);
-    debug_print(WARNING, "Function return type is '%d'", (int)call->retType);
-    res |= send_char(conn, (char)call->retType);
+    debug_print(WARNING, "Function return type is '%d'", (int)call->retType.type);
+    res |= send_type(conn, &call->retType);
     debug_print(WARNING, "Function number of arguments is '%d'", call->nargs);
     res |= send_int32(conn, call->nargs);
 
@@ -769,7 +809,6 @@ static int receive_call(plcConn *conn, message *mCall) {
     int res = 0;
     int i;
     callreq req;
-    char type;
 
     *mCall         = (message)pmalloc(sizeof(struct call_req));
     req            = (callreq) *mCall;
@@ -779,9 +818,8 @@ static int receive_call(plcConn *conn, message *mCall) {
     res |= receive_cstring(conn, &req->proc.src);
     debug_print(WARNING, "Function source code:");
     debug_print(WARNING, "%s", req->proc.src);
-    res |= receive_char(conn, &type);
-    req->retType = (int)type;
-    debug_print(WARNING, "Function return type is '%d'", (int)req->retType);
+    res |= receive_type(conn, &req->retType);
+    debug_print(WARNING, "Function return type is '%d'", (int)req->retType.type);
     res |= receive_int32(conn, &req->nargs);
     debug_print(WARNING, "Function number of arguments is '%d'", req->nargs);
     if (res == 0) {

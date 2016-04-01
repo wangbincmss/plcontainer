@@ -333,7 +333,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyCallReq *p
     res->rows = res->cols = 1;
     res->data    = malloc(sizeof( *res->data) * res->rows);
     res->data[0] = malloc(sizeof(**res->data) * res->cols);
-    res->types[0] = pyreq->call->retType;
+    res->types[0] = pyreq->call->retType.type;
     res->names[0] = strdup("result");
 
     if (retval == Py_None) {
@@ -350,7 +350,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyCallReq *p
             free_result(res);
             return -1;
         }
-        ret = pyreq->outconv[0].outputfunc(retval, &res->data[0][0].value, 1);
+        ret = pyreq->outconv[0].outputfunc(retval, &res->data[0][0].value);
         if (ret != 0) {
             raise_execution_error(plcconn,
                                   "Exception raised converting function output to function output type %d",
