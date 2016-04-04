@@ -302,7 +302,7 @@ void handle_call(callreq req, plcConn* conn) {
         for (col = 0; col < cols; col++) {
 
             res->names[col] = pstrdup(CHAR(STRING_ELT(names,col)));
-            res->types[col] = PLC_DATA_TEXT;
+            res->types[col].type = PLC_DATA_TEXT;
 
             if (TYPEOF(strres) == VECSXP) {
                 PROTECT(dfcol = VECTOR_ELT(strres, col));
@@ -369,6 +369,7 @@ void handle_call(callreq req, plcConn* conn) {
         res->rows = res->cols = 1;
         res->names[0]         = pstrdup("result");
         res->data[0]->isnull  = false;
+        res->types[0].nSubTypes = 0;
         if ( isMatrix(strres) && req->retType.type != PLC_DATA_TEXT ) {
             plcDatatype basetype = get_base_type(strres);
             if (basetype > PLC_DATA_TEXT) {
@@ -379,11 +380,11 @@ void handle_call(callreq req, plcConn* conn) {
                 send_error(conn, errmsg);
                 pfree(errmsg);
             }
-            res->types[0]         = basetype;
+            res->types[0].type    = basetype;
             res->data[0]->value   = (char*)matrix_iterator(strres);
         } else {
         	char *ret = NULL;
-            switch(res->types[0] = req->retType.type){
+            switch(res->types[0].type = req->retType.type){
             	case PLC_DATA_INT1:
                     ret = pmalloc(1);
                     *((bool *)ret) = asLogical(strres);
@@ -687,7 +688,7 @@ SEXP convert_args(callreq req)
             SET_VECTOR_ELT( rargs, i, element );
             UNPROTECT(1);
         } else {
-            switch( req->args[i].type ){
+            switch( req->args[i].type.type ){
 
             case PLC_DATA_INT1:
                 PROTECT(element = get_r_vector(PLC_DATA_INT1,1));
@@ -736,7 +737,7 @@ SEXP convert_args(callreq req)
             case PLC_DATA_RECORD:
             case PLC_DATA_UDT:
             default:
-                lprintf(ERROR, "unknown type %d", req->args[i].type);
+                lprintf(ERROR, "unknown type %d", req->args[i].type.type);
             }
         }
     }
@@ -939,13 +940,13 @@ plr_SPI_exec( SEXP rsql )
         SET_STRING_ELT(names, j, Rf_mkChar(result->names[j]));
 
         //create a vector of the type that is rows long
-        PROTECT(fldvec = get_r_vector(result->types[0], result->rows));
+        PROTECT(fldvec = get_r_vector(result->types[0].type, result->rows));
 
         for ( i=0; i<result->rows; i++ ){
             /*
              * store the value
              */
-            pg_get_one_r(result->data[i][j].value, result->types[0], &fldvec, i);
+            pg_get_one_r(result->data[i][j].value, result->types[0].type, &fldvec, i);
         }
 
         UNPROTECT(1);

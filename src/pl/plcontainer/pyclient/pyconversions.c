@@ -24,6 +24,9 @@ static int plc_pyobject_as_float8(PyObject *input, char **output);
 static int plc_pyobject_as_text(PyObject *input, char **output);
 static int plc_pyobject_as_array(PyObject *input, char **output);
 
+static void plc_pyobject_iter_free (plcIterator *iter);
+static rawdata *plc_pyobject_as_array_next (plcIterator *iter);
+
 static int plc_get_type_length(plcDatatype dt);
 static plcPyInputFunc plc_get_input_function(plcDatatype dt);
 static plcPyOutputFunc plc_get_output_function(plcDatatype dt);
@@ -222,9 +225,124 @@ static int plc_pyobject_as_text(PyObject *input, char **output) {
     return res;
 }
 
+static void plc_pyobject_iter_free (plcIterator *iter) {
+    plcPyArrMeta    *meta;
+    meta = (plcPyArrMeta*)iter->meta;
+    pfree(meta->dims);
+    pfree(iter->meta);
+    pfree(iter->position);
+    pfree(iter);
+}
+
+static rawdata *plc_pyobject_as_array_next (plcIterator *iter) {
+    plcPyArrMeta    *meta;
+    plcPyArrPointer *ptrs;
+    rawdata         *res;
+    PyObject        *obj;
+    int              ptr;
+
+    meta = (plcPyArrMeta*)iter->meta;
+    ptrs = (plcPyArrPointer*)iter->position;
+    res  = (rawdata*)pmalloc(sizeof(rawdata));
+
+    ptr = meta->ndims - 1;
+    if (ptrs[ptr].obj)
+    obj = PyList_GetItem(ptrs[ptr].obj, ptrs[ptr].pos);
+    if (obj == NULL || obj == Py_None) {
+        res->isnull = 1;
+        res->value = NULL;
+    } else {
+        res->isnull = 0;
+        meta->outputfunc(obj, &res->value);
+    }
+
+    while (ptr > 0) {
+        ptrs[ptr].pos += 1;
+        /* If we finished up iterating over this dimension */
+        if (ptrs[ptr].pos == meta->dims[ptr]) {
+            Py_DECREF(ptrs[ptr].obj);
+            ptrs[ptr].obj = NULL;
+            ptrs[ptr].pos = 0;
+            ptr -= 1;
+        }
+        /* If we found the "next" dimension to iterate over */
+        else if (ptrs[ptr].pos < meta->dims[ptr]) {
+            ptr += 1;
+            while (ptr < meta->ndims) {
+                ptrs[ptr].obj = PyList_GetItem(ptrs[ptr-1].obj, ptrs[ptr-1].pos);
+                Py_INCREF(ptrs[ptr].obj);
+                ptrs[ptr].pos = 0;
+                ptr += 1;
+            }
+            break;
+        }
+    }
+
+    if (ptr < 0)
+        plc_pyobject_iter_free(iter);
+
+    return res;
+}
+
 static int plc_pyobject_as_array(PyObject *input, char **output) {
-    // TODO: Implement it in a right way
-    return plc_pyobject_as_text(input, output);
+    plcPyArrMeta    *meta;
+    PyObject        *obj;
+    plcIterator     *iter;
+    size_t           dims[PLC_MAX_ARRAY_DIMS];
+    PyObject        *stack[PLC_MAX_ARRAY_DIMS];
+    int              ndims = 0;
+    int              res = 0;
+    int              i = 0;
+    plcPyArrPointer *ptrs;
+
+    /* We allow only lists to be returned as arrays */
+    if (PyList_Check(input)) {
+        obj = input;
+        while (obj != NULL && PyList_Check(obj)) {
+            dims[ndims]  = PyList_Size(obj);
+            stack[ndims] = obj;
+            Py_INCREF(stack[ndims]);
+            ndims += 1;
+            if (dims[ndims-1] > 0)
+                obj = PyList_GetItem(obj, 0);
+            else
+                break;
+        }
+
+        /* Allocate the iterator */
+        iter = (plcIterator*)pmalloc(sizeof(plcIterator));
+
+        /* Initialize meta */
+        meta = (plcPyArrMeta*)pmalloc(sizeof(plcPyArrMeta));
+        meta->ndims = ndims;
+        meta->dims  = (size_t*)pmalloc(ndims * sizeof(size_t));
+        for (i = 0; i < ndims; i++)
+            meta->dims[i] = dims[i];
+        /* TODO: !!!!!!!!!!! */
+        meta->outputfunc = plc_pyobject_as_int8;
+        iter->meta = (char*)meta;
+
+        /* Initializing initial position */
+        ptrs = (plcPyArrPointer*)pmalloc(ndims * sizeof(plcPyArrPointer));
+        for (i = 0; i < ndims; i++) {
+            ptrs[i].pos = 0;
+            ptrs[i].obj = stack[i];
+        }
+        iter->position = (char*)ptrs;
+
+        /* Initializing "data" */
+        *((PyObject**)iter->data) = input;
+
+        /* Initializing "next" function */
+        iter->next = plc_pyobject_as_array_next;
+
+        *((plcIterator**)output) = iter;
+    } else {
+        *((plcIterator**)output) = NULL;
+        res = -1;
+    }
+
+    return res;
 }
 
 static int plc_get_type_length(plcDatatype dt) {
@@ -336,28 +454,39 @@ static plcPyOutputFunc plc_get_output_function(plcDatatype dt) {
     return res;
 }
 
-plcPyCallReq *plc_init_call_conversions(callreq call) {
-    plcPyCallReq *rescall;
+static void plc_parse_type(plcPyType *pytype, plcType *type) {
+    int i = 0;
+    //pytype->name = strdup(type->name); TODO: implement type name to support UDTs
+    pytype->name = strdup("results");
+    pytype->type = type->type;
+    pytype->nSubTypes = type->nSubTypes;
+    pytype->subTypes = (plcPyType*)malloc(pytype->nSubTypes * sizeof(plcPyType));
+    pytype->conv.inputfunc  = plc_get_input_function(pytype->type);
+    pytype->conv.outputfunc = plc_get_output_function(pytype->type);
+    for (i = 0; i < type->nSubTypes; i++) {
+        pytype->conv.inputfunc  = plc_get_input_function(pytype->type);
+        pytype->conv.outputfunc = plc_get_output_function(pytype->type);
+        plc_parse_type(&pytype->subTypes[i], &type->subTypes[i]);
+    }
+}
+
+plcPyFunction *plc_py_init_function(callreq call) {
+    plcPyFunction *res;
     int i;
 
-    rescall = (plcPyCallReq*)malloc(sizeof(plcPyCallReq));
-    rescall->call = call;
+    res = (plcPyFunction*)malloc(sizeof(plcPyFunction));
+    res->call = call;
+    res->proc.src  = strdup(call->proc.src);
+    res->proc.name = strdup(call->proc.name);
+    res->nargs = call->nargs;
+    res->args = (plcPyType*)malloc(res->nargs * sizeof(plcPyType));
 
-    /* Currently supporting only single output parameter */
-    rescall->inconv = (plcPyTypeConverter*)malloc(call->nargs * sizeof(plcPyTypeConverter));
-    rescall->outconv = (plcPyTypeConverter*)malloc(1 * sizeof(plcPyTypeConverter));
+    for (i = 0; i < res->nargs; i++)
+        plc_parse_type(&res->args[i], &call->args[i].type);
 
-    /* Get input convertion function for each of the arguments */
-    for (i = 0; i < call->nargs; i++) {
-        rescall->inconv[i].outputfunc = NULL;
-        rescall->inconv[i].inputfunc = plc_get_input_function(call->args[i].type);
-    }
+    plc_parse_type(&res->res, &call->retType);
 
-    /* Get output convertion function for output argument */
-    rescall->outconv[0].inputfunc = NULL;
-    rescall->outconv[0].outputfunc = plc_get_output_function(call->retType.type);
-
-    return rescall;
+    return res;
 }
 
 plcPyResult *plc_init_result_conversions(plcontainer_result res) {
@@ -366,21 +495,44 @@ plcPyResult *plc_init_result_conversions(plcontainer_result res) {
 
     pyres = (plcPyResult*)malloc(sizeof(plcPyResult));
     pyres->res = res;
-    pyres->inconv = (plcPyTypeConverter*)malloc(res->cols * sizeof(plcPyTypeConverter));
+    pyres->inconv = (plcPyTypeConv*)malloc(res->cols * sizeof(plcPyTypeConv));
 
     for (i = 0; i < res->cols; i++)
-        pyres->inconv[i].inputfunc = plc_get_input_function(res->types[i]);
+        pyres->inconv[i].inputfunc = plc_get_input_function(res->types[i].type);
 
     return pyres;
 }
 
-void plc_free_call_conversions(plcPyCallReq *req) {
-    free(req->inconv);
-    free(req->outconv);
-    free(req);
+static void plc_py_free_type(plcPyType *type) {
+    int i = 0;
+    for (i = 0; i < type->nSubTypes; i++)
+        plc_py_free_type(&type->subTypes[i]);
+    if (type->nSubTypes > 0)
+        free(type->subTypes);
+}
+
+void plc_py_free_function(plcPyFunction *func) {
+    int i = 0;
+    for (i = 0; i < func->nargs; i++)
+        plc_py_free_type(&func->args[i]);
+    free(func->args);
+    free(func);
 }
 
 void plc_free_result_conversions(plcPyResult *res) {
     free(res->inconv);
     free(res);
+}
+
+void plc_py_copy_type(plcType *type, plcPyType *pytype) {
+    type->type = pytype->type;
+    type->nSubTypes = pytype->nSubTypes;
+    if (type->nSubTypes > 0) {
+        int i = 0;
+        type->subTypes = (plcType*)pmalloc(type->nSubTypes * sizeof(plcType));
+        for (i = 0; i < type->nSubTypes; i++)
+            plc_py_copy_type(&type->subTypes[i], &pytype->subTypes[i]);
+    } else {
+        type->subTypes = NULL;
+    }
 }

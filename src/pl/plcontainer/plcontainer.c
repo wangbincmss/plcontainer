@@ -188,7 +188,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
                 type = (Form_pg_type)GETSTRUCT(typetup);
 
-                switch (res->types[0]) {
+                switch (res->types[0].type) {
                     case PLC_DATA_TEXT:
                     case PLC_DATA_ARRAY:
                         /* TODO: temporary solution for array to make the result be cstring */
@@ -216,7 +216,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                     case PLC_DATA_UDT:
                     case PLC_DATA_RECORD:
                     default:
-                         elog(ERROR, "Data Type not handled: %d",res->types[0] );
+                         elog(ERROR, "Data Type not handled: %d", res->types[0].type);
                          fcinfo->isnull=1;
                          ret = (Datum)0;
 

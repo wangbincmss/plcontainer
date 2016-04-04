@@ -26,10 +26,18 @@ typedef enum {
     PLC_DATA_INVALID   // Invalid data type
 } plcDatatype;
 
+typedef struct plcType plcType;
+
+struct plcType {
+   plcDatatype  type;
+   short        nSubTypes;
+   plcType     *subTypes;
+};
+
 typedef struct {
-    plcDatatype  type;
-    char        *name;
-    rawdata      data;
+    plcType  type;
+    char    *name;
+    rawdata  data;
 } plcArgument;
 
 #endif /* PLC_MESSAGE_BASE_H */

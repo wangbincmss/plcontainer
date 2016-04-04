@@ -7,7 +7,7 @@ typedef struct str_plcontainer_result {
     base_message_content;
     int           rows;
     int           cols;
-    plcDatatype  *types;
+    plcType      *types;
     char        **names;
     rawdata     **data;
 } str_plcontainer_result, *plcontainer_result;

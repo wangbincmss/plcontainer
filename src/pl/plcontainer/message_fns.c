@@ -476,6 +476,19 @@ static char *fill_callreq_value(Datum funcArg, plcTypeInfo *argType) {
     return out;
 }
 
+static void copy_type_info(plcType *type, plcTypeInfo *ptype) {
+    type->type = ptype->type;
+    type->nSubTypes = ptype->nSubTypes;
+    if (type->nSubTypes > 0) {
+        int i = 0;
+        type->subTypes = (plcType*)pmalloc(type->nSubTypes * sizeof(plcType));
+        for (i = 0; i < type->nSubTypes; i++)
+            copy_type_info(&type->subTypes[i], &ptype->subTypes[i]);
+    } else {
+        type->subTypes = NULL;
+    }
+}
+
 static void
 fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req) {
     int   i;
@@ -485,7 +498,7 @@ fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req)
 
     for (i = 0; i < pinfo->nargs; i++) {
         req->args[i].name = pinfo->argnames[i];
-        req->args[i].type = pinfo->argtypes[i].type;
+        copy_type_info(&req->args[i].type, &pinfo->argtypes[i]);
 
         if (fcinfo->argnull[i]) {
             req->args[i].data.isnull = 1;

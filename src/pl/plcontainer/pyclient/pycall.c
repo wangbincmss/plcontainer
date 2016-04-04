@@ -17,8 +17,8 @@
 
 static char *create_python_func(callreq req);
 static PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery);
-static PyObject *arguments_to_pytuple (plcConn *conn, plcPyCallReq *pyreq);
-static int process_call_results(plcConn *conn, PyObject *retval, plcPyCallReq *pyreq);
+static PyObject *arguments_to_pytuple (plcConn *conn, plcPyFunction *pyfunc);
+static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *pyfunc);
 static plcontainer_result receive_from_backend();
 
 static PyMethodDef moddef[] = {
@@ -42,12 +42,12 @@ void python_init() {
 }
 
 void handle_call(callreq req, plcConn *conn) {
-    char         *func;
-    PyObject     *val = NULL;
-    PyObject     *retval = NULL;
-    PyObject     *dict = NULL;
-    PyObject     *args = NULL;
-    plcPyCallReq *pyreq = NULL;
+    char          *func;
+    PyObject      *val = NULL;
+    PyObject      *retval = NULL;
+    PyObject      *dict = NULL;
+    PyObject      *args = NULL;
+    plcPyFunction *pyfunc = NULL;
 
     /*
      * Keep our connection for future calls from Python back to us.
@@ -88,23 +88,23 @@ void handle_call(callreq req, plcConn *conn) {
         return;
     }
 
-    pyreq = plc_init_call_conversions(req);
-    args = arguments_to_pytuple(conn, pyreq);
+    pyfunc = plc_py_init_function(req);
+    args = arguments_to_pytuple(conn, pyfunc);
     if (args == NULL) {
-        plc_free_call_conversions(pyreq);
+        plc_py_free_function(pyfunc);
         return;
     }
 
     /* call the function */
     retval = PyObject_Call(val, args, NULL);
     if (retval == NULL) {
-        plc_free_call_conversions(pyreq);
+        plc_py_free_function(pyfunc);
         raise_execution_error(conn, "Function produced NULL output");
         return;
     }
-    process_call_results(conn, retval, pyreq);
+    process_call_results(conn, retval, pyfunc);
 
-    plc_free_call_conversions(pyreq);
+    plc_py_free_function(pyfunc);
     Py_XDECREF(args);
     Py_XDECREF(dict);
     Py_XDECREF(val);
@@ -247,7 +247,7 @@ static PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
     for (j = 0; j < result->res->cols; j++) {
         if (result->inconv[j].inputfunc == NULL) {
             raise_execution_error(plcconn, "Type %d is not yet supported by Python container",
-                                  (int)result->res->types[j]);
+                                  (int)result->res->types[j].type);
             free_result(resp);
             plc_free_result_conversions(result);
             return NULL;
@@ -262,7 +262,7 @@ static PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
 
             if (PyDict_SetItemString(pydict, result->res->names[j], pyval) != 0) {
                 raise_execution_error(plcconn, "Error setting result dictionary element",
-                                      (int)result->res->types[j]);
+                                      (int)result->res->types[j].type);
                 free_result(resp);
                 plc_free_result_conversions(result);
                 return NULL;
@@ -271,7 +271,7 @@ static PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
 
         if (PyList_SetItem(pyresult, i, pydict) != 0) {
             raise_execution_error(plcconn, "Error setting result list element",
-                                  (int)result->res->types[j]);
+                                  (int)result->res->types[j].type);
             free_result(resp);
             plc_free_result_conversions(result);
             return NULL;
@@ -284,45 +284,45 @@ static PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
     return pyresult;
 }
 
-static PyObject *arguments_to_pytuple (plcConn *conn, plcPyCallReq *pyreq) {
+static PyObject *arguments_to_pytuple (plcConn *conn, plcPyFunction *pyfunc) {
     PyObject *args;
     int i;
 
-    args = PyTuple_New(pyreq->call->nargs);
-    for (i = 0; i < pyreq->call->nargs; i++) {
+    args = PyTuple_New(pyfunc->nargs);
+    for (i = 0; i < pyfunc->nargs; i++) {
         PyObject *arg = NULL;
 
-        if (pyreq->call->args[i].data.isnull) {
+        if (pyfunc->call->args[i].data.isnull) {
             Py_INCREF(Py_None);
             arg = Py_None;
         } else {
-            if (pyreq->inconv[i].inputfunc == NULL) {
+            if (pyfunc->args[i].conv.inputfunc == NULL) {
                 raise_execution_error(conn,
                                       "Parameter '%s' type %d is not supported",
-                                      pyreq->call->args[i].name,
-                                      pyreq->call->args[i].type);
+                                      pyfunc->args[i].name,
+                                      pyfunc->args[i].type);
                 return NULL;
             }
-            arg = pyreq->inconv[i].inputfunc(pyreq->call->args[i].data.value);
+            arg = pyfunc->args[i].conv.inputfunc(pyfunc->call->args[i].data.value);
         }
         if (arg == NULL) {
             raise_execution_error(conn,
                                   "Converting parameter '%s' to Python type failed",
-                                  pyreq->call->args[i].name);
+                                  pyfunc->args[i].name);
             return NULL;
         }
 
         if (PyTuple_SetItem(args, i, arg) != 0) {
             raise_execution_error(conn,
                                   "Setting Python list element %d for argument '%s' has failed",
-                                  i, pyreq->call->args[i].name);
+                                  i, pyfunc->args[i].name);
             return NULL;
         }
     }
     return args;
 }
 
-static int process_call_results(plcConn *conn, PyObject *retval, plcPyCallReq *pyreq) {
+static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *pyfunc) {
     plcontainer_result res;
 
     /* allocate a result */
@@ -333,8 +333,8 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyCallReq *p
     res->rows = res->cols = 1;
     res->data    = malloc(sizeof( *res->data) * res->rows);
     res->data[0] = malloc(sizeof(**res->data) * res->cols);
-    res->types[0] = pyreq->call->retType.type;
-    res->names[0] = strdup("result");
+    plc_py_copy_type(&res->types[0], &pyfunc->res);
+    res->names[0] = pyfunc->res.name;
 
     if (retval == Py_None) {
         res->data[0][0].isnull = 1;
@@ -343,18 +343,18 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyCallReq *p
     } else {
         int ret = 0;
         res->data[0][0].isnull = 0;
-        if (pyreq->outconv[0].outputfunc == NULL) {
+        if (pyfunc->res.conv.outputfunc == NULL) {
             raise_execution_error(plcconn,
                                   "Type %d is not yet supported by Python container",
-                                  (int)res->types[0]);
+                                  (int)res->types[0].type);
             free_result(res);
             return -1;
         }
-        ret = pyreq->outconv[0].outputfunc(retval, &res->data[0][0].value);
+        ret = pyfunc->res.conv.outputfunc(retval, &res->data[0][0].value);
         if (ret != 0) {
             raise_execution_error(plcconn,
                                   "Exception raised converting function output to function output type %d",
-                                  (int)res->types[0]);
+                                  (int)res->types[0].type);
             free_result(res);
             return -1;
         }

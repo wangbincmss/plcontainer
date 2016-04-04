@@ -44,8 +44,8 @@ static int send_int64(plcConn *conn, long long i);
 static int send_float4(plcConn *conn, float f);
 static int send_float8(plcConn *conn, double f);
 static int send_cstring(plcConn *conn, char *s);
-static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj);
-static int send_raw_array_iter(plcConn *conn, plcIterator *iter);
+static int send_raw_object(plcConn *conn, plcType *type, rawdata *obj);
+static int send_raw_array_iter(plcConn *conn, plcType *type, plcIterator *iter);
 static int send_type(plcConn *conn, plcType *type);
 
 static int receive_message_type(plcConn *conn, char *c);
@@ -57,8 +57,8 @@ static int receive_float4(plcConn *conn, float *f);
 static int receive_float8(plcConn *conn, double *f);
 static int receive_raw(plcConn *conn, char *s, size_t len);
 static int receive_cstring(plcConn *conn, char **s);
-static int receive_raw_object(plcConn *conn, plcDatatype type, rawdata *obj);
-static int receive_array(plcConn *conn, rawdata *obj);
+static int receive_raw_object(plcConn *conn, plcType *type, rawdata *obj);
+static int receive_array(plcConn *conn, plcType *type, rawdata *obj);
 static int receive_type(plcConn *conn, plcType *type);
 
 static int send_call(plcConn *conn, callreq call);
@@ -188,15 +188,15 @@ static int send_cstring(plcConn *conn, char *s) {
     return res;
 }
 
-static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj) {
+static int send_raw_object(plcConn *conn, plcType *type, rawdata *obj) {
     int res = 0;
     if (obj->isnull) {
         res |= send_char(conn, 'N');
         debug_print(WARNING, "Object is null");
     } else {
         res |= send_char(conn, 'D');
-        debug_print(WARNING, "Object type is %d and value is:", (int)type);
-        switch (type) {
+        debug_print(WARNING, "Object type is %d and value is:", (int)type->type);
+        switch (type->type) {
             case PLC_DATA_INT1:
                 res |= send_char(conn, *((char*)obj->value));
                 break;
@@ -219,7 +219,7 @@ static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj) {
                 res |= send_cstring(conn, obj->value);
                 break;
             case PLC_DATA_ARRAY:
-                res |= send_raw_array_iter(conn, (plcIterator*)obj->value);
+                res |= send_raw_array_iter(conn, &type->subTypes[0], (plcIterator*)obj->value);
                 break;
             case PLC_DATA_RECORD:
                 lprintf(ERROR, "Record data type not implemented yet");
@@ -228,23 +228,22 @@ static int send_raw_object(plcConn *conn, plcDatatype type, rawdata *obj) {
                 lprintf(ERROR, "User-defined data types are not implemented yet");
                 break;
             default:
-                lprintf(ERROR, "Received unsupported argument type: %d", type);
+                lprintf(ERROR, "Received unsupported argument type: %d", type->type);
                 break;
         }
     }
     return res;
 }
 
-static int send_raw_array_iter(plcConn *conn, plcIterator *iter) {
+static int send_raw_array_iter(plcConn *conn, plcType *type, plcIterator *iter) {
     int res = 0;
     int i = 0;
     plcArrayMeta *meta = (plcArrayMeta*)iter->meta;
-    res |= send_char(conn, (char)meta->type);
     res |= send_int32(conn, meta->ndims);
     for (i = 0; i < meta->ndims; i++)
         res |= send_int32(conn, meta->dims[i]);
     for (i = 0; i < meta->size && res == 0; i++)
-        res |= send_raw_object(conn, meta->type, iter->next(iter));
+        res |= send_raw_object(conn, type, iter->next(iter));
     return res;
 }
 
@@ -332,7 +331,7 @@ static int receive_cstring(plcConn *conn, char **s) {
     return res;
 }
 
-static int receive_raw_object(plcConn *conn, plcDatatype type, rawdata *obj)  {
+static int receive_raw_object(plcConn *conn, plcType *type, rawdata *obj)  {
     int res = 0;
     char isn;
     if (obj == NULL) {
@@ -346,7 +345,7 @@ static int receive_raw_object(plcConn *conn, plcDatatype type, rawdata *obj)  {
     } else {
         obj->isnull = 0;
         debug_print(WARNING, "Object value is:");
-        switch (type) {
+        switch (type->type) {
             case PLC_DATA_INT1:
                 obj->value = (char*)pmalloc(1);
                 res |= receive_char(conn, (char*)obj->value);
@@ -375,7 +374,7 @@ static int receive_raw_object(plcConn *conn, plcDatatype type, rawdata *obj)  {
                 res |= receive_cstring(conn, &obj->value);
                 break;
             case PLC_DATA_ARRAY:
-                res |= receive_array(conn, obj);
+                res |= receive_array(conn, &type->subTypes[0], obj);
                 break;
             case PLC_DATA_RECORD:
                 lprintf(ERROR, "Record data type not implemented yet");
@@ -384,26 +383,25 @@ static int receive_raw_object(plcConn *conn, plcDatatype type, rawdata *obj)  {
                 lprintf(ERROR, "User-defined data types are not implemented yet");
                 break;
             default:
-                lprintf(ERROR, "Received unsupported argument type: %d", type);
+                lprintf(ERROR, "Received unsupported argument type: %d", type->type);
                 break;
         }
     }
     return res;
 }
 
-static int receive_array(plcConn *conn, rawdata *obj) {
+static int receive_array(plcConn *conn, plcType *type, rawdata *obj) {
     int res = 0;
     int i = 0;
-    char type;
     int ndims;
     int entrylen = 0;
     char isnull;
     plcArray *arr;
-    res |= receive_char(conn, &type);
+
     res |= receive_int32(conn, &ndims);
     arr = plc_alloc_array(ndims);
     obj->value = (char*)arr;
-    arr->meta->type = (plcDatatype)((int)type);
+    arr->meta->type = (plcDatatype)((int)type->type);
     arr->meta->size = ndims > 0 ? 1 : 0;
     for (i = 0; i < ndims; i++) {
         res |= receive_int32(conn, &arr->meta->dims[i]);
@@ -502,9 +500,9 @@ static int send_argument(plcConn *conn, plcArgument *arg) {
     int res = 0;
     debug_print(WARNING, "Function argument '%s'", arg->name);
     res |= send_cstring(conn, arg->name);
-    debug_print(WARNING, "Argument type is '%d'", (int)arg->type);
-    res |= send_char(conn, (char)arg->type);
-    res |= send_raw_object(conn, arg->type, &arg->data);
+    debug_print(WARNING, "Argument type is '%d'", (int)arg->type.type);
+    res |= send_type(conn, &arg->type);
+    res |= send_raw_object(conn, &arg->type, &arg->data);
     return res;
 }
 
@@ -543,8 +541,8 @@ static int send_result(plcConn *conn, plcontainer_result ret) {
     /* send columns types and names */
     debug_print(WARNING, "Sending types and names of %d columns", ret->cols);
     for (i = 0; i < ret->cols; i++) {
-        debug_print(WARNING, "Column '%s' with type '%d'", ret->names[i], (int)ret->types[i]);
-        res |= send_char(conn, (char)ret->types[i]);
+        debug_print(WARNING, "Column '%s' with type '%d'", ret->names[i], (int)ret->types[i].type);
+        res |= send_type(conn, &ret->types[i]);
         res |= send_cstring(conn, ret->names[i]);
     }
 
@@ -552,7 +550,7 @@ static int send_result(plcConn *conn, plcontainer_result ret) {
     for (i = 0; i < ret->rows; i++)
         for (j = 0; j < ret->cols; j++) {
             debug_print(WARNING, "Sending row %d column %d", i, j);
-            res |= send_raw_object(conn, ret->types[j], &ret->data[i][j]);
+            res |= send_raw_object(conn, &ret->types[j], &ret->data[i][j]);
         }
 
     res |= message_end(conn);
@@ -601,7 +599,6 @@ static int receive_exception(plcConn *conn, message *mExc) {
 static int receive_result(plcConn *conn, message *mRes) {
     int i, j;
     int res = 0;
-    char type;
     plcontainer_result ret;
 
     *mRes = (message)pmalloc(sizeof(str_plcontainer_result));
@@ -622,13 +619,12 @@ static int receive_result(plcConn *conn, message *mRes) {
 
         /* Read column names and column types of result set */
         debug_print(WARNING, "Receiving types and names of %d columns", ret->cols);
-        ret->types = pmalloc(ret->cols * sizeof(plcDatatype));
+        ret->types = pmalloc(ret->cols * sizeof(plcType));
         ret->names = pmalloc(ret->cols * sizeof(*ret->names));
         for (i = 0; i < ret->cols; i++) {
-             res |= receive_char(conn, &type);
-             ret->types[i] = (int)type;
+             res |= receive_type(conn, &ret->types[i]);
              res |= receive_cstring(conn, &ret->names[i]);
-             debug_print(WARNING, "Column '%s' with type '%d'", ret->names[i], (int)ret->types[i]);
+             debug_print(WARNING, "Column '%s' with type '%d'", ret->names[i], (int)ret->types[i].type);
         }
 
         /* Receive data */
@@ -637,7 +633,7 @@ static int receive_result(plcConn *conn, message *mRes) {
                 ret->data[i] = pmalloc((ret->cols) * sizeof(*ret->data[i]));
                 for (j = 0; j < ret->cols; j++) {
                     debug_print(WARNING, "Receiving row %d column %d", i, j);
-                    res |= receive_raw_object(conn, ret->types[j], &ret->data[i][j]);
+                    res |= receive_raw_object(conn, &ret->types[j], &ret->data[i][j]);
                 }
             } else {
                 ret->data[i] = NULL;
@@ -722,15 +718,13 @@ static int receive_sql_pexec(plcConn *conn, message *mPExec) {
             char isnull;
             isnull = 0;
             res |= receive_char(conn, &isnull);
-            param  = &ret->params[i];
+            param = &ret->params[i];
             if (isnull == 'N') {
                 param->data.isnull = 1;
                 param->data.value  = NULL;
             } else {
-                char type;
                 param->data.isnull = 0;
-                res |= receive_char(conn, &type);
-                param->type = (int)type;
+                res |= receive_type(conn, &param->type);
                 res |= receive_cstring(conn, &param->data.value);
             }
         }
@@ -795,13 +789,11 @@ static int receive_sql_fetch(plcConn *conn, message *mCurf) {
 
 static int receive_argument(plcConn *conn, plcArgument *arg) {
     int res = 0;
-    char type;
     res |= receive_cstring(conn, &arg->name);
     debug_print(WARNING, "Function argument '%s'", arg->name);
-    res |= receive_char(conn, &type);
-    arg->type = (int)type;
-    debug_print(WARNING, "Argument type is '%d'", (int)arg->type);
-    res |= receive_raw_object(conn, arg->type, &arg->data);
+    res |= receive_type(conn, &arg->type);
+    debug_print(WARNING, "Argument type is '%d'", (int)arg->type.type);
+    res |= receive_raw_object(conn, &arg->type, &arg->data);
     return res;
 }
 

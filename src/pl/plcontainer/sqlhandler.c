@@ -75,7 +75,8 @@ create_sql_result() {
         typtup = SearchSysCache(
             TYPEOID, res_tuptable->tupdesc->attrs[j]->atttypid, 0, 0, 0);
         typstr           = (Form_pg_type)GETSTRUCT(typtup);
-        result->types[j] = PLC_DATA_TEXT;//pstrdup(NameStr(typstr->typname));
+        result->types[j].type = PLC_DATA_TEXT;
+        result->types[j].nSubTypes = 0;
         result->names[j] = SPI_fname(res_tuptable->tupdesc, j + 1);
 
         ReleaseSysCache(typtup);
