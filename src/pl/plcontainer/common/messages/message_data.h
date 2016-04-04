@@ -10,6 +10,10 @@ struct plcIterator {
     char *meta;
     char *position;
     rawdata *(*next)(plcIterator *self);
+    /*
+     * called after data is sent to free data
+     */
+    void (*cleanup)(plcIterator *self);
 };
 
 typedef struct plcArrayMeta {

@@ -235,15 +235,22 @@ static int send_raw_object(plcConn *conn, plcType *type, rawdata *obj) {
     return res;
 }
 
+
 static int send_raw_array_iter(plcConn *conn, plcType *type, plcIterator *iter) {
     int res = 0;
     int i = 0;
     plcArrayMeta *meta = (plcArrayMeta*)iter->meta;
     res |= send_int32(conn, meta->ndims);
-    for (i = 0; i < meta->ndims; i++)
+
+    for (i = 0; i < meta->ndims; i++){
         res |= send_int32(conn, meta->dims[i]);
-    for (i = 0; i < meta->size && res == 0; i++)
+    }
+    for (i = 0; i < meta->size && res == 0; i++){
         res |= send_raw_object(conn, type, iter->next(iter));
+    }
+    if (iter->cleanup != NULL){
+    	iter->cleanup(iter);
+    }
     return res;
 }
 
@@ -310,7 +317,7 @@ static int receive_float8(plcConn *conn, double *f) {
 
 static int receive_raw(plcConn *conn, char *s, size_t len) {
     int res = plcBufferRead(conn, s, len);
-    debug_print(WARNING, "    <=== receiving raw '%d' bytes '%s'", (int)len, s);
+    debug_print(WARNING, "    <=== receiving raw '%d' bytes", (int)len );
     return res;
 }
 

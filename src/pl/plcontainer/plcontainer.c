@@ -9,6 +9,7 @@
 #include "fmgr.h"
 #include "message_fns.h"
 
+
 #include "executor/spi_priv.h"
 #include "lib/stringinfo.h"
 #include "nodes/makefuncs.h"
@@ -279,14 +280,11 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo *ret_type, int col,  i
     char        typdelim;
     Oid         typinput,
                 typelem;
-    FmgrInfo    inputproc;
-    Datum      *dvalues = NULL;
     Datum       dvalue;
     ArrayType  *array = NULL;
     int         ndims;
     int        *dims = NULL;
     int        *lbs = NULL;
-    bool       *nulls = NULL;
     bool        have_nulls = FALSE;
     int         i;
     plcArray   *arr;
@@ -309,38 +307,22 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo *ret_type, int col,  i
                     &typlen,   &typbyval, &typalign,
                     &typdelim, &typelem,  &typinput);
 
-    /*
-     * get the input proc
-     */
-    perm_fmgr_info(typinput, &inputproc);
-
-    dvalues = (Datum *) palloc(arr->meta->size * sizeof(Datum));
-    nulls = (bool *) palloc(arr->meta->size * sizeof(bool));
-
+	/*
+	 * just have to find out if we have nulls or not
+	 */
     for(i = 0; i < arr->meta->size; i++){
-        if (arr->nulls[i]){
-            nulls[i] = TRUE;
-            have_nulls |= TRUE;
-        } else {
-            nulls[i] = FALSE;
-            dvalues[i] = FunctionCall3(&inputproc,
-                                       CStringGetDatum(((char**)arr->data)[i]),
-                                       (Datum) 0,
-                                       Int32GetDatum(-1));
-        }
+    	have_nulls |= arr->nulls[i];
     }
 
     if (!have_nulls) {
-        array = construct_md_array((Datum *)dvalues, NULL, ndims, dims, lbs,
+        array = construct_md_array((Datum *)arr->data, NULL, ndims, dims, lbs,
                                     typeOid, typlen, typbyval, typalign);
     } else {
-        array = construct_md_array((Datum *)dvalues, (bool *)nulls, ndims, dims, lbs,
+        array = construct_md_array((Datum *)arr->data, arr->nulls, ndims, dims, lbs,
                                     typeOid, typlen, typbyval, typalign);
     }
 
     dvalue = PointerGetDatum(array);
-    pfree(nulls);
-    pfree(dvalues);
 
     return dvalue;
 }

@@ -432,6 +432,8 @@ static plcIterator *init_array_iter(Datum d, plcTypeInfo *argType) {
     }
     iter->data = (char*)array;
     iter->next = plc_backend_array_next;
+    iter->cleanup =  NULL;
+
     return iter;
 }
 
