@@ -45,6 +45,18 @@ create or replace function rtest_mia() returns int[] as $$
 as.matrix(array(1:10,c(2,5)))
 $$ language plcontainer;
 
+create or replace function vec8(arg1 _float8) returns _float8 as
+$$
+# container: plc_r
+arg1
+$$ language 'plcontainer';
+
+create or replace function vec4(arg1 _float4) returns _float4 as
+$$
+# container: plc_r
+arg1
+$$ language 'plcontainer';
+
 CREATE OR REPLACE FUNCTION rlog100_shared() RETURNS text AS $$
 # container: plc_r_shared
 return(log10(100))

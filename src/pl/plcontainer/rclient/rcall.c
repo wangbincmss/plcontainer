@@ -483,7 +483,7 @@ rawdata *matrix_iterator_next (plcIterator *iter) {
 
 			case PLC_DATA_INT8:
 				res->value = pmalloc(8);
-				*((int64 *)res->value) = (int64)(NUMERIC_DATA(mtx)[idx]);
+				*((int64 *)res->value) = (int64)(INTEGER_DATA(mtx)[idx]);
 				break;
 
 			case PLC_DATA_FLOAT4:
