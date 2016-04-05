@@ -6,8 +6,9 @@
 
 #define PLC_MAX_ARRAY_DIMS 10
 
+typedef struct plcPyType plcPyType;
 typedef PyObject *(*plcPyInputFunc)(char*);
-typedef int (*plcPyOutputFunc)(PyObject*, char**);
+typedef int (*plcPyOutputFunc)(PyObject*, char**, plcPyType*);
 
 /* Working with arrays in Python */
 
@@ -17,9 +18,10 @@ typedef struct plcPyArrPointer {
 } plcPyArrPointer;
 
 typedef struct plcPyArrMeta {
-    int             ndims;
-    size_t         *dims;
-    plcPyOutputFunc outputfunc;
+    int              ndims;
+    size_t          *dims;
+    plcPyType       *type;
+    plcPyOutputFunc  outputfunc;
 } plcPyArrMeta;
 
 /* Working with types in Python */
@@ -33,9 +35,6 @@ typedef struct plcPyResult {
     plcontainer_result  res;
     plcPyTypeConv      *inconv;
 } plcPyResult;
-
-
-typedef struct plcPyType plcPyType;
 
 typedef struct plcPyType {
     plcDatatype    type;

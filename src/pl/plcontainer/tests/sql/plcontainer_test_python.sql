@@ -19,6 +19,8 @@ select pyfloatarr(array[array[1.1,3.3,5.5,7.7],array[3.3,4.4,5.5,6.6]]::float8[]
 select pytextarr(array['aaa','bbb','ccc']::varchar[]);
 select pyintnulls(array[1,2,3,4,5,null]::int8[]);
 select pyintnulls(array[null,null,null]::int8[]);
+select pyreturnarrint8(10);
+select pyreturnarrint8nulls();
 -- Test that container cannot access filesystem of the host
 select pywriteFile();
 \! ls -l /tmp/foo

@@ -271,20 +271,6 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
         elog(ERROR, "cannot find proc with oid %u", procoid);
     }
 
-    if (fcinfo->nargs > 0) {
-        /*
-         * look for the name of the argument so we can pass it to the client
-         * currently
-         */
-        argnamesArray = SysCacheGetAttr(PROCOID, procHeapTup,
-                                        Anum_pg_proc_proargnames, &isnull);
-        if (isnull) {
-            ReleaseSysCache(procHeapTup);
-            elog(ERROR, "Need to name arguments");
-        }
-    }
-    procTup = (Form_pg_proc)GETSTRUCT(procHeapTup);
-
     pinfo   = function_cache_get(procoid);
     /*
      * All the catalog operations are done only if the cached function
@@ -307,13 +293,14 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
         pinfo->fn_xmin = HeapTupleHeaderGetXmin(procHeapTup->t_data);
         pinfo->fn_tid  = procHeapTup->t_self;
 
+        procTup = (Form_pg_proc)GETSTRUCT(procHeapTup);
         fill_type_info(procTup->prorettype, &pinfo->rettype);
 
         pinfo->nargs = procTup->pronargs;
         if (pinfo->nargs > 0) {
             pinfo->argtypes = plc_top_alloc(pinfo->nargs * sizeof(plcTypeInfo));
             for (i = 0; i < pinfo->nargs; i++) {
-                fill_type_info(procTup->proargtypes.values[i], pinfo->argtypes + i);
+                fill_type_info(procTup->proargtypes.values[i], &pinfo->argtypes[i]);
             }
 
             argnamesArray = SysCacheGetAttr(PROCOID, procHeapTup,
@@ -416,7 +403,7 @@ static plcIterator *init_array_iter(Datum d, plcTypeInfo *argType) {
 
     iter = (plcIterator*)palloc(sizeof(plcIterator));
     meta = (plcArrayMeta*)palloc(sizeof(plcArrayMeta));
-    iter->meta = (char*)meta;
+    iter->meta = meta;
 
     meta->type = argType->subTypes[0].type;
     meta->ndims = ARR_NDIM(array);
@@ -512,19 +499,6 @@ fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req)
     }
 }
 
-static void fill_type_value(plcType *pType, plcTypeInfo *typeInfo) {
-    int i = 0;
-    pType->type = typeInfo->type;
-    pType->nSubTypes = typeInfo->nSubTypes;
-    if (pType->nSubTypes > 0) {
-        pType->subTypes = (plcType*)pmalloc(pType->nSubTypes * sizeof(plcType));
-        for (i = 0; i < pType->nSubTypes; i++)
-            fill_type_value(&pType->subTypes[i], &typeInfo->subTypes[i]);
-    } else {
-        pType->subTypes = NULL;
-    }
-}
-
 callreq
 plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
     callreq   req;
@@ -533,7 +507,7 @@ plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
     req->msgtype = MT_CALLREQ;
     req->proc.name = pinfo->name;
     req->proc.src  = pinfo->src;
-    fill_type_value(&req->retType, &pinfo->rettype);
+    copy_type_info(&req->retType, &pinfo->rettype);
 
     fill_callreq_arguments(fcinfo, pinfo, req);
 

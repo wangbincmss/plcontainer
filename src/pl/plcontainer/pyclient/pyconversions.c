@@ -1,4 +1,5 @@
 #include "pyconversions.h"
+#include "pycall.h"
 #include "common/messages/messages.h"
 #include "common/comm_utils.h"
 #include <Python.h>
@@ -15,14 +16,14 @@ static PyObject *plc_pyobject_from_array_dim(plcArray *arr, plcPyInputFunc infun
                     int *idx, int *ipos, char **pos, int vallen, int dim);
 static PyObject *plc_pyobject_from_array (char *input);
 
-static int plc_pyobject_as_int1(PyObject *input, char **output);
-static int plc_pyobject_as_int2(PyObject *input, char **output);
-static int plc_pyobject_as_int4(PyObject *input, char **output);
-static int plc_pyobject_as_int8(PyObject *input, char **output);
-static int plc_pyobject_as_float4(PyObject *input, char **output);
-static int plc_pyobject_as_float8(PyObject *input, char **output);
-static int plc_pyobject_as_text(PyObject *input, char **output);
-static int plc_pyobject_as_array(PyObject *input, char **output);
+static int plc_pyobject_as_int1(PyObject *input, char **output, plcPyType *type);
+static int plc_pyobject_as_int2(PyObject *input, char **output, plcPyType *type);
+static int plc_pyobject_as_int4(PyObject *input, char **output, plcPyType *type);
+static int plc_pyobject_as_int8(PyObject *input, char **output, plcPyType *type);
+static int plc_pyobject_as_float4(PyObject *input, char **output, plcPyType *type);
+static int plc_pyobject_as_float8(PyObject *input, char **output, plcPyType *type);
+static int plc_pyobject_as_text(PyObject *input, char **output, plcPyType *type);
+static int plc_pyobject_as_array(PyObject *input, char **output, plcPyType *type);
 
 static void plc_pyobject_iter_free (plcIterator *iter);
 static rawdata *plc_pyobject_as_array_next (plcIterator *iter);
@@ -122,7 +123,7 @@ static PyObject *plc_pyobject_from_array (char *input) {
     return res;
 }
 
-static int plc_pyobject_as_int1(PyObject *input, char **output) {
+static int plc_pyobject_as_int1(PyObject *input, char **output, plcPyType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(1);
     *output = out;
@@ -137,7 +138,7 @@ static int plc_pyobject_as_int1(PyObject *input, char **output) {
     return res;
 }
 
-static int plc_pyobject_as_int2(PyObject *input, char **output) {
+static int plc_pyobject_as_int2(PyObject *input, char **output, plcPyType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(2);
     *output = out;
@@ -152,7 +153,7 @@ static int plc_pyobject_as_int2(PyObject *input, char **output) {
     return res;
 }
 
-static int plc_pyobject_as_int4(PyObject *input, char **output) {
+static int plc_pyobject_as_int4(PyObject *input, char **output, plcPyType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(4);
     *output = out;
@@ -167,7 +168,7 @@ static int plc_pyobject_as_int4(PyObject *input, char **output) {
     return res;
 }
 
-static int plc_pyobject_as_int8(PyObject *input, char **output) {
+static int plc_pyobject_as_int8(PyObject *input, char **output, plcPyType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(8);
     *output = out;
@@ -182,7 +183,7 @@ static int plc_pyobject_as_int8(PyObject *input, char **output) {
     return res;
 }
 
-static int plc_pyobject_as_float4(PyObject *input, char **output) {
+static int plc_pyobject_as_float4(PyObject *input, char **output, plcPyType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(4);
     *output = out;
@@ -197,7 +198,7 @@ static int plc_pyobject_as_float4(PyObject *input, char **output) {
     return res;
 }
 
-static int plc_pyobject_as_float8(PyObject *input, char **output) {
+static int plc_pyobject_as_float8(PyObject *input, char **output, plcPyType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(8);
     *output = out;
@@ -212,7 +213,7 @@ static int plc_pyobject_as_float8(PyObject *input, char **output) {
     return res;
 }
 
-static int plc_pyobject_as_text(PyObject *input, char **output) {
+static int plc_pyobject_as_text(PyObject *input, char **output, plcPyType *type UNUSED) {
     int res = 0;
     PyObject *obj;
     obj = PyObject_Str(input);
@@ -225,13 +226,17 @@ static int plc_pyobject_as_text(PyObject *input, char **output) {
     return res;
 }
 
-static void plc_pyobject_iter_free (plcIterator *iter) {
-    plcPyArrMeta    *meta;
-    meta = (plcPyArrMeta*)iter->meta;
+static void plc_pyobject_iter_free (plcIterator *iter UNUSED) {
+    plcArrayMeta *meta;
+    plcPyArrMeta *pymeta;
+    meta = (plcArrayMeta*)iter->meta;
+    pymeta = (plcPyArrMeta*)iter->payload;
     pfree(meta->dims);
+    pfree(pymeta->dims);
     pfree(iter->meta);
+    pfree(iter->payload);
     pfree(iter->position);
-    pfree(iter);
+    return;
 }
 
 static rawdata *plc_pyobject_as_array_next (plcIterator *iter) {
@@ -241,22 +246,21 @@ static rawdata *plc_pyobject_as_array_next (plcIterator *iter) {
     PyObject        *obj;
     int              ptr;
 
-    meta = (plcPyArrMeta*)iter->meta;
+    meta = (plcPyArrMeta*)iter->payload;
     ptrs = (plcPyArrPointer*)iter->position;
     res  = (rawdata*)pmalloc(sizeof(rawdata));
 
     ptr = meta->ndims - 1;
-    if (ptrs[ptr].obj)
     obj = PyList_GetItem(ptrs[ptr].obj, ptrs[ptr].pos);
     if (obj == NULL || obj == Py_None) {
         res->isnull = 1;
         res->value = NULL;
     } else {
         res->isnull = 0;
-        meta->outputfunc(obj, &res->value);
+        meta->outputfunc(obj, &res->value, meta->type);
     }
 
-    while (ptr > 0) {
+    while (ptr >= 0) {
         ptrs[ptr].pos += 1;
         /* If we finished up iterating over this dimension */
         if (ptrs[ptr].pos == meta->dims[ptr]) {
@@ -278,14 +282,12 @@ static rawdata *plc_pyobject_as_array_next (plcIterator *iter) {
         }
     }
 
-    if (ptr < 0)
-        plc_pyobject_iter_free(iter);
-
     return res;
 }
 
-static int plc_pyobject_as_array(PyObject *input, char **output) {
+static int plc_pyobject_as_array(PyObject *input, char **output, plcPyType *type) {
     plcPyArrMeta    *meta;
+    plcArrayMeta    *arrmeta;
     PyObject        *obj;
     plcIterator     *iter;
     size_t           dims[PLC_MAX_ARRAY_DIMS];
@@ -299,7 +301,7 @@ static int plc_pyobject_as_array(PyObject *input, char **output) {
     if (PyList_Check(input)) {
         obj = input;
         while (obj != NULL && PyList_Check(obj)) {
-            dims[ndims]  = PyList_Size(obj);
+            dims[ndims] = PyList_Size(obj);
             stack[ndims] = obj;
             Py_INCREF(stack[ndims]);
             ndims += 1;
@@ -312,15 +314,27 @@ static int plc_pyobject_as_array(PyObject *input, char **output) {
         /* Allocate the iterator */
         iter = (plcIterator*)pmalloc(sizeof(plcIterator));
 
-        /* Initialize meta */
+        /* Initialize metas */
+        arrmeta = (plcArrayMeta*)pmalloc(sizeof(plcArrayMeta));
+        arrmeta->ndims = ndims;
+        arrmeta->dims = (int*)pmalloc(ndims * sizeof(int));
+        arrmeta->size = (ndims == 0) ? 0 : 1;
+        arrmeta->type = type->subTypes[0].type;
+
         meta = (plcPyArrMeta*)pmalloc(sizeof(plcPyArrMeta));
         meta->ndims = ndims;
         meta->dims  = (size_t*)pmalloc(ndims * sizeof(size_t));
-        for (i = 0; i < ndims; i++)
+        meta->outputfunc = plc_get_output_function(type->subTypes[0].type);
+        meta->type = &type->subTypes[0];
+
+        for (i = 0; i < ndims; i++) {
             meta->dims[i] = dims[i];
-        /* TODO: !!!!!!!!!!! */
-        meta->outputfunc = plc_pyobject_as_int8;
-        iter->meta = (char*)meta;
+            arrmeta->dims[i] = (int)dims[i];
+            arrmeta->size *= (int)dims[i];
+        }
+
+        iter->meta = arrmeta;
+        iter->payload = (char*)meta;
 
         /* Initializing initial position */
         ptrs = (plcPyArrPointer*)pmalloc(ndims * sizeof(plcPyArrPointer));
@@ -331,14 +345,15 @@ static int plc_pyobject_as_array(PyObject *input, char **output) {
         iter->position = (char*)ptrs;
 
         /* Initializing "data" */
-        *((PyObject**)iter->data) = input;
+        iter->data = (char*)input;
 
-        /* Initializing "next" function */
+        /* Initializing "next" and "cleanup" functions */
         iter->next = plc_pyobject_as_array_next;
+        iter->cleanup = plc_pyobject_iter_free;
 
-        *((plcIterator**)output) = iter;
+        *output = (char*)iter;
     } else {
-        *((plcIterator**)output) = NULL;
+        *output = NULL;
         res = -1;
     }
 
@@ -460,13 +475,14 @@ static void plc_parse_type(plcPyType *pytype, plcType *type) {
     pytype->name = strdup("results");
     pytype->type = type->type;
     pytype->nSubTypes = type->nSubTypes;
-    pytype->subTypes = (plcPyType*)malloc(pytype->nSubTypes * sizeof(plcPyType));
     pytype->conv.inputfunc  = plc_get_input_function(pytype->type);
     pytype->conv.outputfunc = plc_get_output_function(pytype->type);
-    for (i = 0; i < type->nSubTypes; i++) {
-        pytype->conv.inputfunc  = plc_get_input_function(pytype->type);
-        pytype->conv.outputfunc = plc_get_output_function(pytype->type);
-        plc_parse_type(&pytype->subTypes[i], &type->subTypes[i]);
+    if (pytype->nSubTypes > 0) {
+        pytype->subTypes = (plcPyType*)malloc(pytype->nSubTypes * sizeof(plcPyType));
+        for (i = 0; i < type->nSubTypes; i++)
+            plc_parse_type(&pytype->subTypes[i], &type->subTypes[i]);
+    } else {
+        pytype->subTypes = NULL;
     }
 }
 
@@ -509,12 +525,14 @@ static void plc_py_free_type(plcPyType *type) {
         plc_py_free_type(&type->subTypes[i]);
     if (type->nSubTypes > 0)
         free(type->subTypes);
+    return;
 }
 
 void plc_py_free_function(plcPyFunction *func) {
     int i = 0;
     for (i = 0; i < func->nargs; i++)
         plc_py_free_type(&func->args[i]);
+    plc_py_free_type(&func->res);
     free(func->args);
     free(func);
 }

@@ -5,22 +5,11 @@
 
 typedef struct plcIterator plcIterator;
 
-struct plcIterator {
-    char *data;
-    char *meta;
-    char *position;
-    rawdata *(*next)(plcIterator *self);
-    /*
-     * called after data is sent to free data
-     */
-    void (*cleanup)(plcIterator *self);
-};
-
 typedef struct plcArrayMeta {
-    plcDatatype  type;
+    plcDatatype  type;  // deprecated - should be moved to payload if required
     int          ndims;
-    int          size;
     int         *dims;
+    int          size;  // deprecated - should be moved to payload if required
 } plcArrayMeta;
 
 typedef struct plcArray {
@@ -28,6 +17,22 @@ typedef struct plcArray {
     char         *data;
     char         *nulls;
 } plcArray;
+
+struct plcIterator {
+    plcArrayMeta *meta;
+    char         *data;
+    char         *position;
+    char         *payload;
+    /*
+     * used to return next element from client-side array structure to avoid
+     * creating a copy of full array before sending it
+     */
+    rawdata *(*next)(plcIterator *self);
+    /*
+     * called after data is sent to free data
+     */
+    void (*cleanup)(plcIterator *self);
+};
 
 plcArray *plc_alloc_array(int ndims);
 void plc_free_array(plcArray *arr);

@@ -326,20 +326,19 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
     plcontainer_result res;
 
     /* allocate a result */
-    res          = malloc(sizeof(*res));
+    res          = malloc(sizeof(str_plcontainer_result));
     res->msgtype = MT_RESULT;
-    res->names   = malloc(sizeof(*res->names));
-    res->types   = malloc(sizeof(*res->types));
+    res->names   = malloc(1 * sizeof(char*));
+    res->types   = malloc(1 * sizeof(plcType));
     res->rows = res->cols = 1;
-    res->data    = malloc(sizeof( *res->data) * res->rows);
-    res->data[0] = malloc(sizeof(**res->data) * res->cols);
+    res->data    = malloc(res->rows * sizeof(rawdata*));
+    res->data[0] = malloc(res->cols * sizeof(rawdata));
     plc_py_copy_type(&res->types[0], &pyfunc->res);
     res->names[0] = pyfunc->res.name;
 
     if (retval == Py_None) {
         res->data[0][0].isnull = 1;
         res->data[0][0].value = NULL;
-        Py_DECREF(Py_None);
     } else {
         int ret = 0;
         res->data[0][0].isnull = 0;
@@ -350,7 +349,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
             free_result(res);
             return -1;
         }
-        ret = pyfunc->res.conv.outputfunc(retval, &res->data[0][0].value);
+        ret = pyfunc->res.conv.outputfunc(retval, &res->data[0][0].value, &pyfunc->res);
         if (ret != 0) {
             raise_execution_error(plcconn,
                                   "Exception raised converting function output to function output type %d",

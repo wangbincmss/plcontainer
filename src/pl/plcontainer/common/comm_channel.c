@@ -242,13 +242,13 @@ static int send_raw_array_iter(plcConn *conn, plcType *type, plcIterator *iter) 
     plcArrayMeta *meta = (plcArrayMeta*)iter->meta;
     res |= send_int32(conn, meta->ndims);
 
-    for (i = 0; i < meta->ndims; i++){
+    for (i = 0; i < meta->ndims; i++) {
         res |= send_int32(conn, meta->dims[i]);
     }
-    for (i = 0; i < meta->size && res == 0; i++){
+    for (i = 0; i < meta->size && res == 0; i++) {
         res |= send_raw_object(conn, type, iter->next(iter));
     }
-    if (iter->cleanup != NULL){
+    if (iter->cleanup != NULL) {
     	iter->cleanup(iter);
     }
     return res;
@@ -447,6 +447,7 @@ static int receive_array(plcConn *conn, plcType *type, rawdata *obj) {
             case PLC_DATA_FLOAT4:
             case PLC_DATA_FLOAT8:
                 arr->data = (char*)pmalloc(arr->meta->size * entrylen);
+                memset(arr->data, 0, arr->meta->size * entrylen);
                 for (i = 0; i < arr->meta->size && res == 0; i++) {
                     res |= receive_char(conn, &isnull);
                     if (isnull == 'N') {
@@ -459,11 +460,11 @@ static int receive_array(plcConn *conn, plcType *type, rawdata *obj) {
                 break;
             case PLC_DATA_TEXT:
                 arr->data = (char*)pmalloc(arr->meta->size * sizeof(char*));
+                memset(arr->data, 0, arr->meta->size * sizeof(char*));
                 for (i = 0; i < arr->meta->size && res == 0; i++) {
                     res |= receive_char(conn, &isnull);
                     if (isnull == 'N') {
                         arr->nulls[i] = 1;
-                        ((char**)arr->data)[i] = NULL;
                     } else {
                         arr->nulls[i] = 0;
                         receive_cstring(conn, &((char**)arr->data)[i]);

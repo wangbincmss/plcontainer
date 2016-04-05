@@ -189,6 +189,16 @@ recconcat(arr)
 return res
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pyreturnarrint8(num int) RETURNS int8[] AS $BODY$
+# container: plc_python
+return [x for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyreturnarrint8nulls() RETURNS int8[] AS $BODY$
+# container: plc_python
+return [1,2,3,None,5,6,None,8,9]
+$BODY$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pywriteFile() RETURNS text AS $$
 # container: plc_python
 f = open("/tmp/foo", "w")
@@ -227,6 +237,28 @@ $$ LANGUAGE plcontainer ;
 CREATE OR REPLACE FUNCTION pynested_call_three(a text) RETURNS text AS $$
 # container: plc_python
 return a
+$$ LANGUAGE plcontainer ;
+
+CREATE OR REPLACE FUNCTION py_plpy_get_record() RETURNS bool AS $$
+# container: plc_python
+q = """SELECT 't'::bool as a,
+              1::smallint as b,
+              2::int as c,
+              3::bigint as d,
+              4::float4 as e,
+              5::float8 as f,
+              'foobar'::varchar as g
+    """
+r = plpy.execute(q)
+if len(q) != 1: return False
+if q[0]['a'] != True: return False
+if q[0]['b'] != 1: return False
+if q[0]['c'] != 2: return False
+if q[0]['d'] != 3: return False
+if q[0]['e'] != 4.0: return False
+if q[0]['f'] != 5.0: return False
+if q[0]['g'] != 'foobar': return False
+return True
 $$ LANGUAGE plcontainer ;
 
 CREATE OR REPLACE FUNCTION pyinvalid_function() RETURNS double precision AS $$

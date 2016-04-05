@@ -55,6 +55,7 @@ Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
     /* save caller's context */
     pl_container_caller_context = CurrentMemoryContext;
 
+    /* Create a new memory context and switch to it */
     ret = SPI_connect();
     if (ret != SPI_OK_CONNECT)
         elog(ERROR, "[plcontainer] SPI connect error: %d (%s)", ret,
@@ -62,6 +63,7 @@ Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
 
     datumreturn = plcontainer_call_hook(fcinfo);
 
+    /* Return to old memory context */
     ret = SPI_finish();
     if (ret != SPI_OK_FINISH)
         elog(ERROR, "[plcontainer] SPI finish error: %d (%s)", ret,
@@ -97,13 +99,6 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     do {
         int res = 0;
         message       answer;
-        MemoryContext messageContext;
-        MemoryContext oldContext;
-
-        messageContext = AllocSetContextCreate(
-            CurrentMemoryContext, "PL message context", 128000, 32, 65536);
-
-        oldContext = MemoryContextSwitchTo(messageContext);
 
         res = plcontainer_channel_receive(conn, &answer);
         if (res < 0) {
@@ -129,20 +124,13 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
             case MT_TUPLRES:
                 break;
             default:
-                // lets first switch back to the old context and handle the error.
-                MemoryContextSwitchTo(oldContext);
-                MemoryContextDelete(messageContext);
-                /* pljelog(FATAL, "[plj core] received: unhandled message with type
-                 * id %d", message_type); */
-                // this wont run.
+                elog(ERROR, "Received unhandled message with type id %d "
+                     "from client", message_type);
                 PG_RETURN_NULL();
         }
 
-        // we do not try to free messages anymore, we switch context and delete
-        // the old one
-
         /*
-         * here is how to escape from the loop
+         * Processing client results message
          */
         if (message_type == MT_RESULT) {
             plcontainer_result res = (plcontainer_result)answer;
@@ -156,18 +144,15 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
              * see if we can return right now
              */
             if (res->rows == 0) {
-                MemoryContextSwitchTo(oldContext);
-                MemoryContextDelete(messageContext);
                 PG_RETURN_VOID();
-            } else if (res->rows == 1 && res->cols == 1 && pinfo->rettype.type != PLC_DATA_ARRAY) {
+            }
 
+            if (res->rows == 1 && res->cols == 1 && pinfo->rettype.type != PLC_DATA_ARRAY) {
                /*
                 * handle non array and scalars
                 */
                 Datum    ret;
                 if (res->data[0][0].isnull == 1) {
-                    MemoryContextSwitchTo(oldContext);
-                    MemoryContextDelete(messageContext);
                     PG_RETURN_NULL();
                 }
                 fcinfo->isnull=0;
@@ -180,10 +165,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                 typeOid = pinfo->rettype.typeOid;
                 typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
                 if (!HeapTupleIsValid(typetup)) {
-                    MemoryContextSwitchTo(oldContext);
-                    MemoryContextDelete(messageContext);
-                    elog(FATAL, "[plcontainer] Invalid heaptuple at result return");
-                    // This won`t run
+                    elog(ERROR, "[plcontainer] Invalid heaptuple at result return");
                     PG_RETURN_NULL();
                 }
 
@@ -224,9 +206,6 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                 }
                 ReleaseSysCache(typetup);
 
-                MemoryContextSwitchTo(oldContext);
-                MemoryContextDelete(messageContext);
-
                 return ret;
             } else {
                 /*
@@ -251,16 +230,10 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
                     result = get_array_datum(res, &pinfo->rettype, 0, &isNull);
                     fcinfo->isnull = isNull;
 
-                    MemoryContextSwitchTo(oldContext);
-                    MemoryContextDelete(messageContext);
-
                     return result;
                 }
             }
         }
-
-        MemoryContextSwitchTo(oldContext);
-        MemoryContextDelete(messageContext);
 
         if (message_type == MT_EXCEPTION) {
             elog(ERROR, "Exception caught: %s", ((error_message)answer)->message);
@@ -273,56 +246,40 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
 Datum get_array_datum(plcontainer_result res, plcTypeInfo *ret_type, int col,  int *isNull)
 {
-    bool        typbyval;
-    char        typalign;
-    Oid         typeOid;
-    int16       typlen;
-    char        typdelim;
-    Oid         typinput,
-                typelem;
-    Datum       dvalue;
-    ArrayType  *array = NULL;
-    int         ndims;
-    int        *dims = NULL;
-    int        *lbs = NULL;
-    bool        have_nulls = FALSE;
-    int         i;
-    plcArray   *arr;
+    Datum         dvalue;
+    Datum	     *elems;
+    ArrayType    *array = NULL;
+    int          *lbs = NULL;
+    plcArray     *arr;
+    int           i;
+    MemoryContext oldContext;
 
     arr = (plcArray*)res->data[0][col].value;
-    ndims = arr->meta->ndims;
-    dims = (int*)palloc(ndims * sizeof(int));
-    lbs = (int*)palloc(ndims * sizeof(int));
-    for (i = 0; i < ndims; i++) {
-        dims[i] = arr->meta->dims[i];
+    lbs = (int*)palloc(arr->meta->ndims * sizeof(int));
+    for (i = 0; i < arr->meta->ndims; i++)
         lbs[i] = 1;
+
+    elems = palloc(sizeof(Datum) * arr->meta->size);
+    for (i = 0; i < arr->meta->size; i++) {
+        elems[i] = Int64GetDatum( ((long long*)arr->data)[i] );
     }
 
-    /*
-    * get the type of the column from the result
-    */
-    typeOid = get_element_type(ret_type->typeOid);
-
-    get_type_io_data(typeOid, IOFunc_input,
-                    &typlen,   &typbyval, &typalign,
-                    &typdelim, &typelem,  &typinput);
-
-	/*
-	 * just have to find out if we have nulls or not
-	 */
-    for(i = 0; i < arr->meta->size; i++){
-    	have_nulls |= arr->nulls[i];
-    }
-
-    if (!have_nulls) {
-        array = construct_md_array((Datum *)arr->data, NULL, ndims, dims, lbs,
-                                    typeOid, typlen, typbyval, typalign);
-    } else {
-        array = construct_md_array((Datum *)arr->data, arr->nulls, ndims, dims, lbs,
-                                    typeOid, typlen, typbyval, typalign);
-    }
+    oldContext = MemoryContextSwitchTo(pl_container_caller_context);
+    array = construct_md_array((Datum*)arr->data,//elems,
+                               arr->nulls,
+                               arr->meta->ndims,
+                               arr->meta->dims,
+                               lbs,
+                               ret_type->subTypes[0].typeOid,
+                               ret_type->subTypes[0].typlen,
+                               ret_type->subTypes[0].typbyval,
+                               ret_type->subTypes[0].typalign);
 
     dvalue = PointerGetDatum(array);
+    MemoryContextSwitchTo(oldContext);
+
+    pfree(lbs);
+    pfree(elems);
 
     return dvalue;
 }
@@ -422,6 +379,7 @@ perm_fmgr_info(Oid functionId, FmgrInfo *finfo)
     finfo->fn_mcxt = pl_container_caller_context;
     finfo->fn_expr = (Node *) NULL;
 }
+
 void
 plcontainer_log_do(log_message log) {
     int level = DEBUG1;

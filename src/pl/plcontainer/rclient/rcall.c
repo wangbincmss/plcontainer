@@ -549,7 +549,7 @@ static plcIterator *matrix_iterator(SEXP mtx,plcDatatype base_type) {
     meta->dims[0] = nrows(mtx);
     meta->dims[1] = ncols(mtx);
     meta->size = meta->dims[0] * meta->dims[1];
-    iter->meta = (char*)meta;
+    iter->meta = meta;
 
     /* Initializing initial position */
     position = (int*)pmalloc(2 * sizeof(int));
