@@ -226,7 +226,7 @@ static int plc_pyobject_as_text(PyObject *input, char **output, plcPyType *type 
     return res;
 }
 
-static void plc_pyobject_iter_free (plcIterator *iter UNUSED) {
+static void plc_pyobject_iter_free (plcIterator *iter) {
     plcArrayMeta *meta;
     plcPyArrMeta *pymeta;
     meta = (plcArrayMeta*)iter->meta;
