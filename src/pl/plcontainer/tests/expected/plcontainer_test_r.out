@@ -58,7 +58,18 @@ select rtext('123');
  123foo
 (1 row)
 
---select rtest_mia();
+select rtest_mia();
+         rtest_mia          
+----------------------------
+ {{1,3,5,7,9},{2,4,6,8,10}}
+(1 row)
+
+select vec8('{1.23, 1.32}'::float8[]);
+      vec8       
+-----------------
+ {{1.23},{1.32}}
+(1 row)
+
 select rlog100_shared();
  rlog100_shared 
 ----------------
