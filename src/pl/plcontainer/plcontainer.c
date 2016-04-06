@@ -39,14 +39,16 @@ PG_FUNCTION_INFO_V1(plcontainer_call_handler);
 /* entrypoint for all plcontainer procedures */
 Datum plcontainer_call_handler(PG_FUNCTION_ARGS);
 
+static Datum plcontainer_call_hook(PG_FUNCTION_ARGS);
+static Datum plcontainer_return_result(plcontainer_result  resmsg,
+                                       FunctionCallInfo    fcinfo,
+                                       plcProcInfo        *pinfo);
+static Datum get_array_datum(plcArray *arr, plcTypeInfo *ret_type);
+//void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
+//        ReturnSetInfo *rsinfo,plcontainer_result res, int *isNull );
 static void plcontainer_exception_do(error_message);
 static void plcontainer_sql_do(sql_msg msg, plcConn* conn);
-static void  plcontainer_log_do(log_message);
-static Datum plcontainer_call_hook(PG_FUNCTION_ARGS);
-void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
-        ReturnSetInfo *rsinfo,plcontainer_result res, int *isNull );
-Datum get_array_datum(plcontainer_result res, plcTypeInfo *ret_type, int col, int *isNull);
-void perm_fmgr_info(Oid functionId, FmgrInfo *finfo);
+static void plcontainer_log_do(log_message);
 
 Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
     Datum datumreturn;
@@ -73,188 +75,142 @@ Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
 }
 
 static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
-    char        *name;
-    callreq      req;
-    int          message_type;
-    plcConn     *conn;
-    plcProcInfo *pinfo;
-    int          shared = 0;
+    Datum result = (Datum) 0;
 
     /* TODO: handle trigger requests as well */
     if (CALLED_AS_TRIGGER(fcinfo)) {
         elog(ERROR, "triggers aren't supported");
-    }
+    } else {
+        char        *name;
+        callreq      req;
+        plcConn     *conn;
+        plcProcInfo *pinfo;
+        int          message_type;
+        int          shared = 0;
 
-    pinfo = get_proc_info(fcinfo);
-    req = plcontainer_create_call(fcinfo, pinfo);
-    name = parse_container_meta(req->proc.src, &shared);
-    conn = find_container(name);
-    if (conn == NULL) {
-        conn = start_container(name, shared);
-    }
+        /* By default we return NULL */
+        fcinfo->isnull = true;
 
-    plcontainer_channel_send(conn, (message)req);
-
-    pfree(name);
-    do {
-        int res = 0;
-        message       answer;
-
-        res = plcontainer_channel_receive(conn, &answer);
-        if (res < 0) {
-            elog(ERROR, "Error receiving data from the client, %d", res);
-            break;
+        pinfo = get_proc_info(fcinfo);
+        req = plcontainer_create_call(fcinfo, pinfo);
+        name = parse_container_meta(req->proc.src, &shared);
+        conn = find_container(name);
+        if (conn == NULL) {
+            conn = start_container(name, shared);
         }
 
-        message_type = answer->msgtype;
-        switch (message_type) {
-            case MT_RESULT:
-                // handle elsewhere
-                break;
-            case MT_EXCEPTION:
-                plcontainer_exception_do((error_message)answer);
-                PG_RETURN_NULL();
-                break;
-            case MT_SQL:
-                plcontainer_sql_do((sql_msg)answer, conn);
-                break;
-            case MT_LOG:
-                plcontainer_log_do((log_message)answer);
-                break;
-            case MT_TUPLRES:
-                break;
-            default:
-                elog(ERROR, "Received unhandled message with type id %d "
-                     "from client", message_type);
-                PG_RETURN_NULL();
-        }
+        plcontainer_channel_send(conn, (message)req);
 
-        /*
-         * Processing client results message
-         */
-        if (message_type == MT_RESULT) {
-            plcontainer_result res = (plcontainer_result)answer;
+        pfree(name);
+        do {
+            int     res = 0;
+            message answer;
 
-            HeapTuple    typetup;
-            Form_pg_type type;
-            Oid          typeOid;
-            Datum        rawDatum;
-
-            /*
-             * see if we can return right now
-             */
-            if (res->rows == 0) {
-                PG_RETURN_VOID();
+            res = plcontainer_channel_receive(conn, &answer);
+            if (res < 0) {
+                elog(ERROR, "Error receiving data from the client, %d", res);
+                break;
             }
 
-            if (res->rows == 1 && res->cols == 1 && pinfo->rettype.type != PLC_DATA_ARRAY) {
-               /*
-                * handle non array and scalars
-                */
-                Datum    ret;
-                if (res->data[0][0].isnull == 1) {
+            message_type = answer->msgtype;
+            switch (message_type) {
+                case MT_RESULT:
+                    result = plcontainer_return_result((plcontainer_result)answer, fcinfo, pinfo);
+                    break;
+                case MT_EXCEPTION:
+                    plcontainer_exception_do((error_message)answer);
                     PG_RETURN_NULL();
-                }
-                fcinfo->isnull=0;
-
-                /*
-                 * use the return type provided by the function
-                 * to figure out the method to use to return
-                 * the value
-                 */
-                typeOid = pinfo->rettype.typeOid;
-                typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
-                if (!HeapTupleIsValid(typetup)) {
-                    elog(ERROR, "[plcontainer] Invalid heaptuple at result return");
-                    PG_RETURN_NULL();
-                }
-
-                type = (Form_pg_type)GETSTRUCT(typetup);
-
-                switch (res->types[0].type) {
-                    case PLC_DATA_TEXT:
-                    case PLC_DATA_ARRAY:
-                        /* TODO: temporary solution for array to make the result be cstring */
-                        rawDatum = CStringGetDatum(res->data[0][0].value);
-                        ret      = OidFunctionCall1(type->typinput, rawDatum);
-                        break;
-                    case PLC_DATA_INT1:
-                        ret = BoolGetDatum(*((bool*)res->data[0][0].value));
-                        break;
-                    case PLC_DATA_INT2:
-                        ret = Int16GetDatum(*((int16*)res->data[0][0].value));
-                        break;
-                    case PLC_DATA_INT4:
-                        ret = Int32GetDatum(*((int32*)res->data[0][0].value));
-                        break;
-                    case PLC_DATA_INT8:
-                        ret = Int64GetDatum(*((int64*)res->data[0][0].value));
-                        break;
-                    case PLC_DATA_FLOAT4:
-                        ret = Float4GetDatum(*((float4*)res->data[0][0].value));
-                        break;
-                    case PLC_DATA_FLOAT8:
-                        ret = Float8GetDatum(*((float8*)res->data[0][0].value));
-                        break;
-                    case PLC_DATA_UDT:
-                    case PLC_DATA_RECORD:
-                    default:
-                         elog(ERROR, "Data Type not handled: %d", res->types[0].type);
-                         fcinfo->isnull=1;
-                         ret = (Datum)0;
-
-                }
-                ReleaseSysCache(typetup);
-
-                return ret;
-            } else {
-                /*
-                 * here is where we handle tuples, and other non-scalar types
-                 */
-                Datum result;
-
-                int isNull = FALSE;
-
-                if ( fcinfo->flinfo->fn_retset ) {
-                    // we have rows and columns
-                    /*
-                    ReturnSetInfo      *rsinfo = (ReturnSetInfo *) fcinfo->resultinfo;
-                    TODO: Not working yet. Plus we can have set-returning function with
-                    a single column, not returning records
-                    get_tuple_store(oldContext, messageContext, rsinfo, res, &isNull);
-                    */
-                    PG_RETURN_NULL();
-                } else {
-                    /* TODO: We get here if it is not set-returning function,
-                       but in fact we can return more than just a single array! */
-                    result = get_array_datum(res, &pinfo->rettype, 0, &isNull);
-                    fcinfo->isnull = isNull;
-
-                    return result;
-                }
+                    break;
+                case MT_SQL:
+                    plcontainer_sql_do((sql_msg)answer, conn);
+                    break;
+                case MT_LOG:
+                    plcontainer_log_do((log_message)answer);
+                    break;
+                default:
+                    elog(ERROR, "Received unhandled message with type id %d "
+                         "from client", message_type);
+                    break;
             }
-        }
+        } while (message_type == MT_SQL || message_type == MT_LOG);
+    }
 
-        if (message_type == MT_EXCEPTION) {
-            elog(ERROR, "Exception caught: %s", ((error_message)answer)->message);
-            PG_RETURN_NULL();
-        }
-    } while (1);
-
-    PG_RETURN_NULL();
+    return result;
 }
 
-Datum get_array_datum(plcontainer_result res, plcTypeInfo *ret_type, int col,  int *isNull)
+/*
+ * Processing client results message
+ */
+static Datum plcontainer_return_result(plcontainer_result  resmsg,
+                                       FunctionCallInfo    fcinfo,
+                                       plcProcInfo        *pinfo) {
+    Datum        result = (Datum) 0;
+
+    if (resmsg->rows == 1 && resmsg->cols == 1) {
+        if (resmsg->data[0][0].isnull == 0) {
+            fcinfo->isnull = false;
+            if (pinfo->rettype.type != PLC_DATA_ARRAY) {
+                /*
+                 * handle non array scalars
+                 */
+                 switch (resmsg->types[0].type) {
+                     case PLC_DATA_TEXT:
+                         result   = OidFunctionCall1(pinfo->rettype.input,
+                                        CStringGetDatum(resmsg->data[0][0].value));
+                         break;
+                     case PLC_DATA_INT1:
+                         result = BoolGetDatum(*((bool*)resmsg->data[0][0].value));
+                         break;
+                     case PLC_DATA_INT2:
+                         result = Int16GetDatum(*((int16*)resmsg->data[0][0].value));
+                         break;
+                     case PLC_DATA_INT4:
+                         result = Int32GetDatum(*((int32*)resmsg->data[0][0].value));
+                         break;
+                     case PLC_DATA_INT8:
+                         result = Int64GetDatum(*((int64*)resmsg->data[0][0].value));
+                         break;
+                     case PLC_DATA_FLOAT4:
+                         result = Float4GetDatum(*((float4*)resmsg->data[0][0].value));
+                         break;
+                     case PLC_DATA_FLOAT8:
+                         result = Float8GetDatum(*((float8*)resmsg->data[0][0].value));
+                         break;
+                     case PLC_DATA_ARRAY:
+                         // We should never get here
+                         elog(FATAL, "Array processing should be in a different branch");
+                         break;
+                     case PLC_DATA_UDT:
+                     case PLC_DATA_RECORD:
+                     default:
+                          elog(ERROR, "Data type not handled yet: %d", resmsg->types[0].type);
+                          break;
+                 }
+            } else {
+                /*
+                 * handle arrays
+                 */
+                 result = get_array_datum((plcArray*)resmsg->data[0][0].value,
+                                          &pinfo->rettype);
+            }
+        }
+    } else if (resmsg->rows > 1) {
+        elog(ERROR, "Set-returning functions sare not supported yet");
+    } else if (resmsg->cols > 1) {
+        elog(ERROR, "Functions returning multiple columns are not supported yet");
+    }
+    return result;
+}
+
+static Datum get_array_datum(plcArray *arr, plcTypeInfo *ret_type)
 {
     Datum         dvalue;
     Datum	     *elems;
     ArrayType    *array = NULL;
     int          *lbs = NULL;
-    plcArray     *arr;
     int           i;
     MemoryContext oldContext;
 
-    arr = (plcArray*)res->data[0][col].value;
     lbs = (int*)palloc(arr->meta->ndims * sizeof(int));
     for (i = 0; i < arr->meta->ndims; i++)
         lbs[i] = 1;
@@ -265,7 +221,7 @@ Datum get_array_datum(plcontainer_result res, plcTypeInfo *ret_type, int col,  i
     }
 
     oldContext = MemoryContextSwitchTo(pl_container_caller_context);
-    array = construct_md_array((Datum*)arr->data,//elems,
+    array = construct_md_array(elems,
                                arr->nulls,
                                arr->meta->ndims,
                                arr->meta->dims,
@@ -372,16 +328,7 @@ void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
 }
 */
 
-void
-perm_fmgr_info(Oid functionId, FmgrInfo *finfo)
-{
-    fmgr_info_cxt(functionId, finfo, TopMemoryContext);
-    finfo->fn_mcxt = pl_container_caller_context;
-    finfo->fn_expr = (Node *) NULL;
-}
-
-void
-plcontainer_log_do(log_message log) {
+static void plcontainer_log_do(log_message log) {
     int level = DEBUG1;
 
     if (log == NULL)
@@ -400,13 +347,13 @@ plcontainer_log_do(log_message log) {
     elog(level, "[%s] -  %s ", log->category, log->message);
 }
 
-void plcontainer_sql_do(sql_msg msg, plcConn* conn) {
+static void plcontainer_sql_do(sql_msg msg, plcConn* conn) {
     message res;
     res = handle_sql_message(msg);
     if (res != NULL)
         plcontainer_channel_send(conn, (message)res);
 }
 
-void plcontainer_exception_do(error_message msg) {
+static void plcontainer_exception_do(error_message msg) {
     elog(ERROR, "exception occurred: \n %s \n %s", msg->message, msg->stacktrace);
 }
