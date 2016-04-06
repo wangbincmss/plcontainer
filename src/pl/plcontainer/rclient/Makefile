@@ -4,6 +4,7 @@ override CFLAGS += $(DEBUG) -I../ -I../../../include -DCOMM_STANDALONE -Wall -We
 
 common_src = $(shell find ../common -name "*.c")
 common_objs = $(foreach src,$(common_src),$(subst .c,.o,$(src)))
+shared_src = rcall.c rconversions.c
 
 .PHONY: default
 default: clean all
@@ -16,9 +17,9 @@ clean_common:
 %.o: %.c
 	$(CC) $(R_CFLAGS) $(CFLAGS) -c -o $@ $^
 
-librcall.so: rcall.c 
-	$(CC) $(R_CFLAGS) $(CFLAGS) -fpic -c -o rcall.o $^
-	$(CC) -shared -o librcall.so rcall.o
+librcall.so: $(shared_src)
+	$(CC) $(R_CFLAGS) $(CFLAGS) -fpic -c $(shared_src) $^
+	$(CC) -shared -o librcall.so rcall.o rconversions.o
 
 client: client.o librcall.so $(common_objs)
 	$(CC) -o $@ $^ $(R_LDLAGS)

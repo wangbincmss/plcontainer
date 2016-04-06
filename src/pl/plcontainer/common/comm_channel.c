@@ -281,7 +281,7 @@ static int receive_message_type(plcConn *conn, char *c) {
 
 static int receive_char(plcConn *conn, char *c) {
     int res = plcBufferRead(conn, c, 1);
-    debug_print(WARNING, "    <=== receiving int8 '%d'", (int)*c);
+    debug_print(WARNING, "    <=== receiving int8/char '%d/%c'", (int)*c,*c);
     return res;
 }
 

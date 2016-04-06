@@ -38,6 +38,9 @@ pg_get_one_r(char *value,  plcDatatype column_type, SEXP *obj, int elnum);
 static void
 pg_get_null( plcDatatype column_type, SEXP *obj, int elnum);
 
+SEXP get_r_vector(plcDatatype type_id, int numels);
+int get_entry_length(plcDatatype type);
+
 #define OPTIONS_NULL_CMD    "options(error = expression(NULL))"
 
 /* install the error handler to call our throw_r_error */
@@ -201,6 +204,7 @@ error:
     return;
 
 }
+#ifdef XXX
 static plcDatatype get_base_type(SEXP rval)
 {
     switch (TYPEOF(rval)) {
@@ -213,6 +217,7 @@ static plcDatatype get_base_type(SEXP rval)
             return PLC_DATA_TEXT;
     }
 }
+#endif
 
 void handle_call(callreq req, plcConn* conn) {
     SEXP             r,
@@ -376,7 +381,7 @@ void handle_call(callreq req, plcConn* conn) {
         res->types[0].nSubTypes = 0;
 
         if ( (isMatrix(strres) || (isVector(strres) && length(strres) > 1)) && req->retType.type != PLC_DATA_TEXT ) {
-            plcDatatype basetype = get_base_type(strres);
+            plcDatatype basetype = req->retType.subTypes[0].type;
             if (basetype > PLC_DATA_TEXT) {
                 char *errmsg = pmalloc(100);
                 sprintf(errmsg,
@@ -458,7 +463,14 @@ rawdata *matrix_iterator_next (plcIterator *iter) {
     res = pmalloc(sizeof(rawdata));
 
     //lprintf(WARNING, "Position: %d, %d", position[0], position[1]);
-    int idx = position[1]*meta->dims[0] + position[0];
+    int idx=0;
+    if (meta->ndims == 1){
+		idx = position[0];
+	}else if (meta->ndims == 2 ){
+		idx = position[1]*meta->dims[0] + position[0];
+	}else if (meta->ndims == 3) {
+		lprintf(ERROR, "need to deal with 3 dimensions rcall.c");
+	}
 
 	if ( 1== 0 ){ //TYPEOF(((SEXP *)mtx)[idx]) == NILSXP ){
 		res->isnull = TRUE;
@@ -483,7 +495,7 @@ rawdata *matrix_iterator_next (plcIterator *iter) {
 
 			case PLC_DATA_INT8:
 				res->value = pmalloc(8);
-				*((int64 *)res->value) = (int64)(INTEGER_DATA(mtx)[idx]);
+				*((int64 *)res->value) = (int64)(NUMERIC_DATA(mtx)[idx]);
 				break;
 
 			case PLC_DATA_FLOAT4:
@@ -507,11 +519,10 @@ rawdata *matrix_iterator_next (plcIterator *iter) {
 				lprintf(ERROR, "un-handled type %d", meta->type);
 				break;
 			case PLC_DATA_TEXT:
-			    if (STRING_ELT(mtx, position[1]*meta->dims[0] + position[0]) != NA_STRING){
+
+			    if (STRING_ELT(mtx, idx) != NA_STRING){
 			        res->isnull = FALSE;
-			        res->value  = pstrdup((char *) CHAR(
-			                        STRING_ELT(mtx, position[1]*meta->dims[0] + position[0]))
-			                      );
+			        res->value  = pstrdup((char *) CHAR( STRING_ELT(mtx, idx) ));
 			    } else {
 			        res->isnull = TRUE;
 			        res->value  = NULL;
@@ -523,11 +534,18 @@ rawdata *matrix_iterator_next (plcIterator *iter) {
 		}
 	}
 
-    position[1] += 1;
-    if (position[1] == meta->dims[1]) {
-        position[1] = 0;
-        position[0] += 1;
-    }
+	if ( meta->ndims == 1){
+		position[0] += 1;
+	}else if (meta->ndims == 2){
+
+		position[1] += 1;
+		if (position[1] == meta->dims[1]) {
+			position[1] = 0;
+			position[0] += 1;
+		}
+	}else if (meta->ndims == 3) {
+		lprintf(ERROR, "need to support 3 dimensions");
+	}
 
 
     return res;
@@ -535,7 +553,7 @@ rawdata *matrix_iterator_next (plcIterator *iter) {
 
 static plcIterator *matrix_iterator(SEXP mtx,plcDatatype base_type) {
     plcArrayMeta *meta;
-    int *position;
+    int *position, i;
     plcIterator *iter;
 
     /* Allocate the iterator */
@@ -544,17 +562,24 @@ static plcIterator *matrix_iterator(SEXP mtx,plcDatatype base_type) {
     /* Initialize meta */
     meta = (plcArrayMeta*)pmalloc(sizeof(plcArrayMeta));
     meta->type = base_type;
-    meta->ndims = 2;
-    meta->dims  = (int*)pmalloc(2 * sizeof(int));
-    meta->dims[0] = nrows(mtx);
-    meta->dims[1] = ncols(mtx);
-    meta->size = meta->dims[0] * meta->dims[1];
+    meta->ndims = 1;
+    meta->dims  = (int*)pmalloc(sizeof(int));
+    /*
+     * R stores matrix in columns
+     */
+    meta->dims[0] = length(mtx);
+    meta->size=1;
+    for ( i=0; i< meta->ndims; i++){
+    	meta->size *= meta->dims[i];
+    }
     iter->meta = meta;
 
     /* Initializing initial position */
-    position = (int*)pmalloc(2 * sizeof(int));
-    position[0] = 0;
-    position[1] = 0;
+    position = (int*)pmalloc( meta->ndims * sizeof(int));
+
+    for ( i=0; i< meta->ndims; i++){
+    	position[i] = 0;
+    }
     iter->position = (char*)position;
 
     /* Initializing "data" */
@@ -682,63 +707,9 @@ static char * create_r_func(callreq req) {
 }
 
 
-/*
- * create an R vector of a given type and size based on pg output function oid
- */
-static SEXP
-get_r_vector(plcDatatype type_id, int numels)
-{
-    SEXP result;
 
-    switch (type_id){
-    case PLC_DATA_INT2:
-    case PLC_DATA_INT4:
-        PROTECT( result = NEW_INTEGER(numels) );
-        break;
-    case PLC_DATA_INT8:
-    case PLC_DATA_FLOAT4:
-    case PLC_DATA_FLOAT8:
-        PROTECT( result = NEW_NUMERIC(numels) );
-        break;
-    case PLC_DATA_INT1:
-        PROTECT( result = NEW_LOGICAL(numels) );
-        break;
-    case PLC_DATA_TEXT:
-        default:
-        PROTECT( result = NEW_CHARACTER(numels) );
-        break;
-    }
-    UNPROTECT(1);
-    return result;
-}
 
-int get_entry_length(plcDatatype type)
-{
-	 switch (type) {
-		case PLC_DATA_INT1:   return 1;
-		case PLC_DATA_INT2:   return 2;
-		case PLC_DATA_INT4:   return 4;
-		case PLC_DATA_INT8:   return 8;
-		case PLC_DATA_FLOAT4: return 4;
-		case PLC_DATA_FLOAT8: return 8;
-		case PLC_DATA_TEXT:   return 0;
-		case PLC_DATA_ARRAY:
-			lprintf(ERROR, "Array cannot be part of the array. "
-					"Multi-dimensional arrays should be passed in a single entry");
-			break;
-		case PLC_DATA_RECORD:
-			lprintf(ERROR, "Record data type not implemented yet");
-			break;
-		case PLC_DATA_UDT:
-			lprintf(ERROR, "User-defined data types are not implemented yet");
-			break;
-		default:
-			lprintf(ERROR, "Received unsupported argument type: %d", type);
-			break;
 
-	}
-	return -1;
-}
 SEXP get_r_array(plcArray *plcArray)
 {
 	SEXP   vec;
@@ -784,16 +755,11 @@ SEXP get_r_array(plcArray *plcArray)
 				isNull = plcArray->nulls[elem_idx];
 				elem_len = get_entry_length(plcArray->meta->type);
 
-				if ( elem_len > 0){
-					if (!isNull){
-						pg_get_one_r(plcArray->data+elem_idx * elem_len , plcArray->meta->type, &vec, elem_idx);
-					}
-					else{
-						pg_get_null( plcArray->meta->type, &vec, elem_idx );
-					}
+				if (!isNull){
+					pg_get_one_r(plcArray->data+elem_idx * elem_len , plcArray->meta->type, &vec, elem_idx);
 				}
-				else {
-					lprintf(ERROR, "Record data type not implemented yet");
+				else{
+					pg_get_null( plcArray->meta->type, &vec, elem_idx );
 				}
 
 				elem_idx++;
@@ -957,7 +923,7 @@ pg_get_one_r(char *value,  plcDatatype column_type, SEXP *obj, int elnum)
         case PLC_DATA_TEXT:
         default:
             /* Everything else is defaulted to string */
-            SET_STRING_ELT(*obj, elnum, COPY_TO_USER_STRING(value));
+            SET_STRING_ELT(*obj, elnum, COPY_TO_USER_STRING(*((char **)value)));
     }
 }
 
