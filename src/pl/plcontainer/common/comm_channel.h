@@ -26,8 +26,8 @@ interpreted as representing official policies, either expressed or implied, of t
  * author:			Laszlo Hornyak Kocka
  */
 
-#ifndef PLCONTAINER_CHANNEL_H
-#define PLCONTAINER_CHANNEL_H
+#ifndef PLC_COMM_CHANNEL_H
+#define PLC_COMM_CHANNEL_H
 
 #include "comm_connectivity.h"
 #include "messages/messages.h"
@@ -43,4 +43,4 @@ interpreted as representing official policies, either expressed or implied, of t
 int plcontainer_channel_send(plcConn *conn, message msg);
 int plcontainer_channel_receive(plcConn *conn, message *plcMsg);
 
-#endif // PLCONTAINER_CHANNEL_H
+#endif /* PLC_COMM_CHANNEL_H */

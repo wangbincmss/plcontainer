@@ -1,5 +1,5 @@
-#ifndef PLPGJ_MESSAGE_CALLREQ_H
-#define PLPGJ_MESSAGE_CALLREQ_H
+#ifndef PLC_MESSAGE_CALLREQ_H
+#define PLC_MESSAGE_CALLREQ_H
 
 #include "message_base.h"
 
@@ -22,4 +22,4 @@ typedef struct call_req {
 */
 void free_callreq(callreq req);
 
-#endif
+#endif /* PLC_MESSAGE_CALLREQ_H */

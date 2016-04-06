@@ -1,3 +1,6 @@
+#ifndef PLC_MESSAGES_H
+#define PLC_MESSAGES_H
+
 #include "message_types.h"
 #include "message_base.h"
 #include "message_callreq.h"
@@ -7,3 +10,5 @@
 #include "message_log.h"
 #include "message_trigger.h"
 #include "message_data.h"
+
+#endif /* PLC_MESSAGES_H */

@@ -1,5 +1,5 @@
-#ifndef __COMM_SERVER_H__
-#define __COMM_SERVER_H__
+#ifndef PLC_COMM_SERVER_H
+#define PLC_COMM_SERVER_H
 
 #include "comm_connectivity.h"
 
@@ -16,4 +16,4 @@ void connection_wait(int sock);
 plcConn* connection_init(int sock);
 void receive_loop( void (*handle_call)(callreq, plcConn*), plcConn* conn);
 
-#endif /* __COMM_SERVER_H__ */
+#endif /* PLC_COMM_SERVER_H */

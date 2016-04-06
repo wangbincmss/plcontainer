@@ -1,5 +1,5 @@
-#ifndef __RCALL_H__
-#define __RCALL_H__
+#ifndef PLC_RCALL_H
+#define PLC_RCALL_H
 
 #include "common/comm_connectivity.h"
 
@@ -12,4 +12,4 @@
 // Processing of the Greenplum function call
 void handle_call(callreq req, plcConn* conn);
 
-#endif /* __RCALL_H__ */
+#endif /* PLC_RCALL_H */

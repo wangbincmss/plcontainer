@@ -1,5 +1,5 @@
-#ifndef COMM_CONNECTIVITY_H
-#define COMM_CONNECTIVITY_H
+#ifndef PLC_COMM_CONNECTIVITY_H
+#define PLC_COMM_CONNECTIVITY_H
 
 #include <stdio.h>
 
@@ -34,4 +34,4 @@ int plcBufferReceive (plcConn *conn, size_t nBytes);
 int plcBufferFlush (plcConn *conn);
 void plcConnectionSetDebug(plcConn *conn);
 
-#endif /* COMM_CONNECTIVITY_H */
+#endif /* PLC_COMM_CONNECTIVITY_H */

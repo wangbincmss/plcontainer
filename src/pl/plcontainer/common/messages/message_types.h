@@ -1,5 +1,5 @@
-#ifndef __MESSAGE_TYPES_H__
-#define __MESSAGE_TYPES_H__
+#ifndef PLC_MESSAGE_TYPES_H
+#define PLC_MESSAGE_TYPES_H
 
 #define MT_TRIGREQ 'T'
 #define MT_CALLREQ 'C'
@@ -11,4 +11,4 @@
 #define MT_TRANSEVENT 'V'
 #define MT_EOF 0
 
-#endif /* __MESSAGE_TYPES_H__ */
+#endif /* PLC_MESSAGE_TYPES_H */

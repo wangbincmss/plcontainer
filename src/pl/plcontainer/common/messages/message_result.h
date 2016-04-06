@@ -1,5 +1,5 @@
-#ifndef PLPGJ_MESSAGE_RESULT_H
-#define PLPGJ_MESSAGE_RESULT_H
+#ifndef PLC_MESSAGE_RESULT_H
+#define PLC_MESSAGE_RESULT_H
 
 #include "message_base.h"
 
@@ -14,4 +14,4 @@ typedef struct str_plcontainer_result {
 
 void free_result(plcontainer_result res);
 
-#endif
+#endif /* PLC_MESSAGE_RESULT_H */

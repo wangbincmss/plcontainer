@@ -1,5 +1,5 @@
-#ifndef PLPGJ_MESSAGE_SQL_H
-#define PLPGJ_MESSAGE_SQL_H
+#ifndef PLC_MESSAGE_SQL_H
+#define PLC_MESSAGE_SQL_H
 
 #include "message_base.h"
 
@@ -132,4 +132,4 @@ typedef struct str_sql_msg_blob_seek {
     unsigned char relative;
 } * sql_msg_blob_seek;
 
-#endif
+#endif /* PLC_MESSAGE_SQL_H */

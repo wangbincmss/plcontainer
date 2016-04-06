@@ -1,5 +1,5 @@
-#ifndef __CONTAINERS_H__
-#define __CONTAINERS_H__
+#ifndef PLC_CONTAINERS_H
+#define PLC_CONTAINERS_H
 
 //#define CONTAINER_DEBUG
 
@@ -23,4 +23,4 @@ plcConn *find_container(const char *image);
 /* start a new docker container using the given image  */
 plcConn *start_container(const char *image, int shared);
 
-#endif /* __CONTAINERS_H__ */
+#endif /* PLC_CONTAINERS_H */

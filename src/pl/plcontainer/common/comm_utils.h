@@ -26,8 +26,8 @@ interpreted as representing official policies, either expressed or implied, of t
  * author:			Laszlo Hornyak
  */
 
-#ifndef __COMM_LOGGING_H__
-#define __COMM_LOGGING_H__
+#ifndef PLC_COMM_UTILS_H
+#define PLC_COMM_UTILS_H
 
 /*
   COMM_STANDALONE should be defined for standalone interpreters
@@ -71,4 +71,4 @@ interpreted as representing official policies, either expressed or implied, of t
 
 #endif /* COMM_STANDALONE */
 
-#endif /* __COMM_LOGGING_H__ */
+#endif /* PLC_COMM_UTILS_H */

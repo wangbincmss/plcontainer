@@ -20,8 +20,8 @@ The views and conclusions contained in the software and documentation are those 
 interpreted as representing official policies, either expressed or implied, of the PL-J Project.
 */
 
-#ifndef PLC_MESSAGE_FNS
-#define PLC_MESSAGE_FNS
+#ifndef PLC_MESSAGE_FNS_H
+#define PLC_MESSAGE_FNS_H
 
 #include "postgres.h"
 #include "fmgr.h"
@@ -60,4 +60,4 @@ void free_proc_info(plcProcInfo *proc);
 
 callreq plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo);
 
-#endif /* PLC_MESSAGE_FNS */
+#endif /* PLC_MESSAGE_FNS_H */

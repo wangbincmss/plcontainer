@@ -1,5 +1,5 @@
-#ifndef PLPGJ_ERROR_MESSAGE
-#define PLPGJ_ERROR_MESSAGE
+#ifndef PLC_MESSAGE_ERROR_H
+#define PLC_MESSAGE_ERROR_H
 
 #include "message_base.h"
 
@@ -9,4 +9,4 @@ typedef struct str_error_message {
     char *stacktrace;
 } str_error_message, *error_message;
 
-#endif
+#endif /* PLC_MESSAGE_ERROR_H */

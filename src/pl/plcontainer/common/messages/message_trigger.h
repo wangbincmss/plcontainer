@@ -1,5 +1,5 @@
-#ifndef PLPGJ_MESSAGE_TRIGREQ_H
-#define PLPGJ_MESSAGE_TRIGREQ_H
+#ifndef PLC_MESSAGE_TRIGREQ_H
+#define PLC_MESSAGE_TRIGREQ_H
 
 #include "message_base.h"
 
@@ -46,4 +46,4 @@ typedef struct {
 
 typedef str_msg_trigger_tupleresult *trigger_tupleres;
 
-#endif
+#endif /* PLC_MESSAGE_TRIGREQ_H */
