@@ -27,20 +27,7 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "fmgr.h"
 
 #include "common/messages/messages.h"
-
-typedef struct plcTypeInfo plcTypeInfo;
-
-struct plcTypeInfo {
-    plcDatatype   type;
-    Oid           typeOid;
-    RegProcedure  output, input; /* used to convert a given value from/to "...." */
-    Oid           typioparam;
-    bool          typbyval;
-    int16         typlen;
-    char          typalign;
-    int           nSubTypes;
-    plcTypeInfo  *subTypes;
-};
+#include "plc_typeio.h"
 
 typedef struct {
     /* Greenplum Function Information */

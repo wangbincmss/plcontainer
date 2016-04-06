@@ -32,10 +32,7 @@ interpreted as representing official policies, either expressed or implied, of t
 
 /* Greenplum headers */
 #include "postgres.h"
-#include "fmgr.h"
 #include "executor/spi.h"
-#include "catalog/pg_type.h"
-#include "utils/lsyscache.h"
 
 /* message and function definitions */
 #include "common/comm_utils.h"
@@ -43,10 +40,6 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "message_fns.h"
 #include "function_cache.h"
 #include "plc_typeio.h"
-
-static void fill_type_info(Oid typeOid, plcTypeInfo *type);
-static void copy_type_info(plcType *type, plcTypeInfo *ptype);
-static void free_type_info(plcTypeInfo *types, int ntypes);
 
 static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup);
 static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req);
@@ -178,87 +171,6 @@ callreq plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
     return req;
 }
 
-static void fill_type_info(Oid typeOid, plcTypeInfo *type) {
-    HeapTuple    typeTup;
-    Form_pg_type typeStruct;
-    char		 dummy_delim;
-
-    typeTup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
-    if (!HeapTupleIsValid(typeTup))
-        elog(ERROR, "cache lookup failed for type %u", typeOid);
-
-    typeStruct = (Form_pg_type)GETSTRUCT(typeTup);
-    ReleaseSysCache(typeTup);
-
-    type->typeOid = typeOid;
-    type->output  = typeStruct->typoutput;
-    type->input   = typeStruct->typinput;
-    get_type_io_data(typeOid, IOFunc_input,
-                     &type->typlen, &type->typbyval, &type->typalign,
-                     &dummy_delim,
-                     &type->typioparam, &type->input);
-    type->nSubTypes = 0;
-    type->subTypes = NULL;
-
-    switch(typeOid){
-        case BOOLOID:
-            type->type = PLC_DATA_INT1;
-            break;
-        case INT2OID:
-            type->type = PLC_DATA_INT2;
-            break;
-        case INT4OID:
-            type->type = PLC_DATA_INT4;
-            break;
-        case INT8OID:
-            type->type = PLC_DATA_INT8;
-            break;
-        case FLOAT4OID:
-            type->type = PLC_DATA_FLOAT4;
-            break;
-        case FLOAT8OID:
-            type->type = PLC_DATA_FLOAT8;
-            break;
-        case TEXTOID:
-        case VARCHAROID:
-        case CHAROID:
-            type->type = PLC_DATA_TEXT;
-            break;
-        default:
-            if (typeStruct->typelem != 0) {
-                type->type = PLC_DATA_ARRAY;
-                type->nSubTypes = 1;
-                type->subTypes = (plcTypeInfo*)plc_top_alloc(sizeof(plcTypeInfo));
-                fill_type_info(typeStruct->typelem, &type->subTypes[0]);
-            } else {
-                elog(ERROR, "Data type with OID %d is not supported", typeOid);
-            }
-            break;
-    }
-}
-
-static void copy_type_info(plcType *type, plcTypeInfo *ptype) {
-    type->type = ptype->type;
-    type->nSubTypes = ptype->nSubTypes;
-    if (type->nSubTypes > 0) {
-        int i = 0;
-        type->subTypes = (plcType*)pmalloc(type->nSubTypes * sizeof(plcType));
-        for (i = 0; i < type->nSubTypes; i++)
-            copy_type_info(&type->subTypes[i], &ptype->subTypes[i]);
-    } else {
-        type->subTypes = NULL;
-    }
-}
-
-static void free_type_info(plcTypeInfo *types, int ntypes) {
-    int i = 0;
-    for (i = 0; i < ntypes; i++) {
-        if (types->nSubTypes > 0)
-            free_type_info(types->subTypes, types->nSubTypes);
-    }
-    pfree(types);
-}
-
 /*
  * Decide whether a cached PLyProcedure struct is still valid
  */
@@ -326,7 +238,7 @@ static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, 
             req->args[i].data.value = NULL;
         } else {
             req->args[i].data.isnull = 0;
-            req->args[i].data.value = fill_type_value(fcinfo->arg[i], &pinfo->argtypes[i]);
+            req->args[i].data.value = pinfo->argtypes[i].outfunc(fcinfo->arg[i], &pinfo->argtypes[i]);
         }
     }
 }
