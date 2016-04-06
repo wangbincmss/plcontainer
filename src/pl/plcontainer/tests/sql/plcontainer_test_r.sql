@@ -10,8 +10,12 @@ select rfloat(3.1415926535897932384626433832::float8);
 select rtext('123');
 select rtest_mia();
 select vec8('{1.23, 1.32}'::float8[]);
+select vec8('{1, 5,10, 100, 7}'::int8[]);
+select vec4('{1.23, 1.32}'::float4[]);
+select vec4('{1, 5,10, 100, 7}'::int4[]);
 select rlog100_shared();
 select rpg_spi_exec('select 1');
+select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
 -- This function is of "return setof record" type which is not supported yet
 -- select rtest_spi_ta('select oid, typname from pg_type where typname = ''oid'' or typname = ''text''');

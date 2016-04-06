@@ -59,15 +59,33 @@ select rtext('123');
 (1 row)
 
 select rtest_mia();
-         rtest_mia         
----------------------------
- {{1,0,3,0,5},{0,7,0,9,0}}
+       rtest_mia        
+------------------------
+ {1,2,3,4,5,6,7,8,9,10}
 (1 row)
 
 select vec8('{1.23, 1.32}'::float8[]);
-      vec8       
------------------
- {{1.23},{1.32}}
+    vec8     
+-------------
+ {1.23,1.32}
+(1 row)
+
+select vec8('{1, 5,10, 100, 7}'::int8[]);
+    vec8     
+-------------
+ {0,0,0,0,0}
+(1 row)
+
+select vec4('{1.23, 1.32}'::float4[]);
+    vec4     
+-------------
+ {1.23,1.32}
+(1 row)
+
+select vec4('{1, 5,10, 100, 7}'::int4[]);
+      vec4      
+----------------
+ {1,5,10,100,7}
 (1 row)
 
 select rlog100_shared();
@@ -79,7 +97,13 @@ select rlog100_shared();
 select rpg_spi_exec('select 1');
  rpg_spi_exec 
 --------------
- 1
+ H_\x02
+(1 row)
+
+select paster('{hello, happy}','{world, birthday}',' ');
+            paster             
+-------------------------------
+ {"hello world","hello world"}
 (1 row)
 
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');

@@ -57,6 +57,25 @@ $$
 arg1
 $$ language 'plcontainer';
 
+create or replace function vec8(arg1 _int8) returns _int8 as
+$$
+# container: plc_r
+arg1
+$$ language 'plcontainer';
+
+create or replace function vec4(arg1 _int4) returns _int4 as
+$$
+# container: plc_r
+arg1
+$$ language 'plcontainer';
+
+create or replace function paster(arg1 _text,arg2 _text,arg3 text) returns text[] as
+$$
+#container: plc_r
+paste(arg1,arg2, sep = arg3)
+$$
+language plcontainer;
+
 CREATE OR REPLACE FUNCTION rlog100_shared() RETURNS text AS $$
 # container: plc_r_shared
 return(log10(100))
