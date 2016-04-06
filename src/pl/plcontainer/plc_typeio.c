@@ -10,7 +10,6 @@
 #include "message_fns.h"
 #include "common/comm_utils.h"
 
-static rawdata *plc_backend_array_next(plcIterator *self);
 static char *plc_datum_as_int1(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_int2(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_int4(Datum input, plcTypeInfo *type);
@@ -19,23 +18,289 @@ static char *plc_datum_as_float4(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_float8(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_text(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_array(Datum input, plcTypeInfo *type);
+static rawdata *plc_backend_array_next(plcIterator *self);
 
-Datum get_array_datum(plcArray *arr, plcTypeInfo *ret_type)
-{
+static Datum plc_datum_from_int1(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_int2(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_int4(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_int8(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_float4(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_float8(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_text(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_text_ptr(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_array(char *input, plcTypeInfo *type);
+
+void fill_type_info(Oid typeOid, plcTypeInfo *type, int issubtype) {
+    HeapTuple    typeTup;
+    Form_pg_type typeStruct;
+    char		 dummy_delim;
+
+    typeTup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
+    if (!HeapTupleIsValid(typeTup))
+        elog(ERROR, "cache lookup failed for type %u", typeOid);
+
+    typeStruct = (Form_pg_type)GETSTRUCT(typeTup);
+    ReleaseSysCache(typeTup);
+
+    type->typeOid = typeOid;
+    type->output  = typeStruct->typoutput;
+    type->input   = typeStruct->typinput;
+    get_type_io_data(typeOid, IOFunc_input,
+                     &type->typlen, &type->typbyval, &type->typalign,
+                     &dummy_delim,
+                     &type->typioparam, &type->input);
+    type->nSubTypes = 0;
+    type->subTypes = NULL;
+
+    switch(typeOid){
+        case BOOLOID:
+            type->type = PLC_DATA_INT1;
+            type->outfunc = plc_datum_as_int1;
+            type->infunc = plc_datum_from_int1;
+            break;
+        case INT2OID:
+            type->type = PLC_DATA_INT2;
+            type->outfunc = plc_datum_as_int2;
+            type->infunc = plc_datum_from_int2;
+            break;
+        case INT4OID:
+            type->type = PLC_DATA_INT4;
+            type->outfunc = plc_datum_as_int4;
+            type->infunc = plc_datum_from_int4;
+            break;
+        case INT8OID:
+            type->type = PLC_DATA_INT8;
+            type->outfunc = plc_datum_as_int8;
+            type->infunc = plc_datum_from_int8;
+            break;
+        case FLOAT4OID:
+            type->type = PLC_DATA_FLOAT4;
+            type->outfunc = plc_datum_as_float4;
+            type->infunc = plc_datum_from_float4;
+            break;
+        case FLOAT8OID:
+            type->type = PLC_DATA_FLOAT8;
+            type->outfunc = plc_datum_as_float8;
+            type->infunc = plc_datum_from_float8;
+            break;
+        case TEXTOID:
+        case VARCHAROID:
+        case CHAROID:
+            type->type = PLC_DATA_TEXT;
+            type->outfunc = plc_datum_as_text;
+            if (issubtype == 0) {
+                type->infunc = plc_datum_from_text;
+            } else {
+                type->infunc = plc_datum_from_text_ptr;
+            }
+            break;
+        default:
+            if (typeStruct->typelem != 0) {
+                type->type = PLC_DATA_ARRAY;
+                type->outfunc = plc_datum_as_array;
+                type->infunc = plc_datum_from_array;
+                type->nSubTypes = 1;
+                type->subTypes = (plcTypeInfo*)plc_top_alloc(sizeof(plcTypeInfo));
+                fill_type_info(typeStruct->typelem, &type->subTypes[0], 1);
+            } else {
+                elog(ERROR, "Data type with OID %d is not supported", typeOid);
+            }
+            break;
+    }
+}
+
+void copy_type_info(plcType *type, plcTypeInfo *ptype) {
+    type->type = ptype->type;
+    type->nSubTypes = ptype->nSubTypes;
+    if (type->nSubTypes > 0) {
+        int i = 0;
+        type->subTypes = (plcType*)pmalloc(type->nSubTypes * sizeof(plcType));
+        for (i = 0; i < type->nSubTypes; i++)
+            copy_type_info(&type->subTypes[i], &ptype->subTypes[i]);
+    } else {
+        type->subTypes = NULL;
+    }
+}
+
+void free_type_info(plcTypeInfo *types, int ntypes) {
+    int i = 0;
+    for (i = 0; i < ntypes; i++) {
+        if (types->nSubTypes > 0)
+            free_type_info(types->subTypes, types->nSubTypes);
+    }
+    pfree(types);
+}
+
+static char *plc_datum_as_int1(Datum input, plcTypeInfo *type UNUSED) {
+    char *out = (char*)pmalloc(1);
+    *((char*)out) = DatumGetBool(input);
+    return out;
+}
+
+static char *plc_datum_as_int2(Datum input, plcTypeInfo *type UNUSED) {
+    char *out = (char*)pmalloc(2);
+    *((int16*)out) = DatumGetInt16(input);
+    return out;
+}
+
+static char *plc_datum_as_int4(Datum input, plcTypeInfo *type UNUSED) {
+    char *out = (char*)pmalloc(4);
+    *((int32*)out) = DatumGetInt32(input);
+    return out;
+}
+
+static char *plc_datum_as_int8(Datum input, plcTypeInfo *type UNUSED) {
+    char *out = (char*)pmalloc(8);
+    *((int64*)out) = DatumGetInt64(input);
+    return out;
+}
+
+static char *plc_datum_as_float4(Datum input, plcTypeInfo *type UNUSED) {
+    char *out = (char*)pmalloc(4);
+    *((float4*)out) = DatumGetFloat4(input);
+    return out;
+}
+
+static char *plc_datum_as_float8(Datum input, plcTypeInfo *type UNUSED) {
+    char *out = (char*)pmalloc(8);
+    *((float8*)out) = DatumGetFloat8(input);
+    return out;
+}
+
+static char *plc_datum_as_text(Datum input, plcTypeInfo *type) {
+    return DatumGetCString(OidFunctionCall1(type->output, input));
+}
+
+static char *plc_datum_as_array(Datum input, plcTypeInfo *type) {
+    ArrayType    *array = DatumGetArrayTypeP(input);
+    plcIterator  *iter;
+    plcArrayMeta *meta;
+    int           i;
+
+    iter = (plcIterator*)palloc(sizeof(plcIterator));
+    meta = (plcArrayMeta*)palloc(sizeof(plcArrayMeta));
+    iter->meta = meta;
+
+    meta->type = type->subTypes[0].type;
+    meta->ndims = ARR_NDIM(array);
+    meta->dims = (int*)palloc(meta->ndims * sizeof(int));
+    iter->position = (char*)palloc(sizeof(int) * meta->ndims * 2 + 2);
+    ((plcTypeInfo**)iter->position)[0] = type;
+    meta->size = meta->ndims > 0 ? 1 : 0;
+    for (i = 0; i < meta->ndims; i++) {
+        meta->dims[i] = ARR_DIMS(array)[i];
+        meta->size *= ARR_DIMS(array)[i];
+        ((int*)iter->position)[i + 2] = ARR_LBOUND(array)[i];
+        ((int*)iter->position)[i + meta->ndims + 2] = ARR_LBOUND(array)[i];
+    }
+    iter->data = (char*)array;
+    iter->next = plc_backend_array_next;
+    iter->cleanup =  NULL;
+
+    return (char*)iter;
+}
+
+static rawdata *plc_backend_array_next(plcIterator *self) {
+    plcArrayMeta *meta;
+    ArrayType    *array;
+    plcTypeInfo  *typ;
+    plcTypeInfo  *subtyp;
+    int          *lbounds;
+    int          *pos;
+    int           dim;
+    bool          isnull = 0;
+    Datum         el;
+    rawdata      *res;
+
+    res     = palloc(sizeof(rawdata));
+    meta    = (plcArrayMeta*)self->meta;
+    array   = (ArrayType*)self->data;
+    typ     = ((plcTypeInfo**)self->position)[0];
+    subtyp  = &typ->subTypes[0];
+    lbounds = (int*)self->position + 2;
+    pos     = (int*)self->position + 2 + meta->ndims;
+
+    el = array_ref(array, meta->ndims, pos, typ->typlen,
+                   subtyp->typlen, subtyp->typbyval,
+                   subtyp->typalign, &isnull);
+    if (isnull) {
+        res->isnull = 1;
+        res->value  = NULL;
+    } else {
+        res->isnull = 0;
+        res->value = subtyp->outfunc(el, subtyp);
+    }
+
+    dim     = meta->ndims - 1;
+    while (dim >= 0 && pos[dim]-lbounds[dim] < meta->dims[dim]) {
+        pos[dim] += 1;
+        if (pos[dim]-lbounds[dim] >= meta->dims[dim]) {
+            pos[dim] = lbounds[dim];
+            dim -= 1;
+        } else {
+            break;
+        }
+    }
+
+    return res;
+}
+
+static Datum plc_datum_from_int1(char *input, plcTypeInfo *type UNUSED) {
+    return BoolGetDatum(*((bool*)input));
+}
+
+static Datum plc_datum_from_int2(char *input, plcTypeInfo *type UNUSED) {
+    return Int16GetDatum(*((int16*)input));
+}
+
+static Datum plc_datum_from_int4(char *input, plcTypeInfo *type UNUSED) {
+    return Int32GetDatum(*((int32*)input));
+}
+
+static Datum plc_datum_from_int8(char *input, plcTypeInfo *type UNUSED) {
+    return Int64GetDatum(*((int64*)input));
+}
+
+static Datum plc_datum_from_float4(char *input, plcTypeInfo *type UNUSED) {
+    return Float4GetDatum(*((float4*)input));
+}
+
+static Datum plc_datum_from_float8(char *input, plcTypeInfo *type UNUSED) {
+    return Float8GetDatum(*((float8*)input));
+}
+
+static Datum plc_datum_from_text(char *input, plcTypeInfo *type) {
+    return OidFunctionCall1(type->input, CStringGetDatum(input));
+}
+
+static Datum plc_datum_from_text_ptr(char *input, plcTypeInfo *type) {
+    return OidFunctionCall1(type->input, CStringGetDatum( *((char**)input) ));
+}
+
+static Datum plc_datum_from_array(char *input, plcTypeInfo *type) {
     Datum         dvalue;
     Datum	     *elems;
     ArrayType    *array = NULL;
     int          *lbs = NULL;
     int           i;
     MemoryContext oldContext;
+    plcArray     *arr;
+    char         *ptr;
+    int           len;
+    plcTypeInfo  *subType;
 
+    arr = (plcArray*)input;
+    subType = &type->subTypes[0];
     lbs = (int*)palloc(arr->meta->ndims * sizeof(int));
     for (i = 0; i < arr->meta->ndims; i++)
         lbs[i] = 1;
 
-    elems = palloc(sizeof(Datum) * arr->meta->size);
+    elems = palloc(arr->meta->size * sizeof(Datum));
+    ptr = arr->data;
+    len = plc_get_type_length(subType->type);
     for (i = 0; i < arr->meta->size; i++) {
-        elems[i] = Int64GetDatum( ((long long*)arr->data)[i] );
+        elems[i] = subType->infunc(ptr, subType);
+        ptr += len;
     }
 
     oldContext = MemoryContextSwitchTo(pl_container_caller_context);
@@ -44,10 +309,10 @@ Datum get_array_datum(plcArray *arr, plcTypeInfo *ret_type)
                                arr->meta->ndims,
                                arr->meta->dims,
                                lbs,
-                               ret_type->subTypes[0].typeOid,
-                               ret_type->subTypes[0].typlen,
-                               ret_type->subTypes[0].typbyval,
-                               ret_type->subTypes[0].typalign);
+                               subType->typeOid,
+                               subType->typlen,
+                               subType->typbyval,
+                               subType->typalign);
 
     dvalue = PointerGetDatum(array);
     MemoryContextSwitchTo(oldContext);
@@ -59,7 +324,7 @@ Datum get_array_datum(plcArray *arr, plcTypeInfo *ret_type)
 }
 
 /*
-void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
+void plc_datum_from_tuple( MemoryContext oldContext, MemoryContext messageContext,
         ReturnSetInfo *rsinfo, plcontainer_result res, int *isNull )
 {
     AttInMetadata      *attinmeta;
@@ -145,210 +410,3 @@ void get_tuple_store( MemoryContext oldContext, MemoryContext messageContext,
     *isNull = TRUE;
 }
 */
-
-plcIterator *init_array_iter(Datum d, plcTypeInfo *argType) {
-    ArrayType    *array = DatumGetArrayTypeP(d);
-    plcIterator  *iter;
-    plcArrayMeta *meta;
-    int           i;
-
-    iter = (plcIterator*)palloc(sizeof(plcIterator));
-    meta = (plcArrayMeta*)palloc(sizeof(plcArrayMeta));
-    iter->meta = meta;
-
-    meta->type = argType->subTypes[0].type;
-    meta->ndims = ARR_NDIM(array);
-    meta->dims = (int*)palloc(meta->ndims * sizeof(int));
-    iter->position = (char*)palloc(sizeof(int) * meta->ndims * 2 + 2);
-    ((plcTypeInfo**)iter->position)[0] = argType;
-    meta->size = meta->ndims > 0 ? 1 : 0;
-    for (i = 0; i < meta->ndims; i++) {
-        meta->dims[i] = ARR_DIMS(array)[i];
-        meta->size *= ARR_DIMS(array)[i];
-        ((int*)iter->position)[i + 2] = ARR_LBOUND(array)[i];
-        ((int*)iter->position)[i + meta->ndims + 2] = ARR_LBOUND(array)[i];
-    }
-    iter->data = (char*)array;
-    iter->next = plc_backend_array_next;
-    iter->cleanup =  NULL;
-
-    return iter;
-}
-
-void fill_type_info(Oid typeOid, plcTypeInfo *type) {
-    HeapTuple    typeTup;
-    Form_pg_type typeStruct;
-    char		 dummy_delim;
-
-    typeTup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
-    if (!HeapTupleIsValid(typeTup))
-        elog(ERROR, "cache lookup failed for type %u", typeOid);
-
-    typeStruct = (Form_pg_type)GETSTRUCT(typeTup);
-    ReleaseSysCache(typeTup);
-
-    type->typeOid = typeOid;
-    type->output  = typeStruct->typoutput;
-    type->input   = typeStruct->typinput;
-    get_type_io_data(typeOid, IOFunc_input,
-                     &type->typlen, &type->typbyval, &type->typalign,
-                     &dummy_delim,
-                     &type->typioparam, &type->input);
-    type->nSubTypes = 0;
-    type->subTypes = NULL;
-
-    switch(typeOid){
-        case BOOLOID:
-            type->type = PLC_DATA_INT1;
-            type->outfunc = plc_datum_as_int1;
-            break;
-        case INT2OID:
-            type->type = PLC_DATA_INT2;
-            type->outfunc = plc_datum_as_int2;
-            break;
-        case INT4OID:
-            type->type = PLC_DATA_INT4;
-            type->outfunc = plc_datum_as_int4;
-            break;
-        case INT8OID:
-            type->type = PLC_DATA_INT8;
-            type->outfunc = plc_datum_as_int8;
-            break;
-        case FLOAT4OID:
-            type->type = PLC_DATA_FLOAT4;
-            type->outfunc = plc_datum_as_float4;
-            break;
-        case FLOAT8OID:
-            type->type = PLC_DATA_FLOAT8;
-            type->outfunc = plc_datum_as_float8;
-            break;
-        case TEXTOID:
-        case VARCHAROID:
-        case CHAROID:
-            type->type = PLC_DATA_TEXT;
-            type->outfunc = plc_datum_as_text;
-            break;
-        default:
-            if (typeStruct->typelem != 0) {
-                type->type = PLC_DATA_ARRAY;
-                type->outfunc = plc_datum_as_array;
-                type->nSubTypes = 1;
-                type->subTypes = (plcTypeInfo*)plc_top_alloc(sizeof(plcTypeInfo));
-                fill_type_info(typeStruct->typelem, &type->subTypes[0]);
-            } else {
-                elog(ERROR, "Data type with OID %d is not supported", typeOid);
-            }
-            break;
-    }
-}
-
-void copy_type_info(plcType *type, plcTypeInfo *ptype) {
-    type->type = ptype->type;
-    type->nSubTypes = ptype->nSubTypes;
-    if (type->nSubTypes > 0) {
-        int i = 0;
-        type->subTypes = (plcType*)pmalloc(type->nSubTypes * sizeof(plcType));
-        for (i = 0; i < type->nSubTypes; i++)
-            copy_type_info(&type->subTypes[i], &ptype->subTypes[i]);
-    } else {
-        type->subTypes = NULL;
-    }
-}
-
-void free_type_info(plcTypeInfo *types, int ntypes) {
-    int i = 0;
-    for (i = 0; i < ntypes; i++) {
-        if (types->nSubTypes > 0)
-            free_type_info(types->subTypes, types->nSubTypes);
-    }
-    pfree(types);
-}
-
-static rawdata *plc_backend_array_next(plcIterator *self) {
-    plcArrayMeta *meta;
-    ArrayType    *array;
-    plcTypeInfo  *typ;
-    plcTypeInfo  *subtyp;
-    int          *lbounds;
-    int          *pos;
-    int           dim;
-    bool          isnull = 0;
-    Datum         el;
-    rawdata      *res;
-
-    res     = palloc(sizeof(rawdata));
-    meta    = (plcArrayMeta*)self->meta;
-    array   = (ArrayType*)self->data;
-    typ     = ((plcTypeInfo**)self->position)[0];
-    subtyp  = &typ->subTypes[0];
-    lbounds = (int*)self->position + 2;
-    pos     = (int*)self->position + 2 + meta->ndims;
-
-    el = array_ref(array, meta->ndims, pos, typ->typlen,
-                   subtyp->typlen, subtyp->typbyval,
-                   subtyp->typalign, &isnull);
-    if (isnull) {
-        res->isnull = 1;
-        res->value  = NULL;
-    } else {
-        res->isnull = 0;
-        res->value = subtyp->outfunc(el, subtyp);
-    }
-
-    dim     = meta->ndims - 1;
-    while (dim >= 0 && pos[dim]-lbounds[dim] < meta->dims[dim]) {
-        pos[dim] += 1;
-        if (pos[dim]-lbounds[dim] >= meta->dims[dim]) {
-            pos[dim] = lbounds[dim];
-            dim -= 1;
-        } else {
-            break;
-        }
-    }
-
-    return res;
-}
-
-static char *plc_datum_as_int1(Datum input, plcTypeInfo *type UNUSED) {
-    char *out = (char*)pmalloc(1);
-    *((char*)out) = DatumGetBool(input);
-    return out;
-}
-
-static char *plc_datum_as_int2(Datum input, plcTypeInfo *type UNUSED) {
-    char *out = (char*)pmalloc(2);
-    *((int16*)out) = DatumGetInt16(input);
-    return out;
-}
-
-static char *plc_datum_as_int4(Datum input, plcTypeInfo *type UNUSED) {
-    char *out = (char*)pmalloc(4);
-    *((int32*)out) = DatumGetInt32(input);
-    return out;
-}
-
-static char *plc_datum_as_int8(Datum input, plcTypeInfo *type UNUSED) {
-    char *out = (char*)pmalloc(8);
-    *((int64*)out) = DatumGetInt64(input);
-    return out;
-}
-
-static char *plc_datum_as_float4(Datum input, plcTypeInfo *type UNUSED) {
-    char *out = (char*)pmalloc(4);
-    *((float4*)out) = DatumGetFloat4(input);
-    return out;
-}
-
-static char *plc_datum_as_float8(Datum input, plcTypeInfo *type UNUSED) {
-    char *out = (char*)pmalloc(8);
-    *((float8*)out) = DatumGetFloat8(input);
-    return out;
-}
-
-static char *plc_datum_as_text(Datum input, plcTypeInfo *type) {
-    return DatumGetCString(OidFunctionCall1(type->output, input));
-}
-
-static char *plc_datum_as_array(Datum input, plcTypeInfo *type) {
-    return (char*)init_array_iter(input, type);
-}

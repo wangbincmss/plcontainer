@@ -28,7 +28,6 @@ static int plc_pyobject_as_array(PyObject *input, char **output, plcPyType *type
 static void plc_pyobject_iter_free (plcIterator *iter);
 static rawdata *plc_pyobject_as_array_next (plcIterator *iter);
 
-static int plc_get_type_length(plcDatatype dt);
 static plcPyInputFunc plc_get_input_function(plcDatatype dt);
 static plcPyOutputFunc plc_get_output_function(plcDatatype dt);
 
@@ -357,41 +356,6 @@ static int plc_pyobject_as_array(PyObject *input, char **output, plcPyType *type
         res = -1;
     }
 
-    return res;
-}
-
-static int plc_get_type_length(plcDatatype dt) {
-    int res = 0;
-    switch (dt) {
-        case PLC_DATA_INT1:
-            res = 1;
-            break;
-        case PLC_DATA_INT2:
-            res = 2;
-            break;
-        case PLC_DATA_INT4:
-            res = 4;
-            break;
-        case PLC_DATA_INT8:
-            res = 8;
-            break;
-        case PLC_DATA_FLOAT4:
-            res = 4;
-            break;
-        case PLC_DATA_FLOAT8:
-            res = 8;
-            break;
-        case PLC_DATA_TEXT:
-            res = 8;
-            break;
-        case PLC_DATA_ARRAY:
-        case PLC_DATA_RECORD:
-        case PLC_DATA_UDT:
-        default:
-            lprintf(ERROR, "Type %d cannot be passed plc_get_type_length function",
-                    (int)dt);
-            break;
-    }
     return res;
 }
 

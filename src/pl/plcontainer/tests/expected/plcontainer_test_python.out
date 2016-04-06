@@ -23,7 +23,7 @@ select pybool('t');
 (1 row)
 
 select pyint(NULL::int2);
-ERROR:  exception occurred: (plcontainer.c:471)
+ERROR:  exception occurred: (plcontainer.c:175)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
@@ -125,10 +125,46 @@ select pyintnulls(array[null,null,null]::int8[]);
           3
 (1 row)
 
-select pyreturnarrint8(10);
-    pyreturnarrint8    
------------------------
- {0,1,2,3,4,5,6,7,8,9}
+select pyreturnarrint1(5);
+ pyreturnarrint1 
+-----------------
+ {f,t,t,t,t}
+(1 row)
+
+select pyreturnarrint2(6);
+ pyreturnarrint2 
+-----------------
+ {0,1,2,3,4,5}
+(1 row)
+
+select pyreturnarrint4(7);
+ pyreturnarrint4 
+-----------------
+ {0,1,2,3,4,5,6}
+(1 row)
+
+select pyreturnarrint8(8);
+  pyreturnarrint8  
+-------------------
+ {0,1,2,3,4,5,6,7}
+(1 row)
+
+select pyreturnarrfloat4(9);
+      pyreturnarrfloat4      
+-----------------------------
+ {0,0.5,1,1.5,2,2.5,3,3.5,4}
+(1 row)
+
+select pyreturnarrfloat8(10);
+                                                 pyreturnarrfloat8                                                 
+-------------------------------------------------------------------------------------------------------------------
+ {0,0.333333333333333,0.666666666666667,1,1.33333333333333,1.66666666666667,2,2.33333333333333,2.66666666666667,3}
+(1 row)
+
+select pyreturnarrtext(11);
+                                      pyreturnarrtext                                       
+--------------------------------------------------------------------------------------------
+ {number0,number1,number2,number3,number4,number5,number6,number7,number8,number9,number10}
 (1 row)
 
 select pyreturnarrint8nulls();
@@ -180,14 +216,14 @@ select pynested_call_one('a');
 (1 row)
 
 select pyinvalid_function();
-ERROR:  exception occurred: (plcontainer.c:471)
+ERROR:  exception occurred: (plcontainer.c:175)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
   File "<string>", line 5, in pyinvalid_function
 AttributeError: 'module' object has no attribute 'foobar'
 select pyinvalid_syntax();
-ERROR:  exception occurred: (plcontainer.c:471)
+ERROR:  exception occurred: (plcontainer.c:175)
 DETAIL:  
  Cannot compile function in Python 
  SyntaxError: ('invalid syntax', ('<string>', 7, 1, '\n'))

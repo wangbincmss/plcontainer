@@ -111,3 +111,39 @@ void plc_free_array(plcArray *arr) {
     pfree(arr->meta);
     pfree(arr);
 }
+
+int plc_get_type_length(plcDatatype dt) {
+    int res = 0;
+    switch (dt) {
+        case PLC_DATA_INT1:
+            res = 1;
+            break;
+        case PLC_DATA_INT2:
+            res = 2;
+            break;
+        case PLC_DATA_INT4:
+            res = 4;
+            break;
+        case PLC_DATA_INT8:
+            res = 8;
+            break;
+        case PLC_DATA_FLOAT4:
+            res = 4;
+            break;
+        case PLC_DATA_FLOAT8:
+            res = 8;
+            break;
+        case PLC_DATA_TEXT:
+            /* 8 = the size of pointer */
+            res = 8;
+            break;
+        case PLC_DATA_ARRAY:
+        case PLC_DATA_RECORD:
+        case PLC_DATA_UDT:
+        default:
+            lprintf(ERROR, "Type %d cannot be passed plc_get_type_length function",
+                    (int)dt);
+            break;
+    }
+    return res;
+}

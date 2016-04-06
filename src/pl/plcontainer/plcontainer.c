@@ -126,50 +126,7 @@ static Datum plcontainer_process_result(plcontainer_result  resmsg,
     if (resmsg->rows == 1 && resmsg->cols == 1) {
         if (resmsg->data[0][0].isnull == 0) {
             fcinfo->isnull = false;
-            if (pinfo->rettype.type != PLC_DATA_ARRAY) {
-                /*
-                 * handle non array scalars
-                 */
-                 switch (resmsg->types[0].type) {
-                     case PLC_DATA_TEXT:
-                         result   = OidFunctionCall1(pinfo->rettype.input,
-                                        CStringGetDatum(resmsg->data[0][0].value));
-                         break;
-                     case PLC_DATA_INT1:
-                         result = BoolGetDatum(*((bool*)resmsg->data[0][0].value));
-                         break;
-                     case PLC_DATA_INT2:
-                         result = Int16GetDatum(*((int16*)resmsg->data[0][0].value));
-                         break;
-                     case PLC_DATA_INT4:
-                         result = Int32GetDatum(*((int32*)resmsg->data[0][0].value));
-                         break;
-                     case PLC_DATA_INT8:
-                         result = Int64GetDatum(*((int64*)resmsg->data[0][0].value));
-                         break;
-                     case PLC_DATA_FLOAT4:
-                         result = Float4GetDatum(*((float4*)resmsg->data[0][0].value));
-                         break;
-                     case PLC_DATA_FLOAT8:
-                         result = Float8GetDatum(*((float8*)resmsg->data[0][0].value));
-                         break;
-                     case PLC_DATA_ARRAY:
-                         // We should never get here
-                         elog(FATAL, "Array processing should be in a different branch");
-                         break;
-                     case PLC_DATA_UDT:
-                     case PLC_DATA_RECORD:
-                     default:
-                          elog(ERROR, "Data type not handled yet: %d", resmsg->types[0].type);
-                          break;
-                 }
-            } else {
-                /*
-                 * handle arrays
-                 */
-                 result = get_array_datum((plcArray*)resmsg->data[0][0].value,
-                                          &pinfo->rettype);
-            }
+            result = pinfo->rettype.infunc(resmsg->data[0][0].value, &pinfo->rettype);
         }
     } else if (resmsg->rows > 1) {
         elog(ERROR, "Set-returning functions sare not supported yet");

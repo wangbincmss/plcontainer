@@ -189,14 +189,49 @@ recconcat(arr)
 return res
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pyreturnarrint1(num int) RETURNS bool[] AS $BODY$
+# container: plc_python
+return [x for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyreturnarrint2(num int) RETURNS smallint[] AS $BODY$
+# container: plc_python
+return [x for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyreturnarrint4(num int) RETURNS int[] AS $BODY$
+# container: plc_python
+return [x for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pyreturnarrint8(num int) RETURNS int8[] AS $BODY$
 # container: plc_python
 return [x for x in range(num)]
 $BODY$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pyreturnarrfloat4(num int) RETURNS float4[] AS $BODY$
+# container: plc_python
+return [x/2.0 for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyreturnarrfloat8(num int) RETURNS float8[] AS $BODY$
+# container: plc_python
+return [x/3.0 for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyreturnarrtext(num int) RETURNS text[] AS $BODY$
+# container: plc_python
+return ['number' + str(x) for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pyreturnarrint8nulls() RETURNS int8[] AS $BODY$
 # container: plc_python
 return [1,2,3,None,5,6,None,8,9]
+$BODY$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyreturnarrmulti() RETURNS int[] AS $BODY$
+# container: plc_python
+return [[x for x in range(5)] for _ in range(5)]
 $BODY$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION pywriteFile() RETURNS text AS $$

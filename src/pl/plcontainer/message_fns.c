@@ -84,13 +84,13 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
         pinfo->fn_tid  = procHeapTup->t_self;
 
         procTup = (Form_pg_proc)GETSTRUCT(procHeapTup);
-        fill_type_info(procTup->prorettype, &pinfo->rettype);
+        fill_type_info(procTup->prorettype, &pinfo->rettype, 0);
 
         pinfo->nargs = procTup->pronargs;
         if (pinfo->nargs > 0) {
             pinfo->argtypes = plc_top_alloc(pinfo->nargs * sizeof(plcTypeInfo));
             for (i = 0; i < pinfo->nargs; i++) {
-                fill_type_info(procTup->proargtypes.values[i], &pinfo->argtypes[i]);
+                fill_type_info(procTup->proargtypes.values[i], &pinfo->argtypes[i], 0);
             }
 
             argnamesArray = SysCacheGetAttr(PROCOID, procHeapTup,

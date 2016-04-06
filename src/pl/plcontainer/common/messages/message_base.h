@@ -40,4 +40,6 @@ typedef struct {
     rawdata  data;
 } plcArgument;
 
+int plc_get_type_length(plcDatatype dt);
+
 #endif /* PLC_MESSAGE_BASE_H */
