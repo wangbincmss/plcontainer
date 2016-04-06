@@ -47,76 +47,15 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "common/comm_utils.h"
 #include "common/messages/messages.h"
 #include "message_fns.h"
+#include "function_cache.h"
 
-static void function_cache_up(int index);
-static plcProcInfo *function_cache_get(Oid funcOid);
-static void function_cache_put(plcProcInfo *func);
 static void free_subtypes(plcTypeInfo *types, int ntypes);
-static void free_proc_info(plcProcInfo *proc);
 static void fill_type_info(Oid typeOid, plcTypeInfo *type);
 static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup);
 static rawdata *plc_backend_array_next(plcIterator *self);
 static plcIterator *init_array_iter(Datum d, plcTypeInfo *argType);
 static char *fill_callreq_value(Datum funcArg, plcTypeInfo *argType);
 static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req);
-
-static plcProcInfo *plcFunctionCache[PLC_FUNCTION_CACHE_SIZE];
-static int plcFunctionCacheInitialized = 0;
-
-/* Move up the cache item */
-static void function_cache_up(int index) {
-    plcProcInfo *tmp;
-    int i;
-    if (index > 0) {
-        tmp = plcFunctionCache[index];
-        for (i = index; i > 0; i--) {
-            plcFunctionCache[i-1] = plcFunctionCache[i];
-        }
-        plcFunctionCache[0] = tmp;
-    }
-}
-
-static plcProcInfo *function_cache_get(Oid funcOid) {
-    int i;
-    plcProcInfo *resFunc = NULL;
-    /* Initialize all the elements with nulls initially */
-    if (!plcFunctionCacheInitialized) {
-        for (i = 0; i < PLC_FUNCTION_CACHE_SIZE; i++) {
-            plcFunctionCache[i] = NULL;
-        }
-        plcFunctionCacheInitialized = 1;
-    }
-    for (i = 0; i < PLC_FUNCTION_CACHE_SIZE; i++) {
-        if (plcFunctionCache[i] != NULL &&
-                plcFunctionCache[i]->funcOid == funcOid) {
-            function_cache_up(i);
-            resFunc = plcFunctionCache[i];
-            break;
-        }
-    }
-    return resFunc;
-}
-
-static void function_cache_put(plcProcInfo *func) {
-    int i;
-    plcProcInfo *oldFunc;
-    oldFunc = function_cache_get(func->funcOid);
-    /* If the function is not cached already */
-    if (oldFunc == NULL) {
-        /* If the last element exists we need to free its memory */
-        if (plcFunctionCache[PLC_FUNCTION_CACHE_SIZE-1] != NULL) {
-            free_proc_info(plcFunctionCache[PLC_FUNCTION_CACHE_SIZE-1]);
-        }
-        /* Move our LRU cache right */
-        for (i = PLC_FUNCTION_CACHE_SIZE-1; i > 0; i--) {
-            plcFunctionCache[i] = plcFunctionCache[i-1];
-        }
-        plcFunctionCache[0] = func;
-    } else {
-        free_proc_info(oldFunc);
-        plcFunctionCache[0] = func;
-    }
-}
 
 static void free_subtypes(plcTypeInfo *types, int ntypes) {
     int i = 0;
@@ -127,7 +66,7 @@ static void free_subtypes(plcTypeInfo *types, int ntypes) {
     pfree(types);
 }
 
-static void free_proc_info(plcProcInfo *proc) {
+void free_proc_info(plcProcInfo *proc) {
     int i;
     for (i = 0; i < proc->nargs; i++) {
         pfree(proc->argnames[i]);

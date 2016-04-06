@@ -23,10 +23,9 @@ interpreted as representing official policies, either expressed or implied, of t
 #ifndef PLC_MESSAGE_FNS
 #define PLC_MESSAGE_FNS
 
+#include "postgres.h"
 #include "fmgr.h"
 #include "common/messages/messages.h"
-
-#define PLC_FUNCTION_CACHE_SIZE 5
 
 typedef struct plcTypeInfo plcTypeInfo;
 
@@ -57,6 +56,7 @@ typedef struct {
 } plcProcInfo;
 
 plcProcInfo * get_proc_info(FunctionCallInfo fcinfo);
+void free_proc_info(plcProcInfo *proc);
 
 callreq plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo);
 
