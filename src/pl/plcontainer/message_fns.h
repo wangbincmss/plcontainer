@@ -25,6 +25,7 @@ interpreted as representing official policies, either expressed or implied, of t
 
 #include "postgres.h"
 #include "fmgr.h"
+
 #include "common/messages/messages.h"
 
 typedef struct plcTypeInfo plcTypeInfo;

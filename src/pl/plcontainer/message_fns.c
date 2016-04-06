@@ -30,17 +30,11 @@ interpreted as representing official policies, either expressed or implied, of t
  * author:        Laszlo Hornyak
  */
 
-/* standard headers */
-#include <errno.h>
-#include <string.h>
-
-/* postgres headers */
+/* Greenplum headers */
 #include "postgres.h"
-
-#include "catalog/pg_type.h"
-#include "executor/spi.h"
 #include "fmgr.h"
-#include "utils/datum.h"
+#include "executor/spi.h"
+#include "catalog/pg_type.h"
 #include "utils/lsyscache.h"
 
 /* message and function definitions */
@@ -48,150 +42,14 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "common/messages/messages.h"
 #include "message_fns.h"
 #include "function_cache.h"
+#include "plc_typeio.h"
 
-static void free_subtypes(plcTypeInfo *types, int ntypes);
 static void fill_type_info(Oid typeOid, plcTypeInfo *type);
+static void copy_type_info(plcType *type, plcTypeInfo *ptype);
+static void free_type_info(plcTypeInfo *types, int ntypes);
+
 static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup);
-static rawdata *plc_backend_array_next(plcIterator *self);
-static plcIterator *init_array_iter(Datum d, plcTypeInfo *argType);
-static char *fill_callreq_value(Datum funcArg, plcTypeInfo *argType);
 static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req);
-
-static void free_subtypes(plcTypeInfo *types, int ntypes) {
-    int i = 0;
-    for (i = 0; i < ntypes; i++) {
-        if (types->nSubTypes > 0)
-            free_subtypes(types->subTypes, types->nSubTypes);
-    }
-    pfree(types);
-}
-
-void free_proc_info(plcProcInfo *proc) {
-    int i;
-    for (i = 0; i < proc->nargs; i++) {
-        pfree(proc->argnames[i]);
-        if (proc->argtypes[i].nSubTypes > 0)
-            free_subtypes(proc->argtypes[i].subTypes,
-                          proc->argtypes[i].nSubTypes);
-    }
-    if (proc->nargs > 0) {
-        pfree(proc->argnames);
-        pfree(proc->argtypes);
-    }
-    pfree(proc);
-}
-
-static void fill_type_info(Oid typeOid, plcTypeInfo *type) {
-    HeapTuple    typeTup;
-    Form_pg_type typeStruct;
-    char		 dummy_delim;
-
-    typeTup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
-    if (!HeapTupleIsValid(typeTup))
-        elog(ERROR, "cache lookup failed for type %u", typeOid);
-
-    typeStruct = (Form_pg_type)GETSTRUCT(typeTup);
-    ReleaseSysCache(typeTup);
-
-    type->typeOid = typeOid;
-    type->output  = typeStruct->typoutput;
-    type->input   = typeStruct->typinput;
-    get_type_io_data(typeOid, IOFunc_input,
-                     &type->typlen, &type->typbyval, &type->typalign,
-                     &dummy_delim,
-                     &type->typioparam, &type->input);
-    type->nSubTypes = 0;
-    type->subTypes = NULL;
-
-    switch(typeOid){
-        case BOOLOID:
-            type->type = PLC_DATA_INT1;
-            break;
-        case INT2OID:
-            type->type = PLC_DATA_INT2;
-            break;
-        case INT4OID:
-            type->type = PLC_DATA_INT4;
-            break;
-        case INT8OID:
-            type->type = PLC_DATA_INT8;
-            break;
-        case FLOAT4OID:
-            type->type = PLC_DATA_FLOAT4;
-            break;
-        case FLOAT8OID:
-            type->type = PLC_DATA_FLOAT8;
-            break;
-        case TEXTOID:
-        case VARCHAROID:
-        case CHAROID:
-            type->type = PLC_DATA_TEXT;
-            break;
-        default:
-            if (typeStruct->typelem != 0) {
-                type->type = PLC_DATA_ARRAY;
-                type->nSubTypes = 1;
-                type->subTypes = (plcTypeInfo*)plc_top_alloc(sizeof(plcTypeInfo));
-                fill_type_info(typeStruct->typelem, &type->subTypes[0]);
-            } else {
-                elog(ERROR, "Data type with OID %d is not supported", typeOid);
-            }
-            break;
-    }
-}
-
-/*
- * Decide whether a cached PLyProcedure struct is still valid
- */
-static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup) {
-    bool valid = false;
-
-    if (proc != NULL) {
-        /* If the pg_proc tuple has changed, it's not valid */
-        if (proc->fn_xmin == HeapTupleHeaderGetXmin(procTup->t_data) &&
-            ItemPointerEquals(&proc->fn_tid, &procTup->t_self)) {
-
-            valid = true;
-
-            /* TODO: Implementing UDT we would need this part of code */
-            /*
-            int  i;
-            // If there are composite input arguments, they might have changed
-            for (i = 0; i < proc->nargs; i++) {
-                Oid       relid;
-                HeapTuple relTup;
-
-                // Short-circuit on first changed argument
-                if (!valid)
-                    break;
-
-                // Only check input arguments that are composite
-                if (proc->args[i].is_rowtype != 1)
-                    continue;
-
-                Assert(OidIsValid(proc->args[i].typ_relid));
-                Assert(TransactionIdIsValid(proc->args[i].typrel_xmin));
-                Assert(ItemPointerIsValid(&proc->args[i].typrel_tid));
-
-                // Get the pg_class tuple for the argument type
-                relid = proc->args[i].typ_relid;
-                relTup = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
-                if (!HeapTupleIsValid(relTup))
-                    elog(ERROR, "cache lookup failed for relation %u", relid);
-
-                // If it has changed, the function is not valid
-                if (!(proc->args[i].typrel_xmin == HeapTupleHeaderGetXmin(relTup->t_data) &&
-                        ItemPointerEquals(&proc->args[i].typrel_tid, &relTup->t_self)))
-                    valid = false;
-
-                ReleaseSysCache(relTup);
-            }
-            */
-        }
-    }
-    return valid;
-}
-
 
 plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
     int           i, len;
@@ -291,117 +149,92 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
     return pinfo;
 }
 
-static rawdata *plc_backend_array_next(plcIterator *self) {
-    plcArrayMeta *meta;
-    ArrayType    *array;
-    plcTypeInfo  *typ;
-    int          *lbounds;
-    int          *pos;
-    int           dim;
-    bool          isnull = 0;
-    Datum         el;
-    rawdata      *res;
-
-    res     = palloc(sizeof(rawdata));
-    meta    = (plcArrayMeta*)self->meta;
-    array   = (ArrayType*)self->data;
-    typ     = ((plcTypeInfo**)self->position)[0];
-    lbounds = (int*)self->position + 2;
-    pos     = (int*)self->position + 2 + meta->ndims;
-
-    el = array_ref(array, meta->ndims, pos, typ->typlen,
-                   typ->subTypes[0].typlen, typ->subTypes[0].typbyval,
-                   typ->subTypes[0].typalign, &isnull);
-    if (isnull) {
-        res->isnull = 1;
-        res->value  = NULL;
-    } else {
-        res->isnull = 0;
-        res->value = fill_callreq_value(el, &typ->subTypes[0]);
+void free_proc_info(plcProcInfo *proc) {
+    int i;
+    for (i = 0; i < proc->nargs; i++) {
+        pfree(proc->argnames[i]);
+        if (proc->argtypes[i].nSubTypes > 0)
+            free_type_info(proc->argtypes[i].subTypes,
+                           proc->argtypes[i].nSubTypes);
     }
-
-    dim     = meta->ndims - 1;
-    while (dim >= 0 && pos[dim]-lbounds[dim] < meta->dims[dim]) {
-        pos[dim] += 1;
-        if (pos[dim]-lbounds[dim] >= meta->dims[dim]) {
-            pos[dim] = lbounds[dim];
-            dim -= 1;
-        } else {
-            break;
-        }
+    if (proc->nargs > 0) {
+        pfree(proc->argnames);
+        pfree(proc->argtypes);
     }
-
-    return res;
+    pfree(proc);
 }
 
-static plcIterator *init_array_iter(Datum d, plcTypeInfo *argType) {
-    ArrayType    *array = DatumGetArrayTypeP(d);
-    plcIterator  *iter;
-    plcArrayMeta *meta;
-    int           i;
+callreq plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
+    callreq   req;
 
-    iter = (plcIterator*)palloc(sizeof(plcIterator));
-    meta = (plcArrayMeta*)palloc(sizeof(plcArrayMeta));
-    iter->meta = meta;
+    req          = pmalloc(sizeof(*req));
+    req->msgtype = MT_CALLREQ;
+    req->proc.name = pinfo->name;
+    req->proc.src  = pinfo->src;
+    copy_type_info(&req->retType, &pinfo->rettype);
 
-    meta->type = argType->subTypes[0].type;
-    meta->ndims = ARR_NDIM(array);
-    meta->dims = (int*)palloc(meta->ndims * sizeof(int));
-    iter->position = (char*)palloc(sizeof(int) * meta->ndims * 2 + 2);
-    ((plcTypeInfo**)iter->position)[0] = argType;
-    meta->size = meta->ndims > 0 ? 1 : 0;
-    for (i = 0; i < meta->ndims; i++) {
-        meta->dims[i] = ARR_DIMS(array)[i];
-        meta->size *= ARR_DIMS(array)[i];
-        ((int*)iter->position)[i + 2] = ARR_LBOUND(array)[i];
-        ((int*)iter->position)[i + meta->ndims + 2] = ARR_LBOUND(array)[i];
-    }
-    iter->data = (char*)array;
-    iter->next = plc_backend_array_next;
-    iter->cleanup =  NULL;
+    fill_callreq_arguments(fcinfo, pinfo, req);
 
-    return iter;
+    return req;
 }
 
-static char *fill_callreq_value(Datum funcArg, plcTypeInfo *argType) {
-    char *out = NULL;
-    switch(argType->type) {
-        case PLC_DATA_INT1:
-            out = (char*)pmalloc(1);
-            *((char*)out) = DatumGetBool(funcArg);
+static void fill_type_info(Oid typeOid, plcTypeInfo *type) {
+    HeapTuple    typeTup;
+    Form_pg_type typeStruct;
+    char		 dummy_delim;
+
+    typeTup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
+    if (!HeapTupleIsValid(typeTup))
+        elog(ERROR, "cache lookup failed for type %u", typeOid);
+
+    typeStruct = (Form_pg_type)GETSTRUCT(typeTup);
+    ReleaseSysCache(typeTup);
+
+    type->typeOid = typeOid;
+    type->output  = typeStruct->typoutput;
+    type->input   = typeStruct->typinput;
+    get_type_io_data(typeOid, IOFunc_input,
+                     &type->typlen, &type->typbyval, &type->typalign,
+                     &dummy_delim,
+                     &type->typioparam, &type->input);
+    type->nSubTypes = 0;
+    type->subTypes = NULL;
+
+    switch(typeOid){
+        case BOOLOID:
+            type->type = PLC_DATA_INT1;
             break;
-        case PLC_DATA_INT2:
-            out = (char*)pmalloc(2);
-            *((int16*)out) = DatumGetInt16(funcArg);
+        case INT2OID:
+            type->type = PLC_DATA_INT2;
             break;
-        case PLC_DATA_INT4:
-            out = (char*)pmalloc(4);
-            *((int32*)out) = DatumGetInt32(funcArg);
+        case INT4OID:
+            type->type = PLC_DATA_INT4;
             break;
-        case PLC_DATA_INT8:
-            out = (char*)pmalloc(8);
-            *((int64*)out) = DatumGetInt64(funcArg);
+        case INT8OID:
+            type->type = PLC_DATA_INT8;
             break;
-        case PLC_DATA_FLOAT4:
-            out = (char*)pmalloc(4);
-            *((float4*)out) = DatumGetFloat4(funcArg);
+        case FLOAT4OID:
+            type->type = PLC_DATA_FLOAT4;
             break;
-        case PLC_DATA_FLOAT8:
-            out = (char*)pmalloc(8);
-            *((float8*)out) = DatumGetFloat8(funcArg);
+        case FLOAT8OID:
+            type->type = PLC_DATA_FLOAT8;
             break;
-        case PLC_DATA_TEXT:
-            out = DatumGetCString(OidFunctionCall1(argType->output, funcArg));
+        case TEXTOID:
+        case VARCHAROID:
+        case CHAROID:
+            type->type = PLC_DATA_TEXT;
             break;
-        case PLC_DATA_ARRAY:
-            out = (char*)init_array_iter(funcArg, argType);
-            break;
-        case PLC_DATA_RECORD:
-        case PLC_DATA_UDT:
         default:
-            lprintf(ERROR, "Type %d is not yet supported by PLcontainer", (int)argType->type);
+            if (typeStruct->typelem != 0) {
+                type->type = PLC_DATA_ARRAY;
+                type->nSubTypes = 1;
+                type->subTypes = (plcTypeInfo*)plc_top_alloc(sizeof(plcTypeInfo));
+                fill_type_info(typeStruct->typelem, &type->subTypes[0]);
+            } else {
+                elog(ERROR, "Data type with OID %d is not supported", typeOid);
+            }
+            break;
     }
-    return out;
 }
 
 static void copy_type_info(plcType *type, plcTypeInfo *ptype) {
@@ -417,8 +250,68 @@ static void copy_type_info(plcType *type, plcTypeInfo *ptype) {
     }
 }
 
-static void
-fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req) {
+static void free_type_info(plcTypeInfo *types, int ntypes) {
+    int i = 0;
+    for (i = 0; i < ntypes; i++) {
+        if (types->nSubTypes > 0)
+            free_type_info(types->subTypes, types->nSubTypes);
+    }
+    pfree(types);
+}
+
+/*
+ * Decide whether a cached PLyProcedure struct is still valid
+ */
+static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup) {
+    bool valid = false;
+
+    if (proc != NULL) {
+        /* If the pg_proc tuple has changed, it's not valid */
+        if (proc->fn_xmin == HeapTupleHeaderGetXmin(procTup->t_data) &&
+            ItemPointerEquals(&proc->fn_tid, &procTup->t_self)) {
+
+            valid = true;
+
+            /* TODO: Implementing UDT we would need this part of code */
+            /*
+            int  i;
+            // If there are composite input arguments, they might have changed
+            for (i = 0; i < proc->nargs; i++) {
+                Oid       relid;
+                HeapTuple relTup;
+
+                // Short-circuit on first changed argument
+                if (!valid)
+                    break;
+
+                // Only check input arguments that are composite
+                if (proc->args[i].is_rowtype != 1)
+                    continue;
+
+                Assert(OidIsValid(proc->args[i].typ_relid));
+                Assert(TransactionIdIsValid(proc->args[i].typrel_xmin));
+                Assert(ItemPointerIsValid(&proc->args[i].typrel_tid));
+
+                // Get the pg_class tuple for the argument type
+                relid = proc->args[i].typ_relid;
+                relTup = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
+                if (!HeapTupleIsValid(relTup))
+                    elog(ERROR, "cache lookup failed for relation %u", relid);
+
+                // If it has changed, the function is not valid
+                if (!(proc->args[i].typrel_xmin == HeapTupleHeaderGetXmin(relTup->t_data) &&
+                        ItemPointerEquals(&proc->args[i].typrel_tid, &relTup->t_self)))
+                    valid = false;
+
+                ReleaseSysCache(relTup);
+            }
+            */
+        }
+    }
+    return valid;
+}
+
+static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req) {
     int   i;
 
     req->nargs = pinfo->nargs;
@@ -433,22 +326,7 @@ fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req)
             req->args[i].data.value = NULL;
         } else {
             req->args[i].data.isnull = 0;
-            req->args[i].data.value = fill_callreq_value(fcinfo->arg[i], &pinfo->argtypes[i]);
+            req->args[i].data.value = fill_type_value(fcinfo->arg[i], &pinfo->argtypes[i]);
         }
     }
-}
-
-callreq
-plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
-    callreq   req;
-
-    req          = pmalloc(sizeof(*req));
-    req->msgtype = MT_CALLREQ;
-    req->proc.name = pinfo->name;
-    req->proc.src  = pinfo->src;
-    copy_type_info(&req->retType, &pinfo->rettype);
-
-    fill_callreq_arguments(fcinfo, pinfo, req);
-
-    return req;
 }
