@@ -1,17 +1,15 @@
 /**
- * Message handler implementation.
+ * SQL message handler implementation.
  *
  */
 
-#include "sqlhandler.h"
-#include "c.h"
-#include "common/comm_channel.h"
-#include "common/comm_utils.h"
-#include "executor/spi_priv.h"
-#include "lib/stringinfo.h"
-#include "nodes/makefuncs.h"
-#include "parser/parse_type.h"
 #include "postgres.h"
+#include "executor/spi.h"
+
+#include "common/comm_utils.h"
+#include "common/comm_channel.h"
+#include "plc_typeio.h"
+#include "sqlhandler.h"
 
 int msg_handler_init = 0;
 
@@ -23,43 +21,44 @@ typedef struct {
 
 static plcontainer_handler handlertab = NULL;
 
-static message
-handle_invalid_message(sql_msg msg) {
+static message handle_invalid_message(sql_msg msg);
+static message handle_statement_message(sql_msg msg);
+static plcontainer_result create_sql_result(void);
+
+static message handle_invalid_message(sql_msg msg) {
     elog(ERROR, "[plcontainer core] invalid message type: %d", msg->sqltype);
     return NULL;
 }
 
-static plcontainer_result create_sql_result(void);
-
-static message
-handle_statement_message(sql_msg msg) {
+static message handle_statement_message(sql_msg msg) {
     int retval;
 
-    //elog(DEBUG1, "[plj core] runing statement: %s",
+    //elog(DEBUG1, "Runing statement: %s",
     //     ((sql_msg_statement)msg)->statement);
     retval = SPI_exec(((sql_msg_statement)msg)->statement, 0);
     switch (retval) {
-    case SPI_OK_SELECT:
-    case SPI_OK_INSERT_RETURNING:
-    case SPI_OK_DELETE_RETURNING:
-    case SPI_OK_UPDATE_RETURNING:
-        /* some data was returned back */
-        return (message)create_sql_result();
-        break;
-    default:
-        lprintf(ERROR, "cannot handle non-select sql at the moment");
-        break;
+        case SPI_OK_SELECT:
+        case SPI_OK_INSERT_RETURNING:
+        case SPI_OK_DELETE_RETURNING:
+        case SPI_OK_UPDATE_RETURNING:
+            /* some data was returned back */
+            return (message)create_sql_result();
+            break;
+        default:
+            lprintf(ERROR, "cannot handle non-select sql at the moment");
+            break;
     }
 
     /* we shouldn't get here */
     abort();
 }
 
-static plcontainer_result
-create_sql_result() {
-    plcontainer_result result;
-    int              i, j;
-    SPITupleTable *  res_tuptable;
+static plcontainer_result create_sql_result() {
+    plcontainer_result  result;
+    int                 i, j;
+    SPITupleTable      *res_tuptable;
+    plcTypeInfo        *resTypes;
+
     res_tuptable = SPI_tuptable;
     SPI_tuptable = NULL;
 
@@ -69,50 +68,44 @@ create_sql_result() {
     result->rows    = SPI_processed;
     result->types   = palloc(result->cols * sizeof(*result->types));
     result->names   = palloc(result->cols * sizeof(*result->names));
+    resTypes        = palloc(result->cols * sizeof(plcTypeInfo));
     for (j = 0; j < result->cols; j++) {
-        HeapTuple    typtup;
-        Form_pg_type typstr;
-        typtup = SearchSysCache(
-            TYPEOID, res_tuptable->tupdesc->attrs[j]->atttypid, 0, 0, 0);
-        typstr           = (Form_pg_type)GETSTRUCT(typtup);
-        result->types[j].type = PLC_DATA_TEXT;
-        result->types[j].nSubTypes = 0;
+        fill_type_info(res_tuptable->tupdesc->attrs[j]->atttypid, &resTypes[j], 0);
+        copy_type_info(&result->types[j], &resTypes[j]);
         result->names[j] = SPI_fname(res_tuptable->tupdesc, j + 1);
-
-        ReleaseSysCache(typtup);
     }
 
-    if (result->rows > 0) {
-        result->data = palloc(sizeof(*result->data) * result->rows);
-    } else {
+    if (result->rows == 0) {
         result->data = NULL;
-    }
+    } else {
+        bool  isnull;
+        Datum origval;
 
-    for (i = 0; i < result->rows; i++) {
-        result->data[i] = palloc(result->cols * sizeof(*result->data[i]));
-        for (j = 0; j < result->cols; j++) {
-            HeapTuple  typtup;
-            char      *val;
-
-            typtup = SearchSysCache(
-                TYPEOID, res_tuptable->tupdesc->attrs[j]->atttypid, 0, 0, 0);
-            ReleaseSysCache(typtup);
-            val = SPI_getvalue(res_tuptable->vals[i], res_tuptable->tupdesc,
-                               j + 1);
-            if (val == NULL) {
-                result->data[i][j].isnull = 1;
-                result->data[i][j].value = NULL;
-            } else {
-                result->data[i][j].isnull = 0;
-                result->data[i][j].value = val;
+        result->data = palloc(sizeof(*result->data) * result->rows);
+        for (i = 0; i < result->rows; i++) {
+            result->data[i] = palloc(result->cols * sizeof(*result->data[i]));
+            for (j = 0; j < result->cols; j++) {
+                origval = heap_getattr(res_tuptable->vals[i],
+                                       j + 1,
+                                       res_tuptable->tupdesc,
+                                       &isnull);
+                if (isnull) {
+                    result->data[i][j].isnull = 1;
+                    result->data[i][j].value = NULL;
+                } else {
+                    result->data[i][j].isnull = 0;
+                    result->data[i][j].value = resTypes[j].outfunc(origval, &resTypes[j]);
+                }
             }
         }
     }
+
+    free_type_info(resTypes, result->cols);
+
     return result;
 }
 
-static void
-message_handler_init() {
+static void message_handler_init() {
     int i;
 
     //elog(DEBUG1, "[pl-j - sql] initializing handler table");
@@ -131,8 +124,7 @@ message_handler_init() {
     msg_handler_init = 1;
 }
 
-message
-handle_sql_message(sql_msg msg) {
+message handle_sql_message(sql_msg msg) {
     int msg_type = msg->sqltype;
 
     if (!msg_handler_init)

@@ -215,6 +215,12 @@ select pynested_call_one('a');
  {'pynested_call_two': "{'pynested_call_three': 'a'}"}
 (1 row)
 
+select py_plpy_get_record();
+ py_plpy_get_record 
+--------------------
+                  9
+(1 row)
+
 select pyinvalid_function();
 ERROR:  exception occurred: (plcontainer.c:175)
 DETAIL:  

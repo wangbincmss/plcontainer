@@ -293,7 +293,7 @@ CREATE OR REPLACE FUNCTION pynested_call_three(a text) RETURNS text AS $$
 return a
 $$ LANGUAGE plcontainer ;
 
-CREATE OR REPLACE FUNCTION py_plpy_get_record() RETURNS bool AS $$
+CREATE OR REPLACE FUNCTION py_plpy_get_record() RETURNS int AS $$
 # container: plc_python
 q = """SELECT 't'::bool as a,
               1::smallint as b,
@@ -304,16 +304,16 @@ q = """SELECT 't'::bool as a,
               'foobar'::varchar as g
     """
 r = plpy.execute(q)
-if len(q) != 1: return False
-if q[0]['a'] != True: return False
-if q[0]['b'] != 1: return False
-if q[0]['c'] != 2: return False
-if q[0]['d'] != 3: return False
-if q[0]['e'] != 4.0: return False
-if q[0]['f'] != 5.0: return False
-if q[0]['g'] != 'foobar': return False
-return True
-$$ LANGUAGE plcontainer ;
+if len(r) != 1: return 1
+if r[0]['a'] != 1 or str(type(r[0]['a'])) != "<type 'int'>": return 2
+if r[0]['b'] != 1 or str(type(r[0]['b'])) != "<type 'int'>": return 3
+if r[0]['c'] != 2 or str(type(r[0]['c'])) != "<type 'int'>": return 4
+if r[0]['d'] != 3 or str(type(r[0]['d'])) != "<type 'long'>": return 5
+if r[0]['e'] != 4.0 or str(type(r[0]['e'])) != "<type 'float'>": return 6
+if r[0]['f'] != 5.0 or str(type(r[0]['f'])) != "<type 'float'>": return 7
+if r[0]['g'] != 'foobar' or str(type(r[0]['g'])) != "<type 'str'>": return 8
+return 9
+$$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION pyinvalid_function() RETURNS double precision AS $$
 # container: plc_python

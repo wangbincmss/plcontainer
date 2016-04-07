@@ -32,15 +32,15 @@ static plcPyInputFunc plc_get_input_function(plcDatatype dt);
 static plcPyOutputFunc plc_get_output_function(plcDatatype dt);
 
 static PyObject *plc_pyobject_from_int1(char *input) {
-    return PyLong_FromLong( (long) *input );
+    return PyInt_FromLong( (long) *input );
 }
 
 static PyObject *plc_pyobject_from_int2(char *input) {
-    return PyLong_FromLong( (long) *((short*)input) );
+    return PyInt_FromLong( (long) *((short*)input) );
 }
 
 static PyObject *plc_pyobject_from_int4(char *input) {
-    return PyLong_FromLong( (long) *((int*)input) );
+    return PyInt_FromLong( (long) *((int*)input) );
 }
 
 static PyObject *plc_pyobject_from_int8(char *input) {
@@ -126,10 +126,10 @@ static int plc_pyobject_as_int1(PyObject *input, char **output, plcPyType *type 
     int res = 0;
     char *out = (char*)malloc(1);
     *output = out;
-    if (PyLong_Check(input))
-        *out = (char)PyLong_AsLongLong(input);
-    else if (PyInt_Check(input))
+    if (PyInt_Check(input))
         *out = (char)PyInt_AsLong(input);
+    else if (PyLong_Check(input))
+        *out = (char)PyLong_AsLongLong(input);
     else if (PyFloat_Check(input))
         *out = (char)PyFloat_AsDouble(input);
     else
@@ -141,10 +141,10 @@ static int plc_pyobject_as_int2(PyObject *input, char **output, plcPyType *type 
     int res = 0;
     char *out = (char*)malloc(2);
     *output = out;
-    if (PyLong_Check(input))
-        *((short*)out) = (short)PyLong_AsLongLong(input);
-    else if (PyInt_Check(input))
+    if (PyInt_Check(input))
         *((short*)out) = (short)PyInt_AsLong(input);
+    else if (PyLong_Check(input))
+        *((short*)out) = (short)PyLong_AsLongLong(input);
     else if (PyFloat_Check(input))
         *((short*)out) = (short)PyFloat_AsDouble(input);
     else
@@ -156,10 +156,10 @@ static int plc_pyobject_as_int4(PyObject *input, char **output, plcPyType *type 
     int res = 0;
     char *out = (char*)malloc(4);
     *output = out;
-    if (PyLong_Check(input))
-        *((int*)out) = (int)PyLong_AsLongLong(input);
-    else if (PyInt_Check(input))
+    if (PyInt_Check(input))
         *((int*)out) = (int)PyInt_AsLong(input);
+    else if (PyLong_Check(input))
+        *((int*)out) = (int)PyLong_AsLongLong(input);
     else if (PyFloat_Check(input))
         *((int*)out) = (int)PyFloat_AsDouble(input);
     else
