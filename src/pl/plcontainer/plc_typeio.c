@@ -187,7 +187,6 @@ static char *plc_datum_as_float8_numeric(Datum input, plcTypeInfo *type UNUSED) 
 }
 
 static char *plc_datum_as_text(Datum input, plcTypeInfo *type) {
-    //return DatumGetCString(OidFunctionCall1(type->output, input));
     return DatumGetCString(OidFunctionCall3(type->output,
                                             input,
                                             type->typelem,
@@ -298,7 +297,6 @@ static Datum plc_datum_from_float8_numeric(char *input, plcTypeInfo *type UNUSED
 }
 
 static Datum plc_datum_from_text(char *input, plcTypeInfo *type) {
-    //return OidFunctionCall1(type->input, CStringGetDatum(input));
     return OidFunctionCall3(type->input,
                             CStringGetDatum(input),
                             type->typelem,
@@ -306,7 +304,6 @@ static Datum plc_datum_from_text(char *input, plcTypeInfo *type) {
 }
 
 static Datum plc_datum_from_text_ptr(char *input, plcTypeInfo *type) {
-    //return OidFunctionCall1(type->input, CStringGetDatum( *((char**)input) ));
     return OidFunctionCall3(type->input,
                             CStringGetDatum( *((char**)input) ),
                             type->typelem,
