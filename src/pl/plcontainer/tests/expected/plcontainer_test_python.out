@@ -65,6 +65,18 @@ select pynumeric(3.1415926535897932384626433832::numeric);
  6.14159265358979
 (1 row)
 
+select pytimestamp('2012-01-02 12:34:56.789012'::timestamp);
+           pytimestamp           
+---------------------------------
+ Mon Jan 02 12:34:56.789012 2012
+(1 row)
+
+select pytimestamptz('2012-01-02 12:34:56.789012 UTC+4'::timestamptz);
+            pytimestamptz            
+-------------------------------------
+ Mon Jan 02 08:34:56.789012 2012 PST
+(1 row)
+
 select pytext('text');
  pytext  
 ---------
@@ -117,6 +129,12 @@ select pytextarr(array['aaa','bbb','ccc']::varchar[]);
   pytextarr   
 --------------
  |aaa|bbb|ccc
+(1 row)
+
+select pytsarr(array['2010-01-01 00:00:00', '2010-02-02 01:01:01', '2010-03-03 03:03:03', '2012-01-01 00:00:00']::timestamp[]);
+ pytsarr 
+---------
+       3
 (1 row)
 
 select pyintnulls(array[1,2,3,4,5,null]::int8[]);
@@ -177,6 +195,12 @@ select pyreturnarrtext(12);
                                            pyreturnarrtext                                           
 -----------------------------------------------------------------------------------------------------
  {number0,number1,number2,number3,number4,number5,number6,number7,number8,number9,number10,number11}
+(1 row)
+
+select pyreturnarrdate(13);
+                                                                 pyreturnarrdate                                                                  
+--------------------------------------------------------------------------------------------------------------------------------------------------
+ {12-31-2016,01-01-2017,01-02-2017,01-03-2017,01-04-2017,01-05-2017,01-06-2017,01-07-2017,01-08-2017,01-09-2017,01-10-2017,01-11-2017,01-12-2017}
 (1 row)
 
 select pyreturnarrint8nulls();

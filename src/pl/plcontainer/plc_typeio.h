@@ -17,9 +17,11 @@ struct plcTypeInfo {
     plcDatumOutput  outfunc;
     plcDatumInput   infunc;
     Oid             typioparam;
+    Oid             typelem;
     bool            typbyval;
     int16           typlen;
     char            typalign;
+    int32           typmod;
     int             nSubTypes;
     plcTypeInfo    *subTypes;
 };

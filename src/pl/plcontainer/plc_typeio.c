@@ -51,10 +51,12 @@ void fill_type_info(Oid typeOid, plcTypeInfo *type, int issubtype) {
                      &type->typlen, &type->typbyval, &type->typalign,
                      &dummy_delim,
                      &type->typioparam, &type->input);
+    type->typmod = -1;
     type->nSubTypes = 0;
     type->subTypes = NULL;
+    type->typelem = typeStruct->typelem;
 
-    switch(typeOid){
+    switch(typeOid) {
         case BOOLOID:
             type->type = PLC_DATA_INT1;
             type->outfunc = plc_datum_as_int1;
@@ -90,9 +92,9 @@ void fill_type_info(Oid typeOid, plcTypeInfo *type, int issubtype) {
             type->outfunc = plc_datum_as_float8_numeric;
             type->infunc = plc_datum_from_float8_numeric;
             break;
-        case TEXTOID:
-        case VARCHAROID:
-        case CHAROID:
+        /* All the other types are passed through in-out functions to translate
+         * them to text before sending and after receiving */
+        default:
             type->type = PLC_DATA_TEXT;
             type->outfunc = plc_datum_as_text;
             if (issubtype == 0) {
@@ -101,18 +103,20 @@ void fill_type_info(Oid typeOid, plcTypeInfo *type, int issubtype) {
                 type->infunc = plc_datum_from_text_ptr;
             }
             break;
-        default:
-            if (typeStruct->typelem != 0) {
-                type->type = PLC_DATA_ARRAY;
-                type->outfunc = plc_datum_as_array;
-                type->infunc = plc_datum_from_array;
-                type->nSubTypes = 1;
-                type->subTypes = (plcTypeInfo*)plc_top_alloc(sizeof(plcTypeInfo));
-                fill_type_info(typeStruct->typelem, &type->subTypes[0], 1);
-            } else {
-                elog(ERROR, "Data type with OID %d is not supported", typeOid);
-            }
-            break;
+    }
+
+    /* Processing arrays here */
+    if (typeStruct->typelem != 0 && typeStruct->typoutput == ARRAY_OUT_OID) {
+        type->type = PLC_DATA_ARRAY;
+        type->outfunc = plc_datum_as_array;
+        type->infunc = plc_datum_from_array;
+        type->nSubTypes = 1;
+        type->subTypes = (plcTypeInfo*)plc_top_alloc(sizeof(plcTypeInfo));
+        fill_type_info(typeStruct->typelem, &type->subTypes[0], 1);
+    }
+
+    if (typeStruct->typtype == TYPTYPE_COMPOSITE) {
+        elog(ERROR, "UDTs are not supported yet");
     }
 }
 
@@ -183,7 +187,11 @@ static char *plc_datum_as_float8_numeric(Datum input, plcTypeInfo *type UNUSED) 
 }
 
 static char *plc_datum_as_text(Datum input, plcTypeInfo *type) {
-    return DatumGetCString(OidFunctionCall1(type->output, input));
+    //return DatumGetCString(OidFunctionCall1(type->output, input));
+    return DatumGetCString(OidFunctionCall3(type->output,
+                                            input,
+                                            type->typelem,
+                                            type->typmod));
 }
 
 static char *plc_datum_as_array(Datum input, plcTypeInfo *type) {
@@ -290,11 +298,19 @@ static Datum plc_datum_from_float8_numeric(char *input, plcTypeInfo *type UNUSED
 }
 
 static Datum plc_datum_from_text(char *input, plcTypeInfo *type) {
-    return OidFunctionCall1(type->input, CStringGetDatum(input));
+    //return OidFunctionCall1(type->input, CStringGetDatum(input));
+    return OidFunctionCall3(type->input,
+                            CStringGetDatum(input),
+                            type->typelem,
+                            type->typmod);
 }
 
 static Datum plc_datum_from_text_ptr(char *input, plcTypeInfo *type) {
-    return OidFunctionCall1(type->input, CStringGetDatum( *((char**)input) ));
+    //return OidFunctionCall1(type->input, CStringGetDatum( *((char**)input) ));
+    return OidFunctionCall3(type->input,
+                            CStringGetDatum( *((char**)input) ),
+                            type->typelem,
+                            type->typmod);
 }
 
 static Datum plc_datum_from_array(char *input, plcTypeInfo *type) {

@@ -118,6 +118,14 @@ CREATE OR REPLACE FUNCTION pynumeric(n numeric) RETURNS numeric AS $$
 # container: plc_python
 return n+3.0
 $$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pytimestamp(t timestamp) RETURNS timestamp AS $$
+# container: plc_python
+return t
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pytimestamptz(t timestamptz) RETURNS timestamptz AS $$
+# container: plc_python
+return t
+$$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION pytext(t text) RETURNS text AS $$
 # container: plc_python
 return t+'bar'
@@ -178,6 +186,10 @@ def recconcat(obj):
 recconcat(arr)
 return res
 $$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pytsarr(t timestamp[]) RETURNS int AS $$
+# container: plc_python
+return sum([1 if '2010' in x else 0 for x in t])
+$$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION pyreturnarrint1(num int) RETURNS bool[] AS $BODY$
 # container: plc_python
 return [x for x in range(num)]
@@ -210,6 +222,13 @@ CREATE OR REPLACE FUNCTION pyreturnarrtext(num int) RETURNS text[] AS $BODY$
 # container: plc_python
 return ['number' + str(x) for x in range(num)]
 $BODY$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pyreturnarrdate(num int) RETURNS date[] AS $$
+# container: plc_python
+import datetime
+dt = datetime.date(2016,12,31)
+dts = [dt + datetime.timedelta(days=x) for x in range(num)]
+return [x.strftime('%Y-%m-%d') for x in dts]
+$$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION pyreturnarrint8nulls() RETURNS int8[] AS $BODY$
 # container: plc_python
 return [1,2,3,None,5,6,None,8,9]
