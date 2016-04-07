@@ -143,6 +143,11 @@ CREATE OR REPLACE FUNCTION pyfloat(f float8) RETURNS float8 AS $$
 return f+2
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pynumeric(n numeric) RETURNS numeric AS $$
+# container: plc_python
+return n+3.0
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pytext(t text) RETURNS text AS $$
 # container: plc_python
 return t+'bar'
@@ -238,6 +243,11 @@ CREATE OR REPLACE FUNCTION pyreturnarrfloat8(num int) RETURNS float8[] AS $BODY$
 return [x/3.0 for x in range(num)]
 $BODY$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pyreturnarrnumeric(num int) RETURNS numeric[] AS $BODY$
+# container: plc_python
+return [x/4.0 for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pyreturnarrtext(num int) RETURNS text[] AS $BODY$
 # container: plc_python
 return ['number' + str(x) for x in range(num)]
@@ -301,7 +311,8 @@ q = """SELECT 't'::bool as a,
               3::bigint as d,
               4::float4 as e,
               5::float8 as f,
-              'foobar'::varchar as g
+              6::numeric as g,
+              'foobar'::varchar as h
     """
 r = plpy.execute(q)
 if len(r) != 1: return 1
@@ -311,8 +322,9 @@ if r[0]['c'] != 2 or str(type(r[0]['c'])) != "<type 'int'>": return 4
 if r[0]['d'] != 3 or str(type(r[0]['d'])) != "<type 'long'>": return 5
 if r[0]['e'] != 4.0 or str(type(r[0]['e'])) != "<type 'float'>": return 6
 if r[0]['f'] != 5.0 or str(type(r[0]['f'])) != "<type 'float'>": return 7
-if r[0]['g'] != 'foobar' or str(type(r[0]['g'])) != "<type 'str'>": return 8
-return 9
+if r[0]['g'] != 6.0 or str(type(r[0]['g'])) != "<type 'float'>": return 8
+if r[0]['h'] != 'foobar' or str(type(r[0]['h'])) != "<type 'str'>": return 9
+return 10
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION pyinvalid_function() RETURNS double precision AS $$

@@ -8,6 +8,7 @@ select pyint(234::int4);
 select pyint(345::int8);
 select pyfloat(3.1415926535897932384626433832::float4);
 select pyfloat(3.1415926535897932384626433832::float8);
+select pynumeric(3.1415926535897932384626433832::numeric);
 select pytext('text');
 select pyintarr(null::int8[]);
 select pyintarr('{}'::int8[]);
@@ -25,7 +26,8 @@ select pyreturnarrint4(7);
 select pyreturnarrint8(8);
 select pyreturnarrfloat4(9);
 select pyreturnarrfloat8(10);
-select pyreturnarrtext(11);
+select pyreturnarrnumeric(11);
+select pyreturnarrtext(12);
 select pyreturnarrint8nulls();
 -- Test that container cannot access filesystem of the host
 select pywriteFile();

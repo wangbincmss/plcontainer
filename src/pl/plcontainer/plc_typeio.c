@@ -16,6 +16,7 @@ static char *plc_datum_as_int4(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_int8(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_float4(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_float8(Datum input, plcTypeInfo *type);
+static char *plc_datum_as_float8_numeric(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_text(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_array(Datum input, plcTypeInfo *type);
 static rawdata *plc_backend_array_next(plcIterator *self);
@@ -26,6 +27,7 @@ static Datum plc_datum_from_int4(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_int8(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_float4(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_float8(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_float8_numeric(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_text(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_text_ptr(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_array(char *input, plcTypeInfo *type);
@@ -82,6 +84,11 @@ void fill_type_info(Oid typeOid, plcTypeInfo *type, int issubtype) {
             type->type = PLC_DATA_FLOAT8;
             type->outfunc = plc_datum_as_float8;
             type->infunc = plc_datum_from_float8;
+            break;
+        case NUMERICOID:
+            type->type = PLC_DATA_FLOAT8;
+            type->outfunc = plc_datum_as_float8_numeric;
+            type->infunc = plc_datum_from_float8_numeric;
             break;
         case TEXTOID:
         case VARCHAROID:
@@ -164,6 +171,14 @@ static char *plc_datum_as_float4(Datum input, plcTypeInfo *type UNUSED) {
 static char *plc_datum_as_float8(Datum input, plcTypeInfo *type UNUSED) {
     char *out = (char*)pmalloc(8);
     *((float8*)out) = DatumGetFloat8(input);
+    return out;
+}
+
+static char *plc_datum_as_float8_numeric(Datum input, plcTypeInfo *type UNUSED) {
+    char *out = (char*)pmalloc(8);
+    /* Numeric is casted to float8 which causes precision lost */
+    Datum fdatum = DirectFunctionCall1(numeric_float8, input);
+    *((float8*)out) = DatumGetFloat8(fdatum);
     return out;
 }
 
@@ -267,6 +282,11 @@ static Datum plc_datum_from_float4(char *input, plcTypeInfo *type UNUSED) {
 
 static Datum plc_datum_from_float8(char *input, plcTypeInfo *type UNUSED) {
     return Float8GetDatum(*((float8*)input));
+}
+
+static Datum plc_datum_from_float8_numeric(char *input, plcTypeInfo *type UNUSED) {
+    Datum fdatum = Float8GetDatum(*((float8*)input));
+    return DirectFunctionCall1(float8_numeric, fdatum);
 }
 
 static Datum plc_datum_from_text(char *input, plcTypeInfo *type) {
