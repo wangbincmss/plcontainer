@@ -11,7 +11,7 @@ void function_cache_up(int index) {
     if (index > 0) {
         tmp = plcFunctionCache[index];
         for (i = index; i > 0; i--) {
-            plcFunctionCache[i-1] = plcFunctionCache[i];
+            plcFunctionCache[i] = plcFunctionCache[i-1];
         }
         plcFunctionCache[0] = tmp;
     }
@@ -30,8 +30,8 @@ plcProcInfo *function_cache_get(Oid funcOid) {
     for (i = 0; i < PLC_FUNCTION_CACHE_SIZE; i++) {
         if (plcFunctionCache[i] != NULL &&
                 plcFunctionCache[i]->funcOid == funcOid) {
-            function_cache_up(i);
             resFunc = plcFunctionCache[i];
+            function_cache_up(i);
             break;
         }
     }
