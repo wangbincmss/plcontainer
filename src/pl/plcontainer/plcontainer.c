@@ -75,41 +75,45 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
         if (conn == NULL) {
             conn = start_container(name, shared);
         }
-
-        plcontainer_channel_send(conn, (message)req);
-
         pfree(name);
-        do {
-            int     res = 0;
-            message answer;
 
-            res = plcontainer_channel_receive(conn, &answer);
-            if (res < 0) {
-                elog(ERROR, "Error receiving data from the client, %d", res);
-                break;
-            }
+        if (conn != NULL) {
+            plcontainer_channel_send(conn, (message)req);
 
-            message_type = answer->msgtype;
-            switch (message_type) {
-                case MT_RESULT:
-                    result = plcontainer_process_result((plcontainer_result)answer, fcinfo, pinfo);
+            while (1) {
+                int     res = 0;
+                message answer;
+
+                res = plcontainer_channel_receive(conn, &answer);
+                if (res < 0) {
+                    elog(ERROR, "Error receiving data from the client, %d", res);
                     break;
-                case MT_EXCEPTION:
-                    plcontainer_process_exception((error_message)answer);
-                    PG_RETURN_NULL();
-                    break;
-                case MT_SQL:
-                    plcontainer_process_sql((sql_msg)answer, conn);
-                    break;
-                case MT_LOG:
-                    plcontainer_process_log((log_message)answer);
-                    break;
-                default:
-                    elog(ERROR, "Received unhandled message with type id %d "
-                         "from client", message_type);
+                }
+
+                message_type = answer->msgtype;
+                switch (message_type) {
+                    case MT_RESULT:
+                        result = plcontainer_process_result((plcontainer_result)answer, fcinfo, pinfo);
+                        break;
+                    case MT_EXCEPTION:
+                        plcontainer_process_exception((error_message)answer);
+                        break;
+                    case MT_SQL:
+                        plcontainer_process_sql((sql_msg)answer, conn);
+                        break;
+                    case MT_LOG:
+                        plcontainer_process_log((log_message)answer);
+                        break;
+                    default:
+                        elog(ERROR, "Received unhandled message with type id %d "
+                             "from client", message_type);
+                        break;
+                }
+
+                if (message_type != MT_SQL && message_type != MT_LOG)
                     break;
             }
-        } while (message_type == MT_SQL || message_type == MT_LOG);
+        }
     }
 
     return result;

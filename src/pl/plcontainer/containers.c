@@ -6,6 +6,8 @@
 #include <unistd.h>
 
 #include "common/comm_utils.h"
+#include "common/comm_channel.h"
+#include "common/messages/messages.h"
 #include "containers.h"
 
 typedef struct {
@@ -21,8 +23,7 @@ static inline bool is_whitespace (const char c);
 
 #ifndef CONTAINER_DEBUG
 
-static char *
-shell(const char *cmd) {
+static char *shell(const char *cmd) {
     FILE* fCmd;
     int ret;
     char* data;
@@ -55,8 +56,7 @@ shell(const char *cmd) {
 
 #endif
 
-static void
-insert_container(const char *image, plcConn *conn) {
+static void insert_container(const char *image, plcConn *conn) {
     size_t i;
     for (i = 0; i < CONTAINER_NUMBER; i++) {
         if (containers[i].name == NULL) {
@@ -75,8 +75,7 @@ static void init_containers() {
     containers_init = 1;
 }
 
-plcConn *
-find_container(const char *image) {
+plcConn *find_container(const char *image) {
     size_t i;
     if (containers_init == 0)
         init_containers();
@@ -90,9 +89,11 @@ find_container(const char *image) {
     return NULL;
 }
 
-plcConn *
-start_container(const char *image, int shared) {
+plcConn *start_container(const char *image, int shared) {
     int port;
+    unsigned int sleepus = 25000;
+    unsigned int sleepms = 0;
+    ping_message mping = NULL;
 
 #ifdef CONTAINER_DEBUG
 
@@ -141,8 +142,43 @@ start_container(const char *image, int shared) {
 
 #endif // CONTAINER_DEBUG
 
-    conn = plcConnect(port);
-    insert_container(image, conn);
+    /* Making a series of connection attempts unless connection timeout of
+     * CONTAINER_CONNECT_TIMEOUT_MS is reached. Exponential backoff for
+     * reconnecting first attempts: 25ms, 50ms, 100ms, 200ms, 200ms, etc.
+     */
+    mping = palloc(sizeof(str_ping_message));
+    mping->msgtype = MT_PING;
+    while (sleepms < CONTAINER_CONNECT_TIMEOUT_MS) {
+        int          res = 0;
+        message      mresp = NULL;
+
+        conn = plcConnect(port);
+        if (conn != NULL) {
+            res = plcontainer_channel_send(conn, (message)mping);
+            if (res == 0) {
+                res = plcontainer_channel_receive(conn, &mresp);
+                if (mresp != NULL)
+                    pfree(mresp);
+                if (res == 0)
+                    break;
+            }
+            plcDisconnect(conn);
+        }
+
+        usleep(sleepus);
+        elog(DEBUG1, "Waiting for %u ms for before reconnecting", sleepus/1000);
+        sleepms += sleepus / 1000;
+        sleepus = sleepus >= 200000 ? 200000 : sleepus * 2;
+    }
+
+    if (sleepms >= CONTAINER_CONNECT_TIMEOUT_MS) {
+        elog(ERROR, "Cannot connect to the container, %d ms timeout reached",
+                    CONTAINER_CONNECT_TIMEOUT_MS);
+        conn = NULL;
+    } else {
+        insert_container(image, conn);
+    }
+
     return conn;
 }
 
@@ -150,8 +186,7 @@ static inline bool is_whitespace (const char c) {
     return (c == ' ' || c == '\n' || c == '\t' || c == '\r');
 }
 
-char *
-parse_container_meta(const char *source, int *shared) {
+char *parse_container_meta(const char *source, int *shared) {
     int first, last, len;
     char *name = NULL;
     int nameptr = 0;

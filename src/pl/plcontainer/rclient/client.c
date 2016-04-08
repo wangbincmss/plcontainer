@@ -27,9 +27,6 @@
 #define R_PARSEVECTOR(a_, b_, c_)               R_ParseVector(a_, b_, (ParseStatus *) c_)
 #endif /* R_VERSION >= 2.5.0 */
 
-
-
-
 void r_init();
 
 int main(int argc UNUSED, char **argv UNUSED) {
@@ -42,23 +39,17 @@ int main(int argc UNUSED, char **argv UNUSED) {
     // Initialize R
     r_init();
 
-
 #ifdef _DEBUG_CLIENT
-        // In debug mode we have a cycle of connections with infinite wait time
-
+    // In debug mode we have a cycle of connections with infinite wait time
     while (true) {
         conn = connection_init(sock);
-        //conn->debug = DEBUG1;
         receive_loop(handle_call, conn);
     }
 #else
-
-
     // In release mode we wait for incoming connection for limited time
     // and the client works for a single connection only
     connection_wait(sock);
     conn = connection_init(sock);
-
     receive_loop(handle_call, conn);
 #endif
 

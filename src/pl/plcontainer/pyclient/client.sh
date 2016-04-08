@@ -7,4 +7,3 @@ fi
 cd /clientdir
 
 ./client
-

@@ -1,20 +1,12 @@
 #ifndef PLC_CONTAINERS_H
 #define PLC_CONTAINERS_H
 
-//#define CONTAINER_DEBUG
-
 #include "common/comm_connectivity.h"
 
-/*
-   given source code of the function, extract the container name.
+//#define CONTAINER_DEBUG
+#define CONTAINER_CONNECT_TIMEOUT_MS 5000
 
-   source code should follow this convention:
-
-   ```
-   # container: plc_python
-   return "python string"
-   ```
-*/
+/* given source code of the function, extract the container name */
 char *parse_container_meta(const char *source, int *shared);
 
 /* return the port of a started container, -1 if the container isn't started */

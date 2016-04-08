@@ -73,19 +73,21 @@ plcConn * plcConnInit(int sock) {
  *  Connect to the specified host of the localhost and initialize the plcConn
  *  data structure
  */
-plcConn * plcConnect(int port) {
+plcConn *plcConnect(int port) {
     struct hostent     *server;
     struct sockaddr_in  raddr; /** Remote address */
+    plcConn            *result = NULL;
 
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
-        lprintf(WARNING, "PLContainer: Cannot create socket");
-        goto error;
+        lprintf(ERROR, "PLContainer: Cannot create socket");
+        return result;
     }
+
     server = gethostbyname("localhost");
     if (server == NULL) {
-        lprintf(WARNING, "PLContainer: Failed to call gethostbyname('localhost')");
-        goto error;
+        lprintf(ERROR, "PLContainer: Failed to call gethostbyname('localhost')");
+        return result;
     }
 
     raddr.sin_family = AF_INET;
@@ -94,17 +96,16 @@ plcConn * plcConnect(int port) {
 
     raddr.sin_port = htons(port);
     if (connect(sock, (const struct sockaddr *)&raddr,
-                sizeof(struct sockaddr_in)) < 0) {
+            sizeof(struct sockaddr_in)) < 0) {
         char ipAddr[INET_ADDRSTRLEN];
         inet_ntop(AF_INET, &(raddr.sin_addr), ipAddr, INET_ADDRSTRLEN);
-        lprintf(WARNING, "PLContainer: Failed to connect to %s", ipAddr);
-        goto error;
+        lprintf(DEBUG1, "PLContainer: Failed to connect to %s", ipAddr);
+        return result;
     }
-    return plcConnInit(sock);
 
-error:
-    lprintf(ERROR, "PLContainer: Connection error: %s", strerror(errno));
-    return NULL;
+    result = plcConnInit(sock);
+
+    return result;
 }
 
 /*
@@ -142,9 +143,9 @@ static int plcBufferMaybeFlush (plcConn *conn, int isForse) {
         while (buf->pStart < buf->pEnd) {
             sent = plcSocketSend(conn, buf->data, buf->pEnd - buf->pStart);
             if (sent <= 0) {
-                lprintf(ERROR, "plcBufferMaybeFlush: Socket write failed, send "
-                               "return code is %d, error message is '%s'",
-                               sent, strerror(errno));
+                lprintf(LOG, "plcBufferMaybeFlush: Socket write failed, send "
+                             "return code is %d, error message is '%s'",
+                             sent, strerror(errno));
                 return -1;
             }
             buf->pStart += sent;
@@ -266,9 +267,9 @@ int plcBufferRead (plcConn *conn, char *resBuffer, size_t nBytes) {
         memcpy(resBuffer, buf->data + buf->pStart, nBytes);
         buf->pStart = buf->pStart + nBytes;
     } else {
-        lprintf(ERROR, "plcBufferRead: Socket read failed, "
-                       "received return code is %d, error message is '%s'",
-                       res, strerror(errno));
+        lprintf(LOG, "plcBufferRead: Socket read failed, "
+                     "received return code is %d, error message is '%s'",
+                     res, strerror(errno));
     }
     return res;
 }

@@ -61,6 +61,7 @@ static int receive_raw_object(plcConn *conn, plcType *type, rawdata *obj);
 static int receive_array(plcConn *conn, plcType *type, rawdata *obj);
 static int receive_type(plcConn *conn, plcType *type);
 
+static int send_ping(plcConn *conn);
 static int send_call(plcConn *conn, callreq call);
 static int send_result(plcConn *conn, plcontainer_result res);
 static int send_exception(plcConn *conn, error_message err);
@@ -75,6 +76,7 @@ static int receive_sql_cursorclose(plcConn *conn, message *mCurc);
 static int receive_sql_unprepare(plcConn *conn, message *mUnp);
 static int receive_sql_opencursor_sql(plcConn *conn, message *mCuro);
 static int receive_sql_fetch(plcConn *conn, message *mCurf);
+static int receive_ping(plcConn *conn, message *mPing);
 static int receive_call(plcConn *conn, message *mCall);
 static int receive_sql(plcConn *conn, message *mSql);
 
@@ -83,6 +85,9 @@ static int receive_sql(plcConn *conn, message *mSql);
 int plcontainer_channel_send(plcConn *conn, message msg) {
     int res;
     switch (msg->msgtype) {
+        case MT_PING:
+            res = send_ping(conn);
+            break;
         case MT_CALLREQ:
             res = send_call(conn, (callreq)msg);
             break;
@@ -112,6 +117,12 @@ int plcontainer_channel_receive(plcConn *conn, message *plcMsg) {
     }
     if (res == 0) {
         switch (cType) {
+            case MT_PING:
+                res = receive_ping(conn, plcMsg);
+                break;
+            case MT_CALLREQ:
+                res = receive_call(conn, plcMsg);
+                break;
             case MT_RESULT:
                 res = receive_result(conn, plcMsg);
                 break;
@@ -124,11 +135,8 @@ int plcontainer_channel_receive(plcConn *conn, message *plcMsg) {
             case MT_SQL:
                 res = receive_sql(conn, plcMsg);
                 break;
-            case MT_CALLREQ:
-                res = receive_call(conn, plcMsg);
-                break;
             default:
-                lprintf(ERROR, "message type unknown %c", cType);
+                lprintf(ERROR, "message type unknown %d / '%c'", (int)cType, cType);
                 plcMsg = NULL;
                 res = -1;
                 break;
@@ -270,12 +278,10 @@ static int send_type(plcConn *conn, plcType *type) {
 }
 
 static int receive_message_type(plcConn *conn, char *c) {
+    *c = '@';
     int res = plcBufferReceive(conn, 1);
-    if (res == -2) {
-        lprintf (WARNING, "Cannot receive data from the socket anymore");
-    } else {
+    if (res == 0)
         res = plcBufferRead(conn, c, 1);
-    }
     return res;
 }
 
@@ -511,6 +517,19 @@ static int send_argument(plcConn *conn, plcArgument *arg) {
     debug_print(WARNING, "Argument type is '%d'", (int)arg->type.type);
     res |= send_type(conn, &arg->type);
     res |= send_raw_object(conn, &arg->type, &arg->data);
+    return res;
+}
+
+static int send_ping(plcConn *conn) {
+    int res = 0;
+    char *ping = "ping";
+
+    debug_print(WARNING, "Sending ping message");
+    res |= message_start(conn, MT_PING);
+    res |= send_cstring(conn, ping);
+
+    res |= message_end(conn);
+    debug_print(WARNING, "Finished ping message");
     return res;
 }
 
@@ -802,6 +821,27 @@ static int receive_argument(plcConn *conn, plcArgument *arg) {
     res |= receive_type(conn, &arg->type);
     debug_print(WARNING, "Argument type is '%d'", (int)arg->type.type);
     res |= receive_raw_object(conn, &arg->type, &arg->data);
+    return res;
+}
+
+static int receive_ping(plcConn *conn, message *mPing) {
+    int   res = 0;
+    char *ping;
+
+    *mPing = (message)pmalloc(sizeof(struct str_ping_message));
+    ((ping_message)*mPing)->msgtype = MT_PING;
+
+    debug_print(WARNING, "Receiving ping message");
+    res |= receive_cstring(conn, &ping);
+    if (res == 0) {
+        if (strncmp(ping, "ping", 4) != 0) {
+            debug_print(WARNING, "Ping message receive failed");
+            res = -1;
+        }
+        pfree(ping);
+    }
+
+    debug_print(WARNING, "Finished receiving ping message");
     return res;
 }
 

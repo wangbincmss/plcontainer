@@ -9,6 +9,7 @@
 #define MT_LOG 'L'
 #define MT_TUPLRES 'U'
 #define MT_TRANSEVENT 'V'
+#define MT_PING 'P'
 #define MT_EOF 0
 
 #endif /* PLC_MESSAGE_TYPES_H */

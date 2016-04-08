@@ -8,6 +8,7 @@
 #include "comm_utils.h"
 #include "comm_connectivity.h"
 #include "comm_server.h"
+#include "messages/messages.h"
 
 /*
  * Functoin binds the socket and starts listening on it
@@ -92,6 +93,23 @@ plcConn* connection_init(int sock) {
 void receive_loop( void (*handle_call)(callreq, plcConn*), plcConn* conn) {
     message msg;
     int res = 0;
+
+    res = plcontainer_channel_receive(conn, &msg);
+    if (res < 0) {
+        lprintf(ERROR, "Error receiving data from the backend, %d", res);
+        return;
+    }
+    if (msg->msgtype != MT_PING) {
+        lprintf(ERROR, "First received message should be 'ping' message, got '%c' instead", msg->msgtype);
+        return;
+    } else {
+        res = plcontainer_channel_send(conn, msg);
+        if (res < 0) {
+            lprintf(ERROR, "Cannot send 'ping' message response");
+            return;
+        }
+    }
+    pfree(msg);
 
     while (true) {
         res = plcontainer_channel_receive(conn, &msg);
