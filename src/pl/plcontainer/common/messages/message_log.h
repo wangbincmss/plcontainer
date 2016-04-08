@@ -5,8 +5,7 @@
 
 typedef struct str_log_message {
     base_message_content;
-    int level;
-    char *category;
+    int   level;
     char *message;
 } str_log_message, *log_message;
 

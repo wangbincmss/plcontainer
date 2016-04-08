@@ -7,6 +7,8 @@
 #include "pycall.h"
 #include "pyerror.h"
 #include "pyconversions.h"
+#include "pylogging.h"
+#include "pyspi.h"
 
 #include <Python.h>
 /*
@@ -16,16 +18,28 @@
  */
 
 static char *create_python_func(callreq req);
-static PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery);
 static PyObject *arguments_to_pytuple (plcConn *conn, plcPyFunction *pyfunc);
 static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *pyfunc);
-static plcontainer_result receive_from_backend();
 
 static PyMethodDef moddef[] = {
-    {"execute", plpy_execute, METH_O, NULL}, {NULL},
-};
+    /*
+     * logging methods
+     */
+    {"debug",   plpy_debug,   METH_VARARGS, NULL},
+    {"log",     plpy_log,     METH_VARARGS, NULL},
+    {"info",    plpy_info,    METH_VARARGS, NULL},
+    {"notice",  plpy_notice,  METH_VARARGS, NULL},
+    {"warning", plpy_warning, METH_VARARGS, NULL},
+    {"error",   plpy_error,   METH_VARARGS, NULL},
+    {"fatal",   plpy_fatal,   METH_VARARGS, NULL},
 
-static plcConn* plcconn;
+    /*
+     * query execution
+     */
+    {"execute", plpy_execute, METH_O,      NULL},
+
+    {NULL, NULL, 0, NULL}
+};
 
 void python_init() {
     PyObject *plpymod, *mainmod;
@@ -52,7 +66,7 @@ void handle_call(callreq req, plcConn *conn) {
     /*
      * Keep our connection for future calls from Python back to us.
      */
-    plcconn = conn;
+    plcconn_global = conn;
 
     /* import __main__ to get the builtin functions */
     val = PyImport_ImportModule("__main__");
@@ -96,13 +110,17 @@ void handle_call(callreq req, plcConn *conn) {
     }
 
     /* call the function */
+    plc_is_execution_terminated = 0;
     retval = PyObject_Call(val, args, NULL);
     if (retval == NULL) {
         plc_py_free_function(pyfunc);
         raise_execution_error(conn, "Function produced NULL output");
         return;
     }
-    process_call_results(conn, retval, pyfunc);
+
+    if (plc_is_execution_terminated == 0) {
+        process_call_results(conn, retval, pyfunc);
+    }
 
     plc_py_free_function(pyfunc);
     Py_XDECREF(args);
@@ -177,113 +195,6 @@ static char *create_python_func(callreq req) {
     return mrc;
 }
 
-static plcontainer_result receive_from_backend() {
-    message resp;
-    int     res = 0;
-
-    res = plcontainer_channel_receive(plcconn, &resp);
-    if (res < 0) {
-        lprintf (ERROR, "Error receiving data from the backend, %d", res);
-        return NULL;
-    }
-
-    switch (resp->msgtype) {
-       case MT_CALLREQ:
-          handle_call((callreq)resp, plcconn);
-          free_callreq((callreq)resp);
-          return receive_from_backend();
-       case MT_RESULT:
-           break;
-       default:
-           lprintf(WARNING, "didn't receive result back %c", resp->msgtype);
-           return NULL;
-    }
-    return (plcontainer_result)resp;
-}
-
-/* plpy methods */
-
-static PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
-    int                 i, j;
-    sql_msg_statement   msg;
-    plcontainer_result  resp;
-    PyObject           *pyresult,
-                       *pydict,
-                       *pyval;
-    plcPyResult        *result;
-
-    if (!PyString_Check(pyquery)) {
-        raise_execution_error(plcconn, "plpy expected the query string");
-        return NULL;
-    }
-
-    msg            = malloc(sizeof(*msg));
-    msg->msgtype   = MT_SQL;
-    msg->sqltype   = SQL_TYPE_STATEMENT;
-    msg->statement = PyString_AsString(pyquery);
-
-    plcontainer_channel_send(plcconn, (message)msg);
-
-    /* we don't need it anymore */
-    free(msg);
-
-    resp = receive_from_backend();
-    if (resp == NULL) {
-        raise_execution_error(plcconn, "Error receiving data from backend");
-        return NULL;
-    }
-
-    result = plc_init_result_conversions(resp);
-
-    /* convert the result set into list of dictionaries */
-    pyresult = PyList_New(result->res->rows);
-    if (pyresult == NULL) {
-        raise_execution_error(plcconn, "Cannot allocate new list object in Python");
-        free_result(resp);
-        plc_free_result_conversions(result);
-        return NULL;
-    }
-
-    for (j = 0; j < result->res->cols; j++) {
-        if (result->inconv[j].inputfunc == NULL) {
-            raise_execution_error(plcconn, "Type %d is not yet supported by Python container",
-                                  (int)result->res->types[j].type);
-            free_result(resp);
-            plc_free_result_conversions(result);
-            return NULL;
-        }
-    }
-
-    for (i = 0; i < result->res->rows; i++) {
-        pydict = PyDict_New();
-
-        for (j = 0; j < result->res->cols; j++) {
-            pyval = result->inconv[j].inputfunc(result->res->data[i][j].value);
-
-            if (PyDict_SetItemString(pydict, result->res->names[j], pyval) != 0) {
-                raise_execution_error(plcconn, "Error setting result dictionary element",
-                                      (int)result->res->types[j].type);
-                free_result(resp);
-                plc_free_result_conversions(result);
-                return NULL;
-            }
-        }
-
-        if (PyList_SetItem(pyresult, i, pydict) != 0) {
-            raise_execution_error(plcconn, "Error setting result list element",
-                                  (int)result->res->types[j].type);
-            free_result(resp);
-            plc_free_result_conversions(result);
-            return NULL;
-        }
-    }
-
-    free_result(resp);
-    plc_free_result_conversions(result);
-
-    return pyresult;
-}
-
 static PyObject *arguments_to_pytuple (plcConn *conn, plcPyFunction *pyfunc) {
     PyObject *args;
     int i;
@@ -343,7 +254,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
         int ret = 0;
         res->data[0][0].isnull = 0;
         if (pyfunc->res.conv.outputfunc == NULL) {
-            raise_execution_error(plcconn,
+            raise_execution_error(conn,
                                   "Type %d is not yet supported by Python container",
                                   (int)res->types[0].type);
             free_result(res);
@@ -351,7 +262,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
         }
         ret = pyfunc->res.conv.outputfunc(retval, &res->data[0][0].value, &pyfunc->res);
         if (ret != 0) {
-            raise_execution_error(plcconn,
+            raise_execution_error(conn,
                                   "Exception raised converting function output to function output type %d",
                                   (int)res->types[0].type);
             free_result(res);

@@ -294,6 +294,19 @@ if r[0]['g'] != 6.0 or str(type(r[0]['g'])) != "<type 'float'>": return 8
 if r[0]['h'] != 'foobar' or str(type(r[0]['h'])) != "<type 'str'>": return 9
 return 10
 $$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pylogging() RETURNS void AS $$
+# container: plc_python
+plpy.debug('this is the debug message')
+plpy.log('this is the log message')
+plpy.info('this is the info message')
+plpy.notice('this is the notice message')
+plpy.warning('this is the warning message')
+plpy.error('this is the error message')
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pylogging2() RETURNS void AS $$
+# container: plc_python
+plpy.execute('select pylogging()')
+$$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION pyinvalid_function() RETURNS double precision AS $$
 # container: plc_python
 import math

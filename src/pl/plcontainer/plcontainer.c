@@ -144,22 +144,7 @@ static Datum plcontainer_process_result(plcontainer_result  resmsg,
  * Processing client log message
  */
 static void plcontainer_process_log(log_message log) {
-    int level = DEBUG1;
-
-    if (log == NULL)
-        return;
-    switch (log->level) {
-    case 1:
-        level = DEBUG5;
-        break;
-    case 2:
-        level = INFO;
-        break;
-    default:
-        level = INFO;
-    }
-
-    elog(level, "[%s] -  %s ", log->category, log->message);
+    elog(log->level, "%s", log->message);
 }
 
 /*

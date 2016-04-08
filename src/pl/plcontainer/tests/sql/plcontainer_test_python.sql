@@ -42,6 +42,8 @@ select pynested_call_three('a');
 select pynested_call_two('a');
 select pynested_call_one('a');
 select py_plpy_get_record();
+select pylogging();
+select pylogging2();
 select pyinvalid_function();
 select pyinvalid_syntax();
 select pylog100_shared();

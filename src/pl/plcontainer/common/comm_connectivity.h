@@ -1,7 +1,7 @@
 #ifndef PLC_COMM_CONNECTIVITY_H
 #define PLC_COMM_CONNECTIVITY_H
 
-#include <stdio.h>
+#include <stddef.h>
 
 #define PLC_BUFFER_SIZE 8192
 #define PLC_BUFFER_MIN_FREE 1000

@@ -23,7 +23,7 @@ select pybool('t');
 (1 row)
 
 select pyint(NULL::int2);
-ERROR:  exception occurred: (plcontainer.c:175)
+ERROR:  exception occurred: (plcontainer.c:164)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
@@ -257,15 +257,29 @@ select py_plpy_get_record();
                  10
 (1 row)
 
+select pylogging();
+INFO:  this is the info message
+NOTICE:  this is the notice message
+WARNING:  this is the warning message
+ERROR:  this is the error message (plcontainer.c:147)
+select pylogging2();
+INFO:  this is the info message
+CONTEXT:  SQL statement "select pylogging()"
+NOTICE:  this is the notice message
+CONTEXT:  SQL statement "select pylogging()"
+WARNING:  this is the warning message
+CONTEXT:  SQL statement "select pylogging()"
+ERROR:  this is the error message (plcontainer.c:147)
+CONTEXT:  SQL statement "select pylogging()"
 select pyinvalid_function();
-ERROR:  exception occurred: (plcontainer.c:175)
+ERROR:  exception occurred: (plcontainer.c:164)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
   File "<string>", line 5, in pyinvalid_function
 AttributeError: 'module' object has no attribute 'foobar'
 select pyinvalid_syntax();
-ERROR:  exception occurred: (plcontainer.c:175)
+ERROR:  exception occurred: (plcontainer.c:164)
 DETAIL:  
  Cannot compile function in Python 
  SyntaxError: ('invalid syntax', ('<string>', 7, 1, '\n'))

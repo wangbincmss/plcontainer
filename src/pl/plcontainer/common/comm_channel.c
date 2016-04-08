@@ -64,6 +64,7 @@ static int receive_type(plcConn *conn, plcType *type);
 static int send_ping(plcConn *conn);
 static int send_call(plcConn *conn, callreq call);
 static int send_result(plcConn *conn, plcontainer_result res);
+static int send_log(plcConn *conn, log_message mlog);
 static int send_exception(plcConn *conn, error_message err);
 static int send_sql(plcConn *conn, sql_msg msg);
 static int receive_exception(plcConn *conn, message *mExc);
@@ -96,6 +97,9 @@ int plcontainer_channel_send(plcConn *conn, message msg) {
             break;
         case MT_EXCEPTION:
             res = send_exception(conn, (error_message)msg);
+            break;
+        case MT_LOG:
+            res = send_log(conn, (log_message)msg);
             break;
         case MT_SQL:
             res = send_sql(conn, (sql_msg)msg);
@@ -585,6 +589,19 @@ static int send_result(plcConn *conn, plcontainer_result ret) {
     return res;
 }
 
+static int send_log(plcConn *conn, log_message mlog) {
+    int res = 0;
+
+    debug_print(WARNING, "Sending log message to backend");
+    res |= message_start(conn, MT_LOG);
+    res |= send_int32(conn, mlog->level);
+    res |= send_cstring(conn, mlog->message);
+
+    res |= message_end(conn);
+    debug_print(WARNING, "Finished sending log message");
+    return res;
+}
+
 static int send_exception(plcConn *conn, error_message err) {
     int res = 0;
     res |= message_start(conn, MT_EXCEPTION);
@@ -676,14 +693,14 @@ static int receive_log(plcConn *conn, message *mLog) {
     int res = 0;
     log_message ret;
 
+    debug_print(WARNING, "Receiving log message from client");
     *mLog = pmalloc(sizeof(str_log_message));
     ret   = (log_message) *mLog;
     ret->msgtype = MT_LOG;
-
     res |= receive_int32(conn, &ret->level);
-    res |= receive_cstring(conn, &ret->category);
     res |= receive_cstring(conn, &ret->message);
 
+    debug_print(WARNING, "Finished receiving log message");
     return res;
 }
 
