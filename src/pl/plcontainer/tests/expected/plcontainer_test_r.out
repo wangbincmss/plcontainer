@@ -97,7 +97,7 @@ select rlog100_shared();
 select rpg_spi_exec('select 1');
  rpg_spi_exec 
 --------------
- H_\x02
+ 1
 (1 row)
 
 select paster('{hello, happy}','{world, birthday}',' ');
