@@ -317,6 +317,12 @@ dts = [dt + datetime.timedelta(days=x) for x in range(num)]
 return [x.strftime('%Y-%m-%d') for x in dts]
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pyreturnsetofint8yield(num int) RETURNS setof int8 AS $BODY$
+# container: plc_python
+for x in range(num):
+    yield x
+$BODY$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pywriteFile() RETURNS text AS $$
 # container: plc_python
 f = open("/tmp/foo", "w")
