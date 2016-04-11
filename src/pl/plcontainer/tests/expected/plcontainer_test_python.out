@@ -23,7 +23,7 @@ select pybool('t');
 (1 row)
 
 select pyint(NULL::int2);
-ERROR:  exception occurred: (plcontainer.c:218)
+ERROR:  exception occurred: (plcontainer.c:223)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
@@ -215,6 +215,58 @@ select pyreturnarrint8nulls();
  {1,2,3,NULL,5,6,NULL,8,9}
 (1 row)
 
+select pyreturnarrmulti();
+                       pyreturnarrmulti                        
+---------------------------------------------------------------
+ {{0,1,2,3,4},{0,1,2,3,4},{0,1,2,3,4},{0,1,2,3,4},{0,1,2,3,4}}
+(1 row)
+
+select pyreturnsetofint8(5);
+ pyreturnsetofint8 
+-------------------
+                 0
+                 1
+                 2
+                 3
+                 4
+(5 rows)
+
+select pyreturnsetofint4arr(6);
+ pyreturnsetofint4arr 
+----------------------
+ {0}
+ {0,1}
+ {0,1,2}
+ {0,1,2,3}
+ {0,1,2,3,4}
+ {0,1,2,3,4,5}
+(6 rows)
+
+select pyreturnsetoftextarr(7);
+  pyreturnsetoftextarr  
+------------------------
+ {n0}
+ {n0,n1}
+ {n0,n1,n2}
+ {n0,n1,n2,n3}
+ {n0,n1,n2,n3,n4}
+ {n0,n1,n2,n3,n4,n5}
+ {n0,n1,n2,n3,n4,n5,n6}
+(7 rows)
+
+select pyreturnsetofdate(8);
+ pyreturnsetofdate 
+-------------------
+ 12-31-2016
+ 01-01-2017
+ 01-02-2017
+ 01-03-2017
+ 01-04-2017
+ 01-05-2017
+ 01-06-2017
+ 01-07-2017
+(8 rows)
+
 -- Test that container cannot access filesystem of the host
 select pywriteFile();
        pywritefile        
@@ -267,7 +319,7 @@ select pylogging();
 INFO:  this is the info message
 NOTICE:  this is the notice message
 WARNING:  this is the warning message
-ERROR:  this is the error message (plcontainer.c:201)
+ERROR:  this is the error message (plcontainer.c:206)
 select pylogging2();
 INFO:  this is the info message
 CONTEXT:  SQL statement "select pylogging()"
@@ -275,17 +327,17 @@ NOTICE:  this is the notice message
 CONTEXT:  SQL statement "select pylogging()"
 WARNING:  this is the warning message
 CONTEXT:  SQL statement "select pylogging()"
-ERROR:  this is the error message (plcontainer.c:201)
+ERROR:  this is the error message (plcontainer.c:206)
 CONTEXT:  SQL statement "select pylogging()"
 select pyinvalid_function();
-ERROR:  exception occurred: (plcontainer.c:218)
+ERROR:  exception occurred: (plcontainer.c:223)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
   File "<string>", line 5, in pyinvalid_function
 AttributeError: 'module' object has no attribute 'foobar'
 select pyinvalid_syntax();
-ERROR:  exception occurred: (plcontainer.c:218)
+ERROR:  exception occurred: (plcontainer.c:223)
 DETAIL:  
  Cannot compile function in Python 
  SyntaxError: ('invalid syntax', ('<string>', 7, 1, '\n'))

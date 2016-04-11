@@ -20,6 +20,7 @@
 static char *create_python_func(callreq req);
 static PyObject *arguments_to_pytuple (plcConn *conn, plcPyFunction *pyfunc);
 static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *pyfunc);
+static int fill_rawdata(rawdata *res, plcConn *conn, PyObject *retval, plcPyFunction *pyfunc);
 
 static PyMethodDef moddef[] = {
     /*
@@ -235,45 +236,96 @@ static PyObject *arguments_to_pytuple (plcConn *conn, plcPyFunction *pyfunc) {
 
 static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *pyfunc) {
     plcontainer_result res;
+    int                retcode = 0;
 
     /* allocate a result */
-    res          = malloc(sizeof(str_plcontainer_result));
-    res->msgtype = MT_RESULT;
-    res->names   = malloc(1 * sizeof(char*));
-    res->types   = malloc(1 * sizeof(plcType));
-    res->rows = res->cols = 1;
-    res->data    = malloc(res->rows * sizeof(rawdata*));
-    res->data[0] = malloc(res->cols * sizeof(rawdata));
-    plc_py_copy_type(&res->types[0], &pyfunc->res);
+    res           = malloc(sizeof(str_plcontainer_result));
+    res->msgtype  = MT_RESULT;
+    res->names    = malloc(1 * sizeof(char*));
     res->names[0] = pyfunc->res.name;
+    res->types    = malloc(1 * sizeof(plcType));
+    res->data     = NULL;
+    plc_py_copy_type(&res->types[0], &pyfunc->res);
 
-    if (retval == Py_None) {
-        res->data[0][0].isnull = 1;
-        res->data[0][0].value = NULL;
+    /* Now we support only functions returning single column */
+    res->cols = 1;
+
+    if (pyfunc->retset) {
+        int       i      = 0;
+        int       len    = 0;
+        PyObject *retobj = retval;
+
+        if (PySequence_Check(retval)) {
+            len = PySequence_Length(retval);
+        } else {
+            PyObject *iter = PyObject_GetIter(retval);
+            PyObject *obj  = NULL;
+
+            if (retobj == NULL) {
+                raise_execution_error(conn,
+                                      "Cannot get iterator out of the returned object");
+                free_result(res);
+                return -1;
+            }
+
+            retobj = PyList_New(0);
+            obj = PyIter_Next(iter);
+            while (obj != NULL && retcode == 0) {
+                len += 1;
+                retcode = PyList_Append(retobj, obj);
+                obj = PyIter_Next(iter);
+            }
+
+            if (retcode < 0) {
+                raise_execution_error(conn, "Error receiving result data from Python iterator");
+                free_result(res);
+                return -1;
+            }
+        }
+
+        res->rows = len;
+        res->data = malloc(res->rows * sizeof(rawdata*));
+        for(i = 0; i < len && retcode == 0; i++) {
+            res->data[i] = malloc(res->cols * sizeof(rawdata));
+            retcode = fill_rawdata(&res->data[i][0], conn, PySequence_GetItem(retobj, i), pyfunc);
+        }
     } else {
-        int ret = 0;
-        res->data[0][0].isnull = 0;
-        if (pyfunc->res.conv.outputfunc == NULL) {
-            raise_execution_error(conn,
-                                  "Type %d is not yet supported by Python container",
-                                  (int)res->types[0].type);
-            free_result(res);
-            return -1;
-        }
-        ret = pyfunc->res.conv.outputfunc(retval, &res->data[0][0].value, &pyfunc->res);
-        if (ret != 0) {
-            raise_execution_error(conn,
-                                  "Exception raised converting function output to function output type %d",
-                                  (int)res->types[0].type);
-            free_result(res);
-            return -1;
-        }
+        res->rows = 1;
+        res->data    = malloc(res->rows * sizeof(rawdata*));
+        res->data[0] = malloc(res->cols * sizeof(rawdata));
+        retcode = fill_rawdata(&res->data[0][0], conn, retval, pyfunc);
     }
 
-    /* send the result back */
-    plcontainer_channel_send(conn, (message)res);
+    /* If the output operation succeeded we send the result back */
+    if (retcode == 0) {
+        plcontainer_channel_send(conn, (message)res);
+    }
 
     free_result(res);
 
+    return retcode;
+}
+
+static int fill_rawdata(rawdata *res, plcConn *conn, PyObject *retval, plcPyFunction *pyfunc) {
+    if (retval == Py_None) {
+        res->isnull = 1;
+        res->value  = NULL;
+    } else {
+        int ret = 0;
+        res->isnull = 0;
+        if (pyfunc->res.conv.outputfunc == NULL) {
+            raise_execution_error(conn,
+                                  "Type %d is not yet supported by Python container",
+                                  (int)pyfunc->res.type);
+            return -1;
+        }
+        ret = pyfunc->res.conv.outputfunc(retval, &res->value, &pyfunc->res);
+        if (ret != 0) {
+            raise_execution_error(conn,
+                                  "Exception raised converting function output to function output type %d",
+                                  (int)pyfunc->res.type);
+            return -1;
+        }
+    }
     return 0;
 }

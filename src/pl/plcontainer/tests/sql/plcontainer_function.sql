@@ -291,6 +291,32 @@ CREATE OR REPLACE FUNCTION pyreturnarrmulti() RETURNS int[] AS $BODY$
 return [[x for x in range(5)] for _ in range(5)]
 $BODY$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pyreturnsetofint8(num int) RETURNS setof int8 AS $BODY$
+# container: plc_python
+return [x for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyreturnsetofint4arr(num int) RETURNS setof int[] AS $BODY$
+# container: plc_python
+return [range(x+1) for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyreturnsetoftextarr(num int) RETURNS setof text[] AS $BODY$
+# container: plc_python
+def get_texts(n):
+    return ['n'+str(x) for x in range(n)]
+    
+return [get_texts(x+1) for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyreturnsetofdate(num int) RETURNS setof date AS $$
+# container: plc_python
+import datetime
+dt = datetime.date(2016,12,31)
+dts = [dt + datetime.timedelta(days=x) for x in range(num)]
+return [x.strftime('%Y-%m-%d') for x in dts]
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pywriteFile() RETURNS text AS $$
 # container: plc_python
 f = open("/tmp/foo", "w")

@@ -465,6 +465,7 @@ plcPyFunction *plc_py_init_function(callreq call) {
     res->proc.src  = strdup(call->proc.src);
     res->proc.name = strdup(call->proc.name);
     res->nargs = call->nargs;
+    res->retset = call->retset;
     res->args = (plcPyType*)malloc(res->nargs * sizeof(plcPyType));
 
     for (i = 0; i < res->nargs; i++)

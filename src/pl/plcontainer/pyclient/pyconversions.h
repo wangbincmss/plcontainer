@@ -51,6 +51,7 @@ typedef struct plcPyFunction {
     int         nargs;
     plcPyType  *args;
     plcPyType   res;
+    int         retset;
 } plcPyFunction;
 
 void plc_py_copy_type(plcType *type, plcPyType *pytype);
