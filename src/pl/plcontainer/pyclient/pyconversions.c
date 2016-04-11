@@ -250,7 +250,7 @@ static rawdata *plc_pyobject_as_array_next (plcIterator *iter) {
     res  = (rawdata*)pmalloc(sizeof(rawdata));
 
     ptr = meta->ndims - 1;
-    obj = PyList_GetItem(ptrs[ptr].obj, ptrs[ptr].pos);
+    obj = PySequence_GetItem(ptrs[ptr].obj, ptrs[ptr].pos);
     if (obj == NULL || obj == Py_None) {
         res->isnull = 1;
         res->value = NULL;
@@ -272,7 +272,7 @@ static rawdata *plc_pyobject_as_array_next (plcIterator *iter) {
         else if (ptrs[ptr].pos < meta->dims[ptr]) {
             ptr += 1;
             while (ptr < meta->ndims) {
-                ptrs[ptr].obj = PyList_GetItem(ptrs[ptr-1].obj, ptrs[ptr-1].pos);
+                ptrs[ptr].obj = PySequence_GetItem(ptrs[ptr-1].obj, ptrs[ptr-1].pos);
                 Py_INCREF(ptrs[ptr].obj);
                 ptrs[ptr].pos = 0;
                 ptr += 1;
@@ -297,15 +297,21 @@ static int plc_pyobject_as_array(PyObject *input, char **output, plcPyType *type
     plcPyArrPointer *ptrs;
 
     /* We allow only lists to be returned as arrays */
-    if (PyList_Check(input)) {
+    if (PySequence_Check(input)) {
         obj = input;
-        while (obj != NULL && PyList_Check(obj)) {
-            dims[ndims] = PyList_Size(obj);
+        /* We want to iterate through all iterable objects except by strings */
+        while (obj != NULL && PySequence_Check(obj) && !PyString_Check(obj)) {
+            int len = PySequence_Length(obj);
+            if (len < 0) {
+                *output = NULL;
+                return -1;
+            }
+            dims[ndims] = len;
             stack[ndims] = obj;
             Py_INCREF(stack[ndims]);
             ndims += 1;
             if (dims[ndims-1] > 0)
-                obj = PyList_GetItem(obj, 0);
+                obj = PySequence_GetItem(obj, 0);
             else
                 break;
         }

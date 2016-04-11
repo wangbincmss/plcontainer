@@ -276,6 +276,11 @@ dts = [dt + datetime.timedelta(days=x) for x in range(num)]
 return [x.strftime('%Y-%m-%d') for x in dts]
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pyreturntupint8() RETURNS int8[] AS $BODY$
+# container: plc_python
+return (0,1,2,3,4,5)
+$BODY$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pyreturnarrint8nulls() RETURNS int8[] AS $BODY$
 # container: plc_python
 return [1,2,3,None,5,6,None,8,9]

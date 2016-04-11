@@ -32,6 +32,7 @@ select pyreturnarrfloat8(10);
 select pyreturnarrnumeric(11);
 select pyreturnarrtext(12);
 select pyreturnarrdate(13);
+select pyreturntupint8();
 select pyreturnarrint8nulls();
 -- Test that container cannot access filesystem of the host
 select pywriteFile();
