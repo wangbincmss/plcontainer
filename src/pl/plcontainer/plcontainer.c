@@ -64,6 +64,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     plcProcInfo              *pinfo;
     bool                      bFirstTimeCall = true;
     FuncCallContext *volatile funcctx = NULL;
+    MemoryContext             oldcontext = NULL;
 
     /* By default we return NULL */
     fcinfo->isnull = true;
@@ -84,6 +85,9 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
         funcctx = SRF_PERCALL_SETUP();
         Assert(funcctx != NULL);
 
+        /* SRF initializes special context shared between function calls */
+        oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
+
         /* If we processed all the rows we can return immediately */
         if (!bFirstTimeCall && pinfo->resrow >= pinfo->result->rows) {
             free_result(pinfo->result);
@@ -102,6 +106,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     pinfo->resrow += 1;
 
     if (fcinfo->flinfo->fn_retset) {
+        MemoryContextSwitchTo(oldcontext);
         SRF_RETURN_NEXT(funcctx, result);
     } else {
         free_result(pinfo->result);
