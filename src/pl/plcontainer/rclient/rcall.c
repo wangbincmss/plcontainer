@@ -20,19 +20,33 @@
 #define R_PARSEVECTOR(a_, b_, c_)               R_ParseVector(a_, b_, (ParseStatus *) c_)
 #endif /* R_VERSION >= 2.5.0 */
 
-
 /* R's definition conflicts with the ones defined by postgres */
+#ifdef WARNING
 #undef WARNING
+
+#define WARNING		19			/* Warnings.  NOTICE is for expected messages
+								 * like implicit sequence creation by SERIAL.
+								 * WARNING is for unexpected messages. */
+#endif
+#ifdef ERROR
 #undef ERROR
+#define ERROR		20			/* user error - abort transaction; return to
+								 * known state */
+#endif
 
 #include "common/comm_channel.h"
 #include "common/comm_utils.h"
 #include "common/comm_connectivity.h"
 #include "common/comm_server.h"
 #include "rcall.h"
+#include "rconversions.h"
 
-static SEXP coerce_to_char(SEXP rval);
+void raise_execution_error (plcConn *conn, const char *format, ...);
+//static SEXP coerce_to_char(SEXP rval);
 SEXP convert_args(callreq req);
+static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func);
+static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func);
+
 static void
 pg_get_one_r(char *value,  plcDatatype column_type, SEXP *obj, int elnum);
 static void
@@ -40,6 +54,8 @@ pg_get_null( plcDatatype column_type, SEXP *obj, int elnum);
 
 SEXP get_r_vector(plcDatatype type_id, int numels);
 int get_entry_length(plcDatatype type);
+
+static char * create_r_func(callreq req);
 
 #define OPTIONS_NULL_CMD    "options(error = expression(NULL))"
 
@@ -101,13 +117,13 @@ void r_init( );
  */
 
 static void send_error(plcConn* conn, char *msg);
-static char * create_r_func(callreq req);
+//static char * create_r_func(callreq req);
 
-static char *create_r_func(callreq req);
+///static char *create_r_func(callreq req);
 static SEXP parse_r_code(const char *code, plcConn* conn, int *errorOccurred);
 
-static plcIterator *matrix_iterator(SEXP mtx, plcDatatype type);
-static void matrix_iterator_free(plcIterator *iter);
+//static plcIterator *matrix_iterator(SEXP mtx, plcDatatype type);
+//static void matrix_iterator_free(plcIterator *iter);
 
 /*
  * set by hook throw_r_error
@@ -204,24 +220,9 @@ error:
     return;
 
 }
-#ifdef XXX
-static plcDatatype get_base_type(SEXP rval)
-{
-    switch (TYPEOF(rval)) {
-        case INTSXP:
-            return PLC_DATA_INT8;
-        case REALSXP:
-            return PLC_DATA_FLOAT8;
-        case STRSXP:
-        default:
-            return PLC_DATA_TEXT;
-    }
-}
-#endif
 
 void handle_call(callreq req, plcConn* conn) {
     SEXP             r,
-                     dfcol,
                      strres,
                      call,
                      rargs,
@@ -234,9 +235,7 @@ void handle_call(callreq req, plcConn* conn) {
     char            *func,
                     *errmsg;
 
-    const char 		*value;
-
-    plcontainer_result res;
+    //plcontainer_result res;
 
     /*
      * Keep our connection for future calls from R back to us.
@@ -244,11 +243,14 @@ void handle_call(callreq req, plcConn* conn) {
     plcconn = conn;
 
     /* wrap the input in a function and evaluate the result */
+
     func = create_r_func(req);
 
+    plcRFunction *r_func = plc_R_init_function(req);
     PROTECT(r = parse_r_code(func, conn, &errorOccurred));
 
     pfree(func);
+
     if (errorOccurred) {
         //TODO send real error message
         /* run_r_code will send an error back */
@@ -258,7 +260,7 @@ void handle_call(callreq req, plcConn* conn) {
 
     if(req->nargs > 0)
     {
-        rargs = convert_args(req);
+        rargs = arguments_to_r(conn, r_func);	//			convert_args(req);
         PROTECT(obj = args = allocList(req->nargs));
 
         for (i = 0; i < req->nargs; i++)
@@ -294,156 +296,10 @@ void handle_call(callreq req, plcConn* conn) {
         return;
     }
 
-    if (isFrame(strres)) {
-        SEXP names;
-        PROTECT(names = getAttrib(strres,R_NamesSymbol));
-        int cols;
-        int rows, col, row;
+    process_call_results(conn, strres, r_func);
 
-        cols = length(strres);
 
-        /* allocate a result */
-        res          = pmalloc(sizeof(*res));
-        res->msgtype = MT_RESULT;
-        res->types   = pmalloc(sizeof(*res->types)*cols);
-        res->names   = pmalloc(sizeof(*res->names)*cols);
-
-        for (col = 0; col < cols; col++) {
-
-            res->names[col] = pstrdup(CHAR(STRING_ELT(names,col)));
-            res->types[col].type = PLC_DATA_TEXT;
-
-            if (TYPEOF(strres) == VECSXP) {
-                PROTECT(dfcol = VECTOR_ELT(strres, col));
-            } else if (TYPEOF(strres) == LISTSXP) {
-                PROTECT(dfcol = CAR(strres));
-                strres = CDR(strres);
-            } else {
-                errmsg = strdup("plc_r: bad internal representation of data.frame");
-                send_error(conn, errmsg);
-                free(errmsg);
-            }
-
-            if (ATTRIB(dfcol) == R_NilValue ||
-                TYPEOF(CAR(ATTRIB(dfcol))) != STRSXP){
-                    PROTECT(obj = coerce_to_char(dfcol));
-            }else{
-                PROTECT(obj = coerce_to_char(CAR(ATTRIB(dfcol))));
-            }
-
-            /*
-             * get the first column just to get the number of rows
-             */
-            if (col == 0) {
-                rows = length(obj);
-
-                res->data    = pmalloc(sizeof(*res->data) * rows);
-                /*
-                 * allocate memory when we do the first column
-                 */
-                for (row = 0; row < rows; row++) {
-                    res->data[row] = pmalloc(cols * sizeof(res->data[0][0]));
-                }
-                res->rows = rows;
-                res->cols = cols;
-            }
-
-            for (row = 0; row < rows; row++) {
-
-                value = strdup(CHAR(STRING_ELT(obj, row)));
-
-                if (STRING_ELT(obj, row) == NA_STRING || value == NULL)
-                {
-                    res->data[row][col].isnull  = true;
-                    res->data[row][col].value   = NULL;
-                }
-                else
-                {
-                    res->data[row][col].isnull  = false;
-                    res->data[row][col].value   = (char *)value;
-                }
-            }
-            UNPROTECT(2);
-
-        }
-        UNPROTECT(1);
-    } else {
-        /* this is not a data frame */
-        res          = pmalloc(sizeof(*res));
-        res->msgtype = MT_RESULT;
-        res->types   = pmalloc(sizeof(*res->types));
-        res->names   = pmalloc(sizeof(*res->names));
-        res->data    = pmalloc(sizeof(*res->data));
-        res->data[0] = pmalloc(sizeof(*res->data[0]));
-        res->rows = res->cols = 1;
-        res->names[0]         = pstrdup("result");
-        res->data[0]->isnull  = false;
-        res->types[0].nSubTypes = 0;
-
-        if ( (isMatrix(strres) || (isVector(strres) && length(strres) > 1)) && req->retType.type != PLC_DATA_TEXT ) {
-            plcDatatype basetype = req->retType.subTypes[0].type;
-            if (basetype > PLC_DATA_TEXT) {
-                char *errmsg = pmalloc(100);
-                sprintf(errmsg,
-                        "Matrices of the type '%d' are not supported yet",
-                        TYPEOF(strres));
-                send_error(conn, errmsg);
-                pfree(errmsg);
-            }
-            res->types[0].type         =  PLC_DATA_ARRAY;
-            res->types[0].nSubTypes    = 1;
-            res->types[0].subTypes =  pmalloc(sizeof (plcType) );
-            res->types[0].subTypes->type = basetype;
-            res->types[0].subTypes->nSubTypes = 0;
-
-            res->data[0]->value   = (char*)matrix_iterator(strres, basetype);
-        } else {
-        	char *ret = NULL;
-            switch(res->types[0].type = req->retType.type){
-            	case PLC_DATA_INT1:
-                    ret = pmalloc(1);
-                    *((bool *)ret) = asLogical(strres);
-            		break;
-            	case PLC_DATA_INT2:
-                    ret = (char *)pmalloc(sizeof(int16));
-                    *((int16 *)ret) = asInteger(strres);
-            		break;
-            	case PLC_DATA_INT4:
-                    ret = (char *)pmalloc(sizeof(int32));
-                    *((int32 *)ret) = asInteger(strres);
-            		break;
-            	case PLC_DATA_INT8:
-                    ret = (char *)pmalloc(sizeof(int64));
-                    *((int64 *)ret) = asInteger(strres);
-            		break;
-            	case PLC_DATA_FLOAT4:
-                    ret = (char *)pmalloc(sizeof(float4));
-                    *((float4 *)ret) = (float4)asReal(strres);
-                    break;
-            	case PLC_DATA_FLOAT8:
-                    ret = (char *)pmalloc(sizeof(float8));
-                    *((float8 *)ret) = asReal(strres);
-                    break;
-            	case PLC_DATA_TEXT:
-                    ret = strdup(CHAR(asChar(strres)));
-                    break;
-            	case PLC_DATA_ARRAY:
-            	case PLC_DATA_RECORD:
-            	case PLC_DATA_UDT:
-                default:
-                    res->data[0]->value   = pstrdup("NOT IMPLEMENTED");
-                    break;
-            }
-            res->data[0]->value = ret;
-
-        }
-    }
-
-    /* send the result back */
-    plcontainer_channel_send(conn, (message)res);
-
-    /* free the result object and the R values */
-    free_result(res);
+    plc_r_free_function(r_func);
 
     UNPROTECT(1);
 
@@ -451,153 +307,6 @@ void handle_call(callreq req, plcConn* conn) {
 }
 
 
-rawdata *matrix_iterator_next (plcIterator *iter) {
-    plcArrayMeta *meta;
-    int     *position;
-    SEXP     mtx;
-    rawdata *res;
-
-    meta = (plcArrayMeta*)iter->meta;
-    position = (int*)iter->position;
-    mtx = (SEXP)iter->data;
-    res = pmalloc(sizeof(rawdata));
-
-    //lprintf(WARNING, "Position: %d, %d", position[0], position[1]);
-    int idx=0;
-    if (meta->ndims == 1){
-		idx = position[0];
-	}else if (meta->ndims == 2 ){
-		idx = position[1]*meta->dims[0] + position[0];
-	}else if (meta->ndims == 3) {
-		lprintf(ERROR, "need to deal with 3 dimensions rcall.c");
-	}
-
-	if ( 1== 0 ){ //TYPEOF(((SEXP *)mtx)[idx]) == NILSXP ){
-		res->isnull = TRUE;
-		res->value  = NULL;
-	}else {
-		res->isnull = FALSE;
-
-		switch (meta->type)
-		{
-			case PLC_DATA_INT2:
-			case PLC_DATA_INT4:
-				/* 2 and 4 byte integer pgsql datatype => use R INTEGER */
-				res->value = pmalloc(4);
-				*((int *)res->value) = INTEGER_DATA(mtx)[idx];
-				break;
-
-				/*
-				 * Other numeric types => use R REAL
-				 * Note pgsql int8 is mapped to R REAL
-				 * because R INTEGER is only 4 byte
-				 */
-
-			case PLC_DATA_INT8:
-				res->value = pmalloc(8);
-				*((int64 *)res->value) = (int64)(NUMERIC_DATA(mtx)[idx]);
-				break;
-
-			case PLC_DATA_FLOAT4:
-				res->value = pmalloc(4);
-				*((float4 *)res->value) = (float4)(NUMERIC_DATA(mtx)[idx]);
-
-				break;
-			case PLC_DATA_FLOAT8:
-				res->value = pmalloc(8);
-				*((float8 *)res->value) = (float8)(NUMERIC_DATA(mtx)[idx]);
-
-				break;
-			case PLC_DATA_INT1:
-				res->value = pmalloc(1);
-				*((int *)res->value) = LOGICAL_DATA(mtx)[idx];
-				break;
-			case PLC_DATA_RECORD:
-			case PLC_DATA_UDT:
-			case PLC_DATA_INVALID:
-			case PLC_DATA_ARRAY:
-				lprintf(ERROR, "un-handled type %d", meta->type);
-				break;
-			case PLC_DATA_TEXT:
-
-			    if (STRING_ELT(mtx, idx) != NA_STRING){
-			        res->isnull = FALSE;
-			        res->value  = pstrdup((char *) CHAR( STRING_ELT(mtx, idx) ));
-			    } else {
-			        res->isnull = TRUE;
-			        res->value  = NULL;
-			    }
-
-			default:
-				/* Everything else is defaulted to string */
-				;//SET_STRING_ELT(*obj, elnum, COPY_TO_USER_STRING(value));
-		}
-	}
-
-	if ( meta->ndims == 1){
-		position[0] += 1;
-	}else if (meta->ndims == 2){
-
-		position[1] += 1;
-		if (position[1] == meta->dims[1]) {
-			position[1] = 0;
-			position[0] += 1;
-		}
-	}else if (meta->ndims == 3) {
-		lprintf(ERROR, "need to support 3 dimensions");
-	}
-
-
-    return res;
-}
-
-static plcIterator *matrix_iterator(SEXP mtx,plcDatatype base_type) {
-    plcArrayMeta *meta;
-    int *position, i;
-    plcIterator *iter;
-
-    /* Allocate the iterator */
-    iter = (plcIterator*)pmalloc(sizeof(plcIterator));
-
-    /* Initialize meta */
-    meta = (plcArrayMeta*)pmalloc(sizeof(plcArrayMeta));
-    meta->type = base_type;
-    meta->ndims = 1;
-    meta->dims  = (int*)pmalloc(sizeof(int));
-    /*
-     * R stores matrix in columns
-     */
-    meta->dims[0] = length(mtx);
-    meta->size=1;
-    for ( i=0; i< meta->ndims; i++){
-    	meta->size *= meta->dims[i];
-    }
-    iter->meta = meta;
-
-    /* Initializing initial position */
-    position = (int*)pmalloc( meta->ndims * sizeof(int));
-
-    for ( i=0; i< meta->ndims; i++){
-    	position[i] = 0;
-    }
-    iter->position = (char*)position;
-
-    /* Initializing "data" */
-    iter->data = (char *)mtx;
-
-    /* Initializing "next" function */
-    iter->next = matrix_iterator_next;
-    iter->cleanup = matrix_iterator_free;
-
-    return iter;
-}
-
-static void matrix_iterator_free(plcIterator *iter) {
-    pfree(((plcArrayMeta*)iter->meta)->dims);
-    pfree(iter->meta);
-    pfree(iter->position);
-    UNPROTECT(1);
-}
 
 static void send_error(plcConn* conn, char *msg) {
     /* an exception was thrown */
@@ -709,7 +418,6 @@ static char * create_r_func(callreq req) {
 
 
 
-
 SEXP get_r_array(plcArray *plcArray)
 {
 	SEXP   vec;
@@ -769,6 +477,87 @@ SEXP get_r_array(plcArray *plcArray)
 	UNPROTECT(1);
 	return vec;
 
+}
+static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func) {
+    plcontainer_result res;
+
+    /* allocate a result */
+    res          = malloc(sizeof(str_plcontainer_result));
+    res->msgtype = MT_RESULT;
+    res->names   = malloc(1 * sizeof(char*));
+    res->types   = malloc(1 * sizeof(plcType));
+    res->rows = res->cols = 1;
+    res->data    = malloc(res->rows * sizeof(rawdata*));
+    res->data[0] = malloc(res->cols * sizeof(rawdata));
+    plc_r_copy_type(&res->types[0], &r_func->res);
+    res->names[0] = r_func->res.name;
+
+    if (retval == R_NilValue) {
+        res->data[0][0].isnull = 1;
+        res->data[0][0].value = NULL;
+    } else {
+        int ret = 0;
+        res->data[0][0].isnull = 0;
+        if (r_func->res.conv.outputfunc == NULL) {
+            raise_execution_error(plcconn,
+                                  "Type %d is not yet supported by R container",
+                                  (int)res->types[0].type);
+            free_result(res);
+            return -1;
+        }
+        //TODO change output function to take value, not pointer
+        ret = r_func->res.conv.outputfunc(&retval, &res->data[0][0].value, &r_func->res);
+        if (ret != 0) {
+            raise_execution_error(plcconn,
+                                  "Exception raised converting function output to function output type %d",
+                                  (int)res->types[0].type);
+            free_result(res);
+            return -1;
+        }
+    }
+
+    /* send the result back */
+    plcontainer_channel_send(conn, (message)res);
+
+    free_result(res);
+
+    return 0;
+}
+static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
+    SEXP r_args, element;
+    int i;
+
+    /* create the argument list */
+    PROTECT(r_args = allocVector(VECSXP, r_func->nargs));
+
+    for (i = 0; i < r_func->nargs; i++) {
+
+        if (r_func->call->args[i].data.isnull) {
+        	PROTECT(element=R_NilValue);
+        	SET_VECTOR_ELT( r_args, i, element );
+        	UNPROTECT(1);
+        } else {
+
+        	if (r_func->args[i].conv.inputfunc == NULL) {
+                raise_execution_error(conn,
+                                      "Parameter '%s' type %d is not supported",
+                                      r_func->args[i].name,
+                                      r_func->args[i].type);
+                return NULL;
+            }
+        	//  this is returned protected by the input function
+            element = r_func->args[i].conv.inputfunc(r_func->call->args[i].data.value);
+        }
+        if (element == NULL) {
+            raise_execution_error(conn,
+                                  "Converting parameter '%s' to R type failed",
+                                  r_func->args[i].name);
+            return NULL;
+        }
+
+        SET_VECTOR_ELT( r_args, i, element );
+    }
+    return r_args;
 }
 
 
@@ -1056,34 +845,38 @@ plr_SPI_exec( SEXP rsql )
     return r_result;
 }
 
-static SEXP
-coerce_to_char(SEXP rval)
-{
-    SEXP    obj = NULL;
+void raise_execution_error (plcConn *conn, const char *format, ...) {
+    va_list        args;
+    error_message  err;
+    char          *msg;
+    int            len, res;
 
-    switch (TYPEOF(rval))
-    {
-        case LISTSXP:
-        case NILSXP:
-        case SYMSXP:
-        case VECSXP:
-        case EXPRSXP:
-        case LGLSXP:
-        case INTSXP:
-        case REALSXP:
-        case CPLXSXP:
-        case STRSXP:
-        case RAWSXP:
-            PROTECT(obj = AS_CHARACTER(rval));
-            break;
-        default:
-            ;//TODO error
+    if (format == NULL) {
+        lprintf(FATAL, "Error message cannot be NULL");
+        return;
     }
-    UNPROTECT(1);
 
-    return obj;
+    va_start(args, format);
+    len = 100 + 2 * strlen(format);
+    msg = (char*)malloc(len + 1);
+    res = vsnprintf(msg, len, format, args);
+    if (res < 0 || res >= len) {
+        lprintf(FATAL, "Error formatting error message string");
+    } else {
+        /* an exception to be thrown */
+        err             = malloc(sizeof(*err));
+        err->msgtype    = MT_EXCEPTION;
+        err->message    = msg;
+        err->stacktrace = "";
+
+        /* send the result back */
+        plcontainer_channel_send(conn, (message)err);
+    }
+
+    /* free the objects */
+    free(err);
+    free(msg);
 }
-
 
 void
 throw_pg_notice(const char **msg)
