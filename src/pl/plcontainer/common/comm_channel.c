@@ -549,6 +549,8 @@ static int send_call(plcConn *conn, callreq call) {
     res |= send_cstring(conn, call->proc.src);
     debug_print(WARNING, "Function return type is '%d'", (int)call->retType.type);
     res |= send_type(conn, &call->retType);
+    debug_print(WARNING, "Function is set-returning: %d", (int)call->retset);
+    res |= send_int32(conn, call->retset);
     debug_print(WARNING, "Function number of arguments is '%d'", call->nargs);
     res |= send_int32(conn, call->nargs);
 
@@ -877,6 +879,8 @@ static int receive_call(plcConn *conn, message *mCall) {
     debug_print(WARNING, "%s", req->proc.src);
     res |= receive_type(conn, &req->retType);
     debug_print(WARNING, "Function return type is '%d'", (int)req->retType.type);
+    res |= receive_int32(conn, &req->retset);
+    debug_print(WARNING, "Function is set-returning: %d", (int)req->retset);
     res |= receive_int32(conn, &req->nargs);
     debug_print(WARNING, "Function number of arguments is '%d'", req->nargs);
     if (res == 0) {

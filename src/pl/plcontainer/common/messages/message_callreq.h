@@ -9,11 +9,12 @@ typedef struct {
 } plcProcSrc;
 
 typedef struct call_req {
-    base_message_content;
-    plcProcSrc   proc;
-    plcType      retType;
-    int          nargs;
-    plcArgument *args;
+    base_message_content; // message_type ID
+    plcProcSrc   proc;    // procedure - its name and source code
+    plcType      retType; // function return type
+    int          retset;  // whether the function is set-returning
+    int          nargs;   // number of function arguments
+    plcArgument *args;    // function arguments
 } call_req, *callreq;
 
 /*

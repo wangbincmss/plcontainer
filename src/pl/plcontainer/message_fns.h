@@ -37,10 +37,13 @@ typedef struct {
     /* Universal Function Information */
     char            *name;
     char            *src;
-    int              nargs;
     plcTypeInfo      rettype;
+    int              retset;
+    int              nargs;
     char           **argnames;
     plcTypeInfo     *argtypes;
+    plcontainer_result result;
+    int                resrow;
 } plcProcInfo;
 
 plcProcInfo * get_proc_info(FunctionCallInfo fcinfo);

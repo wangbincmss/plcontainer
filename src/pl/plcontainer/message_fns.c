@@ -82,6 +82,9 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
         pinfo->funcOid = procoid;
         pinfo->fn_xmin = HeapTupleHeaderGetXmin(procHeapTup->t_data);
         pinfo->fn_tid  = procHeapTup->t_self;
+        pinfo->retset  = fcinfo->flinfo->fn_retset;
+        pinfo->result  = NULL;
+        pinfo->resrow  = 0;
 
         procTup = (Form_pg_proc)GETSTRUCT(procHeapTup);
         fill_type_info(procTup->prorettype, &pinfo->rettype, 0);
@@ -227,6 +230,7 @@ static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, 
     int   i;
 
     req->nargs = pinfo->nargs;
+    req->retset = pinfo->retset;
     req->args  = pmalloc(sizeof(*req->args) * pinfo->nargs);
 
     for (i = 0; i < pinfo->nargs; i++) {
