@@ -65,23 +65,27 @@ void free_result(plcontainer_result res) {
     int i,j;
 
     /* free the types and names arrays */
-    pfree(res->types);
-    for (i = 0; i < res->cols; i++)
+    for (i = 0; i < res->cols; i++) {
         pfree(res->names[i]);
+        free_subtypes(&res->types[i]);
+    }
+    pfree(res->types);
     pfree(res->names);
 
     /* free the data array */
-    for (i = 0; i < res->rows; i++) {
-        for (j = 0; j < res->cols; j++) {
-            if (res->data[i][j].value) {
-                /* free the data if it is not null */
-                pfree(res->data[i][j].value);
+    if (res->data != NULL) {
+        for (i = 0; i < res->rows; i++) {
+            for (j = 0; j < res->cols; j++) {
+                if (res->data[i][j].value) {
+                    /* free the data if it is not null */
+                    pfree(res->data[i][j].value);
+                }
             }
+            /* free the row */
+            pfree(res->data[i]);
         }
-        /* free the row */
-        pfree(res->data[i]);
+        pfree(res->data);
     }
-    pfree(res->data);
 
     pfree(res);
 }
