@@ -34,6 +34,7 @@ select pyreturnarrtext(12);
 select pyreturnarrdate(13);
 select pyreturntupint8();
 select pyreturnarrint8nulls();
+select pyreturnarrtextnulls();
 select pyreturnarrmulti();
 select pyreturnsetofint8(5);
 select pyreturnsetofint4arr(6);

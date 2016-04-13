@@ -215,6 +215,12 @@ select pyreturnarrint8nulls();
  {1,2,3,NULL,5,6,NULL,8,9}
 (1 row)
 
+select pyreturnarrtextnulls();
+ pyreturnarrtextnulls 
+----------------------
+ {a,b,NULL,d,NULL,f}
+(1 row)
+
 select pyreturnarrmulti();
                        pyreturnarrmulti                        
 ---------------------------------------------------------------

@@ -332,7 +332,11 @@ static Datum plc_datum_from_array(char *input, plcTypeInfo *type) {
     ptr = arr->data;
     len = plc_get_type_length(subType->type);
     for (i = 0; i < arr->meta->size; i++) {
-        elems[i] = subType->infunc(ptr, subType);
+        if (arr->nulls[i] == 0) {
+            elems[i] = subType->infunc(ptr, subType);
+        } else {
+            elems[i] = (Datum)0;
+        }
         ptr += len;
     }
 

@@ -286,6 +286,11 @@ CREATE OR REPLACE FUNCTION pyreturnarrint8nulls() RETURNS int8[] AS $BODY$
 return [1,2,3,None,5,6,None,8,9]
 $BODY$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pyreturnarrtextnulls() RETURNS text[] AS $BODY$
+# container: plc_python
+return ['a','b',None,'d',None,'f']
+$BODY$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pyreturnarrmulti() RETURNS int[] AS $BODY$
 # container: plc_python
 return [[x for x in range(5)] for _ in range(5)]
