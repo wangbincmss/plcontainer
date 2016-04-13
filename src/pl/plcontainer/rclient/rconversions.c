@@ -88,31 +88,28 @@ static SEXP plc_r_object_from_array_dim(plcArray *arr,
 										 char **pos,
 										 int vallen,
 										 int dim) {
-    SEXP res = NULL;
+    SEXP res = NULL, tmp=NULL;
     if (dim == arr->meta->ndims) {
         if (arr->nulls[*ipos] != 0) {
-            res = R_NilValue;
+        	res = R_NilValue;
         } else {
         	/*
         	 * call the input function for the element in the array
         	 */
             res = infunc(*pos);
-            *ipos += 1;
-            /*
-             * this is the length of the item
-             */
-            *pos = *pos + vallen;
         }
+
+        *ipos += 1;
+        /*
+         * this is the length of the item
+         */
+        *pos = *pos + vallen;
+
     } else {
         PROTECT( res = get_r_vector(arr->meta->type,  arr->meta->dims[dim]) );
         for (idx[dim] = 0; idx[dim] < arr->meta->dims[dim]; idx[dim]++) {
             SEXP obj;
             obj = plc_r_object_from_array_dim(arr, infunc, idx, ipos, pos, vallen, dim+1);
-            if (obj == NULL) {
-            	UNPROTECT(1);
-                PROTECT(res=R_NilValue);
-                return res;
-            }
 
             switch(arr->meta->type){
             /* 2 and 4 byte integer pgsql datatype => use R INTEGER */
@@ -152,7 +149,12 @@ static SEXP plc_r_object_from_array_dim(plcArray *arr,
                  case PLC_DATA_TEXT:
                  default:
                      /* Everything else is defaulted to string */
-                     SET_STRING_ELT(res, idx[dim], obj);
+                	 if ( obj == R_NilValue ){
+                		 SET_STRING_ELT(res, idx[dim],NA_STRING);
+                	 }else{
+                		 tmp =  STRING_ELT(obj,0);
+                		 SET_STRING_ELT(res, idx[dim],tmp);
+                	 }
             }
             UNPROTECT(1);
         }
@@ -165,7 +167,7 @@ static SEXP plc_r_object_from_array (char *input) {
     SEXP res = R_NilValue;
 
     if (arr->meta->ndims == 0) {
-    	PROTECT( res = get_r_vector(arr->meta->type,  1) );
+    	PROTECT( res = get_r_vector(arr->meta->type,  0) );
     } else {
         int  *idx;
         int  ipos;
@@ -353,7 +355,11 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
     ptr = meta->ndims - 1;
     idx  =  ptrs[ptr].pos;
     mtx = ptrs[ptr].obj[0 ];
-    if (mtx == R_NilValue || ( asInteger(mtx) == NA_INTEGER || asLogical(mtx) == NA_LOGICAL || mtx == NA_STRING) ) {
+    if ((mtx == R_NilValue)
+    		|| ( (TYPEOF(mtx) == LGLSXP) && (asLogical(mtx) == NA_LOGICAL) )
+			|| ( (TYPEOF(mtx) == INTSXP) && (asInteger(mtx) == NA_INTEGER) )
+    		|| ( (TYPEOF(mtx) == STRSXP) && (mtx == NA_STRING) )) {
+
         res->isnull = 1;
         res->value = NULL;
     } else {
@@ -364,7 +370,12 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
 			case PLC_DATA_INT4:
 				/* 2 and 4 byte integer pgsql datatype => use R INTEGER */
 				res->value = pmalloc(4);
-				*((int *)res->value) = INTEGER_DATA(mtx)[idx];
+				if (INTEGER_DATA(mtx)[idx] == NA_INTEGER){
+					*((int *)res->value) = (int)0;
+			        res->isnull = 1;
+				}else{
+					*((int *)res->value) = INTEGER_DATA(mtx)[idx];
+				}
 				break;
 
 				/*
@@ -375,22 +386,41 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
 
 			case PLC_DATA_INT8:
 				res->value = pmalloc(8);
-				*((int64 *)res->value) = (int64)(NUMERIC_DATA(mtx)[idx]);
+				if (NUMERIC_DATA(mtx)[idx] == NA_REAL){
+					*((int64 *)res->value) = (int64)0;
+			        res->isnull = 1;
+				}else{
+					*((int64 *)res->value) = (int64)(NUMERIC_DATA(mtx)[idx]);
+				}
+
 				break;
 
 			case PLC_DATA_FLOAT4:
 				res->value = pmalloc(4);
-				*((float4 *)res->value) = (float4)(NUMERIC_DATA(mtx)[idx]);
-
+				if (NUMERIC_DATA(mtx)[idx] == NA_REAL){
+					res->isnull = 1;
+					*((float4 *)res->value) = (float4)0;
+				}else{
+					*((float4 *)res->value) = (float4)(NUMERIC_DATA(mtx)[idx]);
+				}
 				break;
 			case PLC_DATA_FLOAT8:
 				res->value = pmalloc(8);
-				*((float8 *)res->value) = (float8)(NUMERIC_DATA(mtx)[idx]);
-
+				if (NUMERIC_DATA(mtx)[idx] == NA_REAL){
+					res->isnull = 1;
+					*((float8 *)res->value) = (float8)0;
+				}else{
+					*((float8 *)res->value) = (float8)(NUMERIC_DATA(mtx)[idx]);
+				}
 				break;
 			case PLC_DATA_INT1:
 				res->value = pmalloc(1);
-				*((int *)res->value) = LOGICAL_DATA(mtx)[idx];
+				if (LOGICAL_DATA(mtx)[idx] == NA_LOGICAL){
+					res->isnull = 1;
+					*((int *)res->value) = (int)0;
+				}else{
+					*((int *)res->value) = LOGICAL_DATA(mtx)[idx];
+				}
 				break;
 			case PLC_DATA_RECORD:
 			case PLC_DATA_UDT:
@@ -400,12 +430,12 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
 				break;
 			case PLC_DATA_TEXT:
 
-				if (STRING_ELT(mtx, idx) != NA_STRING){
-					res->isnull = FALSE;
-					res->value  = pstrdup((char *) CHAR( STRING_ELT(mtx, idx) ));
-				} else {
+				if (mtx == NA_STRING || STRING_ELT(mtx, idx) == NA_STRING){
 					res->isnull = TRUE;
 					res->value  = NULL;
+				} else {
+					res->isnull = FALSE;
+					res->value  = pstrdup((char *) CHAR( STRING_ELT(mtx, idx) ));
 				}
 
 			default:
