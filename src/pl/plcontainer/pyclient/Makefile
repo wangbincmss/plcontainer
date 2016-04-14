@@ -1,5 +1,8 @@
-PYTHON_CFLAGS = $(shell pkg-config --cflags python-2.7)
-PYTHON_LDLAGS = $(shell pkg-config --libs python-2.7)
+PYV=$(shell python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)")
+#PYTHON_CFLAGS = $(shell pkg-config --cflags python-$(PYV))
+#PYTHON_LDFLAGS = $(shell pkg-config --libs python-$(PYV))
+PYTHON_CFLAGS = -I/usr/include/python$(PYV)
+PYTHON_LDFLAGS = -lpython$(PYV)
 override CFLAGS += $(DEBUG) -I../ -I../../../include -DCOMM_STANDALONE -Wall -Wextra -Werror
 
 common_src = $(shell find ../common -name "*.c")
@@ -18,7 +21,7 @@ clean_common:
 	$(CC) $(PYTHON_CFLAGS) $(CFLAGS) -c -o $@ $^
 
 client: $(python_objs) $(common_objs)
-	$(CC) -o $@ $^ $(PYTHON_LDLAGS)
+	$(CC) -o $@ $^ $(PYTHON_LDFLAGS)
 
 debug: DEBUG = -D_DEBUG_CLIENT -g
 

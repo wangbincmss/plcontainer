@@ -37,6 +37,13 @@ containers: clients
 	docker build -f dockerfiles/Dockerfile.R.shared -t plc_r_shared .
 	docker build -f dockerfiles/Dockerfile.python.shared -t plc_python_shared .
 
+.PHONY: containers6
+containers6: clients
+	docker build -f dockerfiles/Dockerfile.R6 -t plc_r .
+	docker build -f dockerfiles/Dockerfile.python6 -t plc_python .
+	docker build -f dockerfiles/Dockerfile.R.shared6 -t plc_r_shared .
+	docker build -f dockerfiles/Dockerfile.python.shared6 -t plc_python_shared .
+
 .PHONY: cleancontainers
 cleancontainers:
 	docker rmi -f plc_python

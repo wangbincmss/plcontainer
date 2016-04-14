@@ -36,13 +36,13 @@ typedef struct plcPyResult {
     plcPyTypeConv      *inconv;
 } plcPyResult;
 
-typedef struct plcPyType {
+struct plcPyType {
     plcDatatype    type;
     char          *name;
     int            nSubTypes;
     plcPyType     *subTypes;
     plcPyTypeConv  conv;
-} plcPyType;
+};
 
 typedef struct plcPyFunction {
     plcProcSrc  proc;

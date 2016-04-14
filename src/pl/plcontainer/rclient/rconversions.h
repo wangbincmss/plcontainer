@@ -62,13 +62,13 @@ typedef struct plcRResult {
     plcRTypeConv      *inconv;
 } plcRResult;
 
-typedef struct plcRType {
+struct plcRType {
     plcDatatype    type;
     char          *name;
     int            nSubTypes;
     plcRType      *subTypes;
     plcRTypeConv  conv;
-} plcRType;
+};
 
 typedef struct plcRFunction {
     plcProcSrc  proc;
