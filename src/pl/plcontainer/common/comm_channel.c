@@ -40,6 +40,7 @@ static int message_end(plcConn *conn);
 static int send_char(plcConn *conn, char c);
 static int send_int16(plcConn *conn, short i);
 static int send_int32(plcConn *conn, int i);
+static int send_uint32(plcConn *conn, unsigned int i);
 static int send_int64(plcConn *conn, long long i);
 static int send_float4(plcConn *conn, float f);
 static int send_float8(plcConn *conn, double f);
@@ -52,6 +53,7 @@ static int receive_message_type(plcConn *conn, char *c);
 static int receive_char(plcConn *conn, char *c);
 static int receive_int16(plcConn *conn, short *i);
 static int receive_int32(plcConn *conn, int *i);
+static int receive_uint32(plcConn *conn, unsigned int *i);
 static int receive_int64(plcConn *conn, long long *i);
 static int receive_float4(plcConn *conn, float *f);
 static int receive_float8(plcConn *conn, double *f);
@@ -171,6 +173,11 @@ static int send_int16(plcConn *conn, short i) {
 
 static int send_int32(plcConn *conn, int i) {
     debug_print(WARNING, "    ===> sending int32 '%d'", i);
+    return plcBufferAppend(conn, (char*)&i, 4);
+}
+
+static int send_uint32(plcConn *conn, unsigned int i) {
+    debug_print(WARNING, "    ===> sending uint32 '%u'", i);
     return plcBufferAppend(conn, (char*)&i, 4);
 }
 
@@ -304,6 +311,12 @@ static int receive_int16(plcConn *conn, short *i) {
 static int receive_int32(plcConn *conn, int *i) {
     int res = plcBufferRead(conn, (char*)i, 4);
     debug_print(WARNING, "    <=== receiving int32 '%d'", *i);
+    return res;
+}
+
+static int receive_uint32(plcConn *conn, unsigned int *i) {
+    int res = plcBufferRead(conn, (char*)i, 4);
+    debug_print(WARNING, "    <=== receiving uint32 '%u'", *i);
     return res;
 }
 
@@ -547,6 +560,10 @@ static int send_call(plcConn *conn, callreq call) {
     debug_print(WARNING, "Function source code:");
     debug_print(WARNING, "%s", call->proc.src);
     res |= send_cstring(conn, call->proc.src);
+    debug_print(WARNING, "Function OID is '%u'", call->objectid);
+    res |= send_uint32(conn, call->objectid);
+    debug_print(WARNING, "Function has changed is '%d'", call->hasChanged);
+    res |= send_int32(conn, call->hasChanged);
     debug_print(WARNING, "Function return type is '%d'", (int)call->retType.type);
     res |= send_type(conn, &call->retType);
     debug_print(WARNING, "Function is set-returning: %d", (int)call->retset);
@@ -877,6 +894,10 @@ static int receive_call(plcConn *conn, message *mCall) {
     res |= receive_cstring(conn, &req->proc.src);
     debug_print(WARNING, "Function source code:");
     debug_print(WARNING, "%s", req->proc.src);
+    res |= receive_uint32(conn, &req->objectid);
+    debug_print(WARNING, "Function OID is '%u'", req->objectid);
+    res |= receive_int32(conn, &req->hasChanged);
+    debug_print(WARNING, "Function has changed is '%d'", req->hasChanged);
     res |= receive_type(conn, &req->retType);
     debug_print(WARNING, "Function return type is '%d'", (int)req->retType.type);
     res |= receive_int32(conn, &req->retset);

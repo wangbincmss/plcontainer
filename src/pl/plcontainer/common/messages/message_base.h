@@ -29,9 +29,9 @@ typedef enum {
 typedef struct plcType plcType;
 
 struct plcType {
-   plcDatatype  type;
-   short        nSubTypes;
-   plcType     *subTypes;
+    plcDatatype  type;
+    short        nSubTypes;
+    plcType     *subTypes;
 };
 
 typedef struct {

@@ -9,6 +9,7 @@
 #include "pyconversions.h"
 #include "pylogging.h"
 #include "pyspi.h"
+#include "pycache.h"
 
 #include <Python.h>
 /*
@@ -22,6 +23,7 @@ static PyObject *arguments_to_pytuple (plcConn *conn, plcPyFunction *pyfunc);
 static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *pyfunc);
 static int fill_rawdata(rawdata *res, plcConn *conn, PyObject *retval, plcPyFunction *pyfunc);
 
+static PyObject *PyMainModule = NULL;
 static PyMethodDef moddef[] = {
     /*
      * logging methods
@@ -43,7 +45,7 @@ static PyMethodDef moddef[] = {
 };
 
 void python_init() {
-    PyObject *plpymod, *mainmod;
+    PyObject *plpymod;
 
     Py_SetProgramName("PythonContainer");
     Py_Initialize();
@@ -51,14 +53,14 @@ void python_init() {
     /* create the plpy module */
     plpymod = Py_InitModule("plpy", moddef);
 
-    mainmod = PyImport_ImportModule("__main__");
-    PyModule_AddObject(mainmod, "plpy", plpymod);
-    Py_DECREF(mainmod);
+    /* Initialize the main module */
+    PyMainModule = PyImport_ImportModule("__main__");
+
+    /* Add plpy module to it */
+    PyModule_AddObject(PyMainModule, "plpy", plpymod);
 }
 
 void handle_call(callreq req, plcConn *conn) {
-    char          *func;
-    PyObject      *val = NULL;
     PyObject      *retval = NULL;
     PyObject      *dict = NULL;
     PyObject      *args = NULL;
@@ -69,52 +71,55 @@ void handle_call(callreq req, plcConn *conn) {
      */
     plcconn_global = conn;
 
-    /* import __main__ to get the builtin functions */
-    val = PyImport_ImportModule("__main__");
-    if (val == NULL) {
-        raise_execution_error(conn, "Cannot import '__main__' module in Python");
-        return;
-    }
-
-    dict = PyModule_GetDict(val);
-    dict = PyDict_Copy(dict);
+    dict = PyModule_GetDict(PyMainModule);
     if (dict == NULL) {
         raise_execution_error(conn, "Cannot get '__main__' module contents in Python");
         return;
     }
 
-    /* wrap the input in a function and evaluate the result */
-    func = create_python_func(req);
+    pyfunc = plc_py_function_cache_get(req->objectid);
 
-    /* the function will be in the dictionary because it was wrapped with "def proc.name:... " */
-    val = PyRun_String(func, Py_single_input, dict, dict);
-    if (val == NULL) {
-        raise_execution_error(conn, "Cannot compile function in Python");
-        return;
+    if (pyfunc == NULL || req->hasChanged) {
+        char     *func;
+        PyObject *val;
+
+        /* Parse request to get funcion structure */
+        pyfunc = plc_py_init_function(req);
+
+        /* Modify function code for compiling it into Python object */
+        func = create_python_func(req);
+
+        /* The function will be in the dictionary because it was wrapped with "def proc_name:... " */
+        val = PyRun_String(func, Py_single_input, dict, dict);
+        if (val == NULL) {
+            raise_execution_error(conn, "Cannot compile function in Python");
+            return;
+        }
+        Py_DECREF(val);
+        free(func);
+
+        /* get the function from the global dictionary, returns borrowed reference */
+        val = PyDict_GetItemString(dict, req->proc.name);
+        if (!PyCallable_Check(val)) {
+            raise_execution_error(conn, "Object produced by function is not callable");
+            return;
+        }
+
+        pyfunc->pyfunc = val;
+
+        plc_py_function_cache_put(pyfunc);
     }
-    Py_DECREF(val);
-    free(func);
 
-    /* get the function from the global dictionary */
-    val = PyDict_GetItemString(dict, req->proc.name);
-    Py_INCREF(val);
-    if (!PyCallable_Check(val)) {
-        raise_execution_error(conn, "Object produced by function is not callable");
-        return;
-    }
-
-    pyfunc = plc_py_init_function(req);
     args = arguments_to_pytuple(conn, pyfunc);
     if (args == NULL) {
-        plc_py_free_function(pyfunc);
         return;
     }
 
     /* call the function */
     plc_is_execution_terminated = 0;
-    retval = PyObject_Call(val, args, NULL);
+    retval = PyObject_Call(pyfunc->pyfunc, args, NULL);
     if (retval == NULL) {
-        plc_py_free_function(pyfunc);
+        Py_XDECREF(args);
         raise_execution_error(conn, "Function produced NULL output");
         return;
     }
@@ -123,10 +128,7 @@ void handle_call(callreq req, plcConn *conn) {
         process_call_results(conn, retval, pyfunc);
     }
 
-    plc_py_free_function(pyfunc);
     Py_XDECREF(args);
-    Py_XDECREF(dict);
-    Py_XDECREF(val);
     Py_XDECREF(retval);
     return;
 }
@@ -242,7 +244,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
     res           = malloc(sizeof(str_plcontainer_result));
     res->msgtype  = MT_RESULT;
     res->names    = malloc(1 * sizeof(char*));
-    res->names[0] = pyfunc->res.name;
+    res->names[0] = strdup(pyfunc->res.name);
     res->types    = malloc(1 * sizeof(plcType));
     res->data     = NULL;
     plc_py_copy_type(&res->types[0], &pyfunc->res);

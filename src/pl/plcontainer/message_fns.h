@@ -37,6 +37,7 @@ typedef struct {
     /* Universal Function Information */
     char            *name;
     char            *src;
+    int              hasChanged; /* Whether the function has changed since last call */
     plcTypeInfo      rettype;
     int              retset;
     int              nargs;

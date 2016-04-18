@@ -45,13 +45,15 @@ struct plcPyType {
 };
 
 typedef struct plcPyFunction {
-    plcProcSrc  proc;
-    callreq     call;
-    PyObject   *pyProc;
-    int         nargs;
-    plcPyType  *args;
-    plcPyType   res;
-    int         retset;
+    plcProcSrc    proc;
+    callreq       call;
+    PyObject     *pyProc;
+    int           nargs;
+    plcPyType    *args;
+    plcPyType     res;
+    int           retset;
+    unsigned int  objectid;
+    PyObject     *pyfunc;
 } plcPyFunction;
 
 void plc_py_copy_type(plcType *type, plcPyType *pytype);

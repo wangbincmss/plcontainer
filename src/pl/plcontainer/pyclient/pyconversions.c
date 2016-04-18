@@ -467,6 +467,7 @@ plcPyFunction *plc_py_init_function(callreq call) {
     res->nargs = call->nargs;
     res->retset = call->retset;
     res->args = (plcPyType*)malloc(res->nargs * sizeof(plcPyType));
+    res->objectid = call->objectid;
 
     for (i = 0; i < res->nargs; i++)
         plc_parse_type(&res->args[i], &call->args[i].type);

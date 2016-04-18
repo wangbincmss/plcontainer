@@ -85,6 +85,7 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
         pinfo->retset  = fcinfo->flinfo->fn_retset;
         pinfo->result  = NULL;
         pinfo->resrow  = 0;
+        pinfo->hasChanged = 1;
 
         procTup = (Form_pg_proc)GETSTRUCT(procHeapTup);
         fill_type_info(procTup->prorettype, &pinfo->rettype, 0);
@@ -140,6 +141,8 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
 
         /* Cache the function for later use */
         function_cache_put(pinfo);
+    } else {
+        pinfo->hasChanged = 0;
     }
     ReleaseSysCache(procHeapTup);
     return pinfo;
@@ -167,6 +170,8 @@ callreq plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
     req->msgtype = MT_CALLREQ;
     req->proc.name = pinfo->name;
     req->proc.src  = pinfo->src;
+    req->objectid  = pinfo->funcOid;
+    req->hasChanged = pinfo->hasChanged;
     copy_type_info(&req->retType, &pinfo->rettype);
 
     fill_callreq_arguments(fcinfo, pinfo, req);
