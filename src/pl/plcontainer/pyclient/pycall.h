@@ -17,7 +17,7 @@ plcConn* plcconn_global;
 int plc_is_execution_terminated;
 
 // Initialization of Python module
-void python_init(void);
+int python_init(void);
 
 // Processing of the Greenplum function call
 void handle_call(callreq req, plcConn* conn);

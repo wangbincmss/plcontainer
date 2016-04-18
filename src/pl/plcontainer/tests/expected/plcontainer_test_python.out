@@ -349,6 +349,87 @@ WARNING:  this is the warning message
 CONTEXT:  SQL statement "select pylogging()"
 ERROR:  this is the error message (plcontainer.c:206)
 CONTEXT:  SQL statement "select pylogging()"
+select pygdset('1','a');
+ pygdset 
+---------
+ ok
+(1 row)
+
+select pygdset('2','b');
+ pygdset 
+---------
+ ok
+(1 row)
+
+select pygdset('3','c');
+ pygdset 
+---------
+ ok
+(1 row)
+
+select pygdgetall();
+ pygdgetall 
+------------
+ 1:a
+ 2:b
+ 3:c
+(3 rows)
+
+select pygdset('1','d');
+ pygdset 
+---------
+ ok
+(1 row)
+
+select pygdgetall();
+ pygdgetall 
+------------
+ 1:d
+ 2:b
+ 3:c
+(3 rows)
+
+select pysdset('a','000');
+ pysdset 
+---------
+ ok
+(1 row)
+
+select pysdset('b','111');
+ pysdset 
+---------
+ ok
+(1 row)
+
+select pysdset('c','222');
+ pysdset 
+---------
+ ok
+(1 row)
+
+select pysdgetall();
+ pysdgetall 
+------------
+ a:000
+ b:111
+ c:222
+(3 rows)
+
+select pysdset('d','333');
+ pysdset 
+---------
+ ok
+(1 row)
+
+select pysdgetall();
+ pysdgetall 
+------------
+ a:000
+ b:111
+ c:222
+ d:333
+(4 rows)
+
 select pyinvalid_function();
 ERROR:  exception occurred: (plcontainer.c:223)
 DETAIL:  

@@ -342,6 +342,26 @@ CREATE OR REPLACE FUNCTION pylogging2() RETURNS void AS $$
 # container: plc_python
 plpy.execute('select pylogging()')
 $$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pygdset(key varchar, value varchar) RETURNS text AS $$
+# container: plc_python
+GD[key] = value
+return 'ok'
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pygdgetall() RETURNS setof text AS $$
+# container: plc_python
+items = sorted(GD.items())
+return [ ':'.join([x[0],x[1]]) for x in items ]
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pysdset(key varchar, value varchar) RETURNS text AS $$
+# container: plc_python
+SD[key] = value
+return 'ok'
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pysdgetall() RETURNS setof text AS $$
+# container: plc_python
+items = sorted(SD.items())
+return [ ':'.join([x[0],x[1]]) for x in items ]
+$$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION pyinvalid_function() RETURNS double precision AS $$
 # container: plc_python
 import math

@@ -44,8 +44,11 @@ static PyMethodDef moddef[] = {
     {NULL, NULL, 0, NULL}
 };
 
-void python_init() {
-    PyObject *plpymod;
+int python_init() {
+    PyObject *plpymod = NULL;
+    PyObject *dict = NULL;
+    PyObject *gd = NULL;
+    PyObject *sd = NULL;
 
     Py_SetProgramName("PythonContainer");
     Py_Initialize();
@@ -58,6 +61,39 @@ void python_init() {
 
     /* Add plpy module to it */
     PyModule_AddObject(PyMainModule, "plpy", plpymod);
+
+    /* Get module dictionary of objects */
+    dict = PyModule_GetDict(PyMainModule);
+    if (dict == NULL) {
+        lprintf(ERROR, "Cannot get '__main__' module contents in Python");
+        return -1;
+    }
+
+    gd = PyDict_New();
+    if (gd == NULL) {
+        lprintf(ERROR, "Cannot allocate dictionary object for GD");
+        return -1;
+    }
+
+    if (PyDict_SetItemString(dict, "GD", gd) < 0) {
+        lprintf(ERROR, "Cannot set GD dictionary to main module");
+        return -1;
+    }
+    Py_DECREF(gd);
+
+    sd = PyDict_New();
+    if (sd == NULL) {
+        lprintf(ERROR, "Cannot allocate dictionary object for SD");
+        return -1;
+    }
+
+    if (PyDict_SetItemString(dict, "SD", sd) < 0) {
+        lprintf(ERROR, "Cannot set SD dictionary to main module");
+        return -1;
+    }
+    Py_DECREF(sd);
+
+    return 0;
 }
 
 void handle_call(callreq req, plcConn *conn) {

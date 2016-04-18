@@ -26,7 +26,10 @@ int main(int argc UNUSED, char **argv UNUSED) {
     sock = start_listener();
 
     // Initialize Python
-    python_init();
+    if (python_init() < 0) {
+        lprintf(ERROR, "Cannot initialize Python");
+        return -1;
+    }
 
     #ifdef _DEBUG_CLIENT
         // In debug mode we have a cycle of connections with infinite wait time
