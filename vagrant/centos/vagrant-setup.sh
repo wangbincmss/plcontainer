@@ -18,6 +18,7 @@ sudo yum -y install epel-release
 sudo yum -y install htop
 sudo yum -y install perl-Env
 sudo yum -y install R R-devel R-core
+sudo yum -y install libxml2 libxml2-devel
 wget https://bootstrap.pypa.io/get-pip.py
 sudo python get-pip.py
 sudo pip install psi lockfile paramiko setuptools epydoc
