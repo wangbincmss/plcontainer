@@ -6,13 +6,25 @@ top_builddir = ../../..
 include $(top_builddir)/src/Makefile.global
 include $(top_builddir)/src/Makefile.shlib
 
+MGMTDIR = ./management
+
 all: all-lib
 
-install: all installdirs install-lib
+install: all installdirs install-lib install-extra
 
 installdirs: installdirs-lib
+	$(MKDIR_P) '$(DESTDIR)$(bindir)'
+	$(MKDIR_P) '$(DESTDIR)$(datadir)/plcontainer'
 
+.PHONY: uninstall
 uninstall: uninstall-lib
+	rm -f '$(DESTDIR)$(bindir)/plcontainer-config'
+	rm -f '$(DESTDIR)$(datadir)/plcontainer/'
+
+.PHONY: install-extra
+install-extra:
+	$(INSTALL_PROGRAM) '$(MGMTDIR)/plcontainer-config' '$(DESTDIR)$(bindir)/plcontainer-config'
+	$(INSTALL_DATA) '$(MGMTDIR)/plcontainer_configuration.xml' '$(DESTDIR)$(datadir)/plcontainer/'
 
 .PHONY: installcheck
 installcheck:

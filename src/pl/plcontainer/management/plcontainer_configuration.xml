@@ -1,0 +1,44 @@
+<configuration>
+
+    <!--
+        Structure of the configuration is following:
+        1. Each container is defined within a single <container> tag
+        2. "name" - container name that can be referenced in database creating the
+            function in PL/Container language. Might not match the container name
+            in Docker. Mandatory field
+        3. "container_id" - container name in Docker, used for starting and stopping
+            the containers. Mandatory field
+        4. "memory_mb" - container memory limit in MB. Optional. When not set,
+            container can usilize all the available OS memory
+        5. "shared_directory" - a series of tags, each one defines a single
+            directory shared between host and container. Optional
+        All the container names not manually defined in this file will not be
+        available for use by endusers in PL/Container
+    -->
+    <container>
+        <name>plc_python</name>
+        <container_id>plc_python</container_id>
+        <memory_mb>128</memory_mb>
+    </container>
+
+    <container>
+        <name>plc_r</name>
+        <container_id>plc_r</container_id>
+        <memory_mb>256</memory_mb>
+    </container>
+
+    <container>
+        <name>plc_python_shared</name>
+        <container_id>plc_python_shared</container_id>
+        <memory_mb>128</memory_mb>
+        <shared_directory host="/data" container="/test_share" />
+    </container>
+
+    <container>
+        <name>plc_r_shared</name>
+        <container_id>plc_r_shared</container_id>
+        <memory_mb>256</memory_mb>
+        <shared_directory host="/data" container="/test_share" />
+    </container>
+
+</configuration>

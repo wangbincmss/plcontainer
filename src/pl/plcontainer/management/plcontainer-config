@@ -1,0 +1,316 @@
+#!/usr/bin/env python
+
+import os
+import sys
+import hashlib
+import tempfile
+import traceback
+import datetime
+from xml.etree import ElementTree
+from optparse import OptionParser
+
+try:
+    from gppylib import gplog
+    from gppylib.commands.base import WorkerPool, REMOTE, Command
+    from gppylib.commands.unix import Scp, FileDirExists, getLocalHostname, getUserName
+    from gppylib.db import dbconn
+    from gppylib import gparray
+    from gppylib import userinput
+except ImportError, e:
+    sys.exit('ERROR: Cannot import Greenplum modules.  Please check that you have sourced greenplum_path.sh.  Detail: ' + str(e))
+
+
+PLCONTAINER_CONFIG_FILE = 'plcontainer_configuration.xml'
+PLCONTAINER_GPDB_DIR = 'share/postgresql/plcontainer'
+
+
+def parseargs():
+    parser = OptionParser()
+
+    parser.add_option('-s', '--show', action='store_true', help='Show the contents of configuration file without changing it')
+    parser.add_option('-v', '--verbose', action='store_true', help='Enable verbose logging')
+    parser.add_option('-e', '--editor', type='string', default='vi', help='Editor to use')
+    parser.add_option('--reset', action='store_true', help='Reset the configuration file to default')
+    parser.add_option('--restore', action='store_true', help='Restore the previous version of PL/Container configuration')
+    parser.add_option('--cleanup', action='store_true', help='Remote all the backup files for PL/Container')
+    parser.add_option('--batch-size', type='int', default='3')
+
+    (options, args) = parser.parse_args()
+    if options.show and (options.reset or options.restore or options.cleanup):
+        logger.error(' --show option cannot be combined with --reset, --restore, --cleanup')
+        sys.exit(1)
+    if options.reset and (options.show or options.restore or options.cleanup):
+        logger.error(' --reset option cannot be combined with --show, --restore, --cleanup')
+        sys.exit(1)
+    if options.restore and (options.show or options.reset or options.cleanup):
+        logger.error(' --restore option cannot be combined with --show, --reset, --cleanup')
+        sys.exit(1)
+    if options.cleanup and (options.show or options.reset or options.restore):
+        logger.error(' --cleanup option cannot be combined with --show, --reset, --restore')
+        sys.exit(1)
+    return options
+
+
+def get_file_md5(file):
+    '''
+    Generates an MD5 hash of a file.  The hash returned is an array
+    of bytes and cannot be printed directly to the screen or log file
+    without converting to hex.
+    '''
+    h = hashlib.md5()
+    f = open(file, 'r')
+    for l in f:
+        h.update(l)
+    f.close()
+    return h.digest()
+
+
+def copy_file_to_tmp(host, file):
+    """
+    Copies file to a local temp file and returns the temp file name.
+    While mktemp() is not "safe", the possibilities of this utility
+    being run multiple times on the same file and getting the same
+    temp filename is so remote that this is acceptable.
+    """
+    tmp_file = tempfile.mktemp()
+    cmd = Scp('copy conf file', file, tmp_file, host)
+    cmd.run()
+    if not os.path.exists(tmp_file):
+        logger.error("Error while copying configuration file. Check that PL/Container is initialized" +
+                     " or use --reset to initialize with default configuration")
+        tmp_file = None
+    return tmp_file
+
+
+def validate_xml(filename):
+    correct = True
+    with open(filename, 'rb') as file:
+        xmlcontents = file.read()
+    try:
+        ElementTree.fromstring(xmlcontents)
+    except Exception, ex:
+        correct = False
+        logger.error("XML file does not conform XML specification")
+        logger.error(str(ex))
+    return correct
+
+
+def edit_file(filename, editor):
+    """
+    Starts up options.editor (default is vi) to edit the file.
+    """
+    edit = True
+    while edit:
+        distribute = True
+        h1 = get_file_md5(filename)
+        os.system('%s %s' % (editor, filename))
+        h2 = get_file_md5(filename)
+        if h1 == h2:
+            logger.info("File was not changed, no configuration update is done")
+            distribute = False
+        validxml = validate_xml(filename)
+        if validxml:
+            edit = False
+        else:
+            # If the file is invalid we won't distribute it
+            distribute = False
+            edit = userinput.ask_yesno(None, "Continue editing the file?", 'N')
+    return distribute
+
+
+def distribute_file(pool, src_filename, dest_filename, gpdb_locations):
+    """
+    Distributes the edited file to all GPDB instances
+    """
+    for l in gpdb_locations:
+        dest_file = os.path.join(l[1], dest_filename)
+        logger.info("Distributing to %s:%s", l[0], dest_file)
+        cmd = Scp('distribute changed file',
+                  src_filename,
+                  dest_file,
+                  None,
+                  l[0])
+        pool.addCommand(cmd)
+    pool.join()
+    pool.check_results()
+
+
+def backup_file(pool, gpdb_locations, file):
+    """
+    Backs up a file to .bak
+    """
+    timestamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
+    dest_filename = '.' + file + '.bak' + timestamp
+    logger.info("Old configuration is saved as '%s'" % dest_filename)
+    for l in gpdb_locations:
+        src_file = os.path.join(l[1], file)
+        dest_file = os.path.join(l[1], dest_filename)
+        cmd = Scp('backup file',
+                  src_file,
+                  dest_file,
+                  l[0],
+                  l[0])
+        pool.addCommand(cmd)
+    pool.join()
+    pool.check_results()
+
+
+def get_segment_locations(seg_list):
+    """
+    Returns a list of tuples that are of the format (hostname, gpdb directory)
+    for every segment instance in the cluster.
+    """
+    gpdb_locations = []
+    for s in seg_list:
+        gpdb_locations.append((s.getSegmentHostName(), s.getSegmentDataDirectory()))
+    return gpdb_locations
+
+
+def get_last_backup(pool, remote_host, remote_dir, filename):
+    """
+    Get the last backup file name of PL/Container configuration
+    """
+    result = None
+    filemask = os.path.join(remote_dir, '.' + filename + '.bak*')
+    cmdstr = 'ls -1 %s || exit 0' % filemask
+    cmd = Command('List PL/Contaner configuartion backups in %s:%s' % (remote_host, remote_dir),
+                  cmdstr,
+                  ctxt = REMOTE,
+                  remoteHost = remote_host)
+    cmd.run(validateAfter=True)
+    logger.debug("Command executed: '%s'" % cmdstr)
+    res = cmd.get_results()
+    if res.rc != 0:
+        logger.error("Cannot find configuration backup files")
+    else:
+        if res.stdout.strip() != '':
+            files = [x.strip() for x in res.stdout.strip().split('\n')]
+            logger.info("Found %d configuration backups" % len(files))
+            files = sorted(files)
+            for f in files:
+                logger.debug("    %s" % f)
+            result = files[-1]
+        else:
+            logger.error("No configuration backups found")
+    return result
+
+
+def remove_files(pool, gpdb_locations, remote_filename):
+    """
+    Removes the specified file from all the hosts of GPDB cluster
+    """
+    for l in gpdb_locations:
+        remote_file = os.path.join(l[1], remote_filename)
+        cmd = Command('Remove %s:%s' % (l[0], remote_file),
+                      'rm %s || exit 0' % remote_file,
+                      ctxt = REMOTE,
+                      remoteHost = l[0])
+        pool.addCommand(cmd)
+    pool.join()
+    pool.check_results()
+
+
+def show_file(filename):
+    logger.info("Configuration file contents:")
+    f = open(filename, 'rb')
+    sys.stdout.write('%s\n' % f.read())
+    f.close()
+
+
+def main():
+    pool = None
+    tmp_file = None
+    options = None
+
+    options = parseargs()
+    if options.verbose:
+        gplog.enable_verbose_logging()
+
+    try:
+        GPHOME = os.environ.get('GPHOME')
+        if not GPHOME:
+            raise Exception('$GPHOME environment variable is not set')
+
+        logger.info('Retrieving GPDB configuration from database...')
+        url = dbconn.DbURL()
+        array = gparray.GpArray.initFromCatalog(url, True)
+        segs = array.getDbList()
+
+        gpdb_locations = get_segment_locations(segs)
+        logger.debug('GPDB Configuration is:')
+        for host, directory in gpdb_locations:
+            logger.debug('    host "%s" directory "%s"' % (host, directory))
+
+        if options.show:
+            remote_filename = os.path.join(gpdb_locations[0][1], PLCONTAINER_CONFIG_FILE)
+            remote_host = gpdb_locations[0][0]
+            logger.info('Creating temporary copy of %s from %s...' % (remote_filename, remote_host))
+            tmp_file = copy_file_to_tmp(remote_host, remote_filename)
+            if tmp_file:
+                show_file(tmp_file)
+
+        if options.reset:
+            logger.info('Preparing the worker pool...')
+            pool = WorkerPool(options.batch_size)
+            default_config = os.path.join(GPHOME, PLCONTAINER_GPDB_DIR, PLCONTAINER_CONFIG_FILE)
+            logger.info('Distributing file %s to all locations...' % default_config)
+            distribute_file(pool, default_config, PLCONTAINER_CONFIG_FILE, gpdb_locations)
+
+        if options.restore:
+            remote_dir = gpdb_locations[0][1]
+            remote_host = gpdb_locations[0][0]
+            logger.info('Getting list of configuration backups in %s:%s...' % (remote_host, remote_dir))
+            filename = get_last_backup(pool, remote_host, remote_dir, PLCONTAINER_CONFIG_FILE)
+            if filename and userinput.ask_yesno(None, "Continue restoring the backup configuration '%s'?" % filename, 'N'):
+                logger.info('Copying %s over...' % filename)
+                tmp_file = copy_file_to_tmp(remote_host, filename)
+                if tmp_file:
+                    logger.info('Preparing the worker pool...')
+                    pool = WorkerPool(options.batch_size)
+                    logger.info('Distributing file %s to all locations...' % PLCONTAINER_CONFIG_FILE)
+                    distribute_file(pool, tmp_file, PLCONTAINER_CONFIG_FILE, gpdb_locations)
+                    logger.info('Cleaning up old backup file...')
+                    remove_files(pool, gpdb_locations, os.path.basename(filename))
+
+        if options.cleanup:
+            if userinput.ask_yesno(None, "Are you sure want to clean up the PL/Container backup configurations?", 'N'):
+                logger.info('Preparing the worker pool...')
+                pool = WorkerPool(options.batch_size)
+                logger.info('Cleaning up old backup files...')
+                remove_files(pool, gpdb_locations, '.' + PLCONTAINER_CONFIG_FILE + '.bak*')
+
+        if not options.reset and not options.restore and not options.show and not options.cleanup:
+            remote_filename = os.path.join(gpdb_locations[0][1], PLCONTAINER_CONFIG_FILE)
+            remote_host = gpdb_locations[0][0]
+            logger.info('Creating temporary copy of %s from %s...' % (remote_filename, remote_host))
+            tmp_file = copy_file_to_tmp(remote_host, remote_filename)
+            if tmp_file:
+                changed = edit_file(tmp_file, options.editor)
+                if changed:
+                    logger.info('Preparing the worker pool...')
+                    pool = WorkerPool(options.batch_size)
+                    logger.info('Backing up file %s on all hosts...' % PLCONTAINER_CONFIG_FILE)
+                    backup_file(pool, gpdb_locations, PLCONTAINER_CONFIG_FILE)
+                    logger.info('Distributing file %s to all locations...' % PLCONTAINER_CONFIG_FILE)
+                    distribute_file(pool, tmp_file, PLCONTAINER_CONFIG_FILE, gpdb_locations)
+
+    except Exception, e:
+        logger.fatal("%s failed. (Reason='%s') exiting..." % (execname, e))
+        if options.verbose:
+            logger.exception(e)
+
+    finally:
+        if tmp_file:
+            os.unlink(tmp_file)
+        if pool:
+            logger.info('Shutting down workers...')
+            pool.haltWork()
+            pool.joinWorkers()
+        logger.info('Done')
+
+
+if __name__ == '__main__':
+    execname = os.path.split(__file__)[-1]
+    gplog.setup_tool_logging(execname, getLocalHostname(), getUserName())
+    logger = gplog.get_default_logger()
+    main()
