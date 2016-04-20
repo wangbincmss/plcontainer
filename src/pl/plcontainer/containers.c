@@ -8,6 +8,7 @@
 #include "common/comm_utils.h"
 #include "common/comm_channel.h"
 #include "common/messages/messages.h"
+#include "plc_configuration.h"
 #include "containers.h"
 
 typedef struct {
@@ -19,6 +20,10 @@ typedef struct {
 static int containers_init = 0;
 static container_t *containers;
 
+static void insert_container(char *image, plcConn *conn);
+static void init_containers();
+static char *get_memory_option(plcContainer *cont);
+static char *get_sharing_options(plcContainer *cont);
 static inline bool is_whitespace (const char c);
 
 #ifndef CONTAINER_DEBUG
@@ -56,13 +61,11 @@ static char *shell(const char *cmd) {
 
 #endif
 
-static void insert_container(const char *image, plcConn *conn) {
+static void insert_container(char *image, plcConn *conn) {
     size_t i;
     for (i = 0; i < CONTAINER_NUMBER; i++) {
         if (containers[i].name == NULL) {
-            int len = strlen(image);
-            containers[i].name = plc_top_alloc(len+1);
-            memcpy(containers[i].name, image, len+1);
+            containers[i].name = plc_top_strdup(image);
             containers[i].conn = conn;
             return;
         }
@@ -73,6 +76,59 @@ static void init_containers() {
     containers = (container_t*)plc_top_alloc(CONTAINER_NUMBER * sizeof(container_t));
     memset(containers, 0, CONTAINER_NUMBER * sizeof(container_t));
     containers_init = 1;
+}
+
+static char *get_memory_option(plcContainer *cont) {
+    char *res = pmalloc(30);
+    if (cont->memoryMb > 0) {
+        sprintf(res, "-m %dm", cont->memoryMb);
+    } else {
+        res[0] = '\0';
+    }
+    return res;
+}
+
+static char *get_sharing_options(plcContainer *cont) {
+    char *res = NULL;
+
+    if (cont->nSharedDirs > 0) {
+        char **volumes = NULL;
+        int totallen = 0;
+        char *pos;
+        int i;
+
+        volumes = pmalloc(cont->nSharedDirs * sizeof(char*));
+        for (i = 0; i < cont->nSharedDirs; i++) {
+            volumes[i] = pmalloc(10 + strlen(cont->sharedDirs[i].host) +
+                                 strlen(cont->sharedDirs[i].container));
+            if (cont->sharedDirs[i].mode == PLC_ACCESS_READONLY) {
+                sprintf(volumes[i], "-v %s:%s:ro", cont->sharedDirs[i].host,
+                        cont->sharedDirs[i].container);
+            } else if (cont->sharedDirs[i].mode == PLC_ACCESS_READWRITE) {
+                sprintf(volumes[i], "-v %s:%s:rw", cont->sharedDirs[i].host,
+                        cont->sharedDirs[i].container);
+            } else {
+                elog(ERROR, "Cannot determine directory sharing mode");
+            }
+            totallen += strlen(volumes[i]);
+        }
+
+        res = pmalloc(totallen + 2*cont->nSharedDirs);
+        pos = res;
+        for (i = 0; i < cont->nSharedDirs; i++) {
+            memcpy(pos, volumes[i], strlen(volumes[i]));
+            pos += strlen(volumes[i]);
+            *pos = ' ';
+            pos += 1;
+            pfree(volumes[i]);
+        }
+        *pos = '\0';
+        pfree(volumes);
+    } else {
+        res = pmalloc(1);
+        res[0] = '\0';
+    }
+    return res;
 }
 
 plcConn *find_container(const char *image) {
@@ -89,7 +145,7 @@ plcConn *find_container(const char *image) {
     return NULL;
 }
 
-plcConn *start_container(const char *image, int shared) {
+plcConn *start_container(plcContainer *cont) {
     int port;
     unsigned int sleepus = 25000;
     unsigned int sleepms = 0;
@@ -107,26 +163,37 @@ plcConn *start_container(const char *image, int shared) {
 
     plcConn *conn;
 
-    char  cmd[300];
+    char  *cmd;
     char *dockerid, *ports, *exposed;
     int   cnt;
+    int   len;
 
-    cnt = snprintf(cmd, sizeof(cmd), "docker run -d -P %s", image);
-    if (cnt < 0 || cnt >= (int)sizeof(cmd)) {
+    char *mem   = get_memory_option(cont);
+    char *share = get_sharing_options(cont);
+
+    len = 100 + strlen(mem) + strlen(share) + strlen(cont->name);
+    cmd = pmalloc(len);
+    cnt = snprintf(cmd, len, "docker run -d -P %s %s %s", mem, share, cont->name);
+    if (cnt < 0 || cnt >= len) {
         lprintf(FATAL, "docker image name is too long");
     }
+    pfree(mem);
+    pfree(share);
     /*
       output:
       $ sudo docker run -d -P plcontainer
       bd1a714ac07cf31b15b26697a65e2405d993696a6dd8ad08a06210d3bc47c942
      */
 
+    elog(DEBUG1, "Calling following command: '%s'", cmd);
     dockerid = shell(cmd);
-    cnt      = snprintf(cmd, sizeof(cmd), "docker port %s", dockerid);
-    if (cnt < 0 || cnt >= (int)sizeof(cmd)) {
+    cnt      = snprintf(cmd, len, "docker port %s", dockerid);
+    if (cnt < 0 || cnt >= len) {
         lprintf(FATAL, "docker image name is too long");
     }
+    elog(DEBUG1, "Calling following command: '%s'", cmd);
     ports = shell(cmd);
+    pfree(cmd);
     /*
        output:
        $ sudo docker port dockerid
@@ -176,7 +243,7 @@ plcConn *start_container(const char *image, int shared) {
                     CONTAINER_CONNECT_TIMEOUT_MS);
         conn = NULL;
     } else {
-        insert_container(image, conn);
+        insert_container(cont->name, conn);
     }
 
     return conn;
@@ -186,11 +253,10 @@ static inline bool is_whitespace (const char c) {
     return (c == ' ' || c == '\n' || c == '\t' || c == '\r');
 }
 
-char *parse_container_meta(const char *source, int *shared) {
+char *parse_container_meta(const char *source) {
     int first, last, len;
     char *name = NULL;
     int nameptr = 0;
-    *shared = 0;
 
     first = 0;
     len = strlen(source);
@@ -253,24 +319,5 @@ char *parse_container_meta(const char *source, int *shared) {
     }
     name[nameptr] = '\0';
 
-    /* Searching for container sharing declaration */
-    if (first < last && source[first] == ':') {
-        /* Scroll to first non-whitespace */
-        first++;
-        while (first < last && is_whitespace(source[first]))
-            first++;
-        if (first == last) {
-            lprintf(ERROR, "Container sharing mode declaration is empty");
-            pfree(name);
-            return NULL;
-        }
-        /* The only supported mode is "shared" */
-        if (last - first < 6 || strncmp(&source[first],"shared", 6) != 0) {
-            lprintf(ERROR, "Container sharing mode declaration can be only 'shared'");
-            pfree(name);
-            return NULL;
-        }
-        *shared = 1;
-    }
     return name;
 }

@@ -12,6 +12,7 @@
 #include "sqlhandler.h"
 #include "containers.h"
 #include "plc_typeio.h"
+#include "plc_configuration.h"
 #include "plcontainer.h"
 
 #ifdef PG_MODULE_MAGIC
@@ -121,14 +122,20 @@ static plcontainer_result plcontainer_get_result(FunctionCallInfo  fcinfo,
     callreq      req;
     plcConn     *conn;
     int          message_type;
-    int          shared = 0;
     plcontainer_result result = NULL;
 
     req = plcontainer_create_call(fcinfo, pinfo);
-    name = parse_container_meta(req->proc.src, &shared);
+    name = parse_container_meta(req->proc.src);
     conn = find_container(name);
     if (conn == NULL) {
-        conn = start_container(name, shared);
+        plcContainer *cont = NULL;
+        cont = plc_get_container_config(name);
+        if (cont == NULL) {
+            elog(ERROR, "Container '%s' is not defined in configuration "
+                        "and cannot be used", name);
+        } else {
+            conn = start_container(cont);
+        }
     }
     pfree(name);
 

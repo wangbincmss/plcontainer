@@ -120,12 +120,12 @@ static int parse_container(xmlNode *node, plcContainer *cont) {
                     elog(ERROR, "Configuration tag 'shared_directory' has a mandatory element"
                          " 'access' that is not found");
                     return -1;
-                } else if (strcmp((char*)value, "r") == 0) {
-                    cont->sharedDirs[i].mode = PLC_ACCESS_READ;
+                } else if (strcmp((char*)value, "ro") == 0) {
+                    cont->sharedDirs[i].mode = PLC_ACCESS_READONLY;
                 } else if (strcmp((char*)value, "rw") == 0) {
                     cont->sharedDirs[i].mode = PLC_ACCESS_READWRITE;
                 } else {
-                    elog(ERROR, "Directory access mode should be either 'r' or 'rw', passed value is '%s'", value);
+                    elog(ERROR, "Directory access mode should be either 'ro' or 'rw', passed value is '%s'", value);
                     return -1;
                 }
                 xmlFree(value);
@@ -212,7 +212,7 @@ static void print_containers(plcContainer *cont, int size) {
             elog(INFO, "    shared directory from host '%s' to container '%s'",
                  cont[i].sharedDirs[j].host,
                  cont[i].sharedDirs[j].container);
-            if (cont[i].sharedDirs[j].mode == PLC_ACCESS_READ) {
+            if (cont[i].sharedDirs[j].mode == PLC_ACCESS_READONLY) {
                 elog(INFO, "        access = readonly");
             } else {
                 elog(INFO, "        access = readwrite");
@@ -275,4 +275,26 @@ Datum read_plcontainer_config(PG_FUNCTION_ARGS) {
     } else {
         PG_RETURN_TEXT_P(cstring_to_text("error"));
     }
+}
+
+plcContainer *plc_get_container_config(char *name) {
+    int res = 0;
+    int i = 0;
+    plcContainer *result = NULL;
+
+    if (plcContainerConf == NULL || plcNumContainers == 0) {
+        res = plc_read_container_config(0);
+        if (res < 0) {
+            return NULL;
+        }
+    }
+
+    for (i = 0; i < plcNumContainers; i++) {
+        if (strcmp(name, plcContainerConf[i].name) == 0) {
+            result = &plcContainerConf[i];
+            break;
+        }
+    }
+
+    return result;
 }
