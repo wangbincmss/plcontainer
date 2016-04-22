@@ -49,10 +49,10 @@ clients:
 
 .PHONY: containers
 containers: clients
-	docker build -f dockerfiles/Dockerfile.R -t plc_r $(SRCDIR)
-	docker build -f dockerfiles/Dockerfile.python -t plc_python $(SRCDIR)
-	docker build -f dockerfiles/Dockerfile.R.shared -t plc_r_shared $(SRCDIR)
-	docker build -f dockerfiles/Dockerfile.python.shared -t plc_python_shared $(SRCDIR)
+	docker build -f dockerfiles/Dockerfile.R -t plc_r .
+	docker build -f dockerfiles/Dockerfile.python -t plc_python .
+	docker build -f dockerfiles/Dockerfile.R.shared -t plc_r_shared .
+	docker build -f dockerfiles/Dockerfile.python.shared -t plc_python_shared .
 
 .PHONY: cleancontainers
 cleancontainers:
