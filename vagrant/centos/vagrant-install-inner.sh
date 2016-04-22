@@ -45,3 +45,4 @@ $GPHOME/bin/gpinitsystem -a -c $GPDATA/gpinitsystem_config
 printf '# Remember the master data directory location\n' >> ~/.bashrc
 printf 'export MASTER_DATA_DIRECTORY=$GPDATA/master/gpseg-1\n' >> ~/.bashrc
 source ~/.bashrc
+createdb vagrant
