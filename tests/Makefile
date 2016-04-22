@@ -1,13 +1,11 @@
-.PHONY: default
-default: all
+include ../Makefile
 
-top_builddir = ../../../..
-include $(top_builddir)/src/Makefile.global
-include $(top_srcdir)/src/Makefile.shlib
-
-REGRESS_OPTS = --dbname=$(PL_TESTDB) --load-language=plcontainer
+REGRESS_OPTS = --dbname=$(PL_TESTDB)
 REGRESS = plcontainer_install plcontainer_schema plcontainer_populate plcontainer_function plcontainer_test_python plcontainer_test_r
 PSQLDIR = $(bindir)
+
+.PHONY: default
+default: all
 
 .PHONY: all
 all: tests
