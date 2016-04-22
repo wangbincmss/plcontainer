@@ -1,10 +1,7 @@
-FROM centos:7
+FROM centos:7.2.1511
 
-RUN yum -y install python
-
+# Running Python client inside of container
 ADD ./src/pyclient /clientdir
-
 EXPOSE 8080
-
 CMD ["/clientdir/client.sh"]
 

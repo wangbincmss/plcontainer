@@ -1,5 +1,6 @@
-FROM centos:7
+FROM centos:7.2.1511
 
+# Installing R module
 RUN yum -y install epel-release
 RUN yum -y install R R-devel R-core
 
