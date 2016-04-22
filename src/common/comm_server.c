@@ -111,7 +111,7 @@ void receive_loop( void (*handle_call)(callreq, plcConn*), plcConn* conn) {
     }
     pfree(msg);
 
-    while (true) {
+    while (1) {
         res = plcontainer_channel_receive(conn, &msg);
         
         if (res == -3) {

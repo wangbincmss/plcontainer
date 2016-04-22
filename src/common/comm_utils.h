@@ -21,9 +21,9 @@ interpreted as representing official policies, either expressed or implied, of t
 */
 
 /**
- * file:			comm_logging.h.
- * author:			PostgreSQL developement group.
- * author:			Laszlo Hornyak
+ * file:            comm_logging.h.
+ * author:            PostgreSQL developement group.
+ * author:            Laszlo Hornyak
  */
 
 #ifndef PLC_COMM_UTILS_H
@@ -38,7 +38,29 @@ interpreted as representing official policies, either expressed or implied, of t
 */
 #ifdef COMM_STANDALONE
 
-#include <utils/elog.h>
+    #include <stdio.h>
+
+    /* Error level codes from GPDB utils/elog.h header */
+    #define DEBUG2     13
+    #define DEBUG1     14
+    #define LOG        15
+    #define INFO       17
+    #define NOTICE     18
+    #define WARNING    19
+    #define ERROR      20
+    #define FATAL      21
+    #define PANIC      22
+    /* End of extraction from utils/elog.h */
+
+    /* Postgres-specific types from GPDB c.h header */
+    typedef signed char int8;        /* == 8 bits */
+    typedef signed short int16;      /* == 16 bits */
+    typedef signed int int32;        /* == 32 bits */
+    typedef long int int64;          /* == 64 bits */
+    typedef float float4;
+    typedef double float8;
+    typedef char bool;
+    /* End of extraction from c.h */
 
     #define lprintf(lvl, fmt, ...)            \
         do {                                  \

@@ -1,4 +1,3 @@
-#include <c.h>
 #include <errno.h>
 #include <signal.h>
 #include <time.h>
@@ -7,6 +6,9 @@
 #include <poll.h>
 #include <stdio.h>
 #include <arpa/inet.h>
+#include <netdb.h>
+#include <stdlib.h>
+#include <string.h>
 
 #include "comm_utils.h"
 #include "comm_connectivity.h"

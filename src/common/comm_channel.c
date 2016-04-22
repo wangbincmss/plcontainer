@@ -33,6 +33,7 @@ interpreted as representing official policies, either expressed or implied, of t
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
 
 static int message_start(plcConn *conn, char msgType);
 static int message_end(plcConn *conn);
