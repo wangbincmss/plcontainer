@@ -16,11 +16,13 @@ source ~/.bashrc
 killall postgres
 sleep 5
 killall postgres -s SIGKILL
+sleep 1
 sudo rm -rf $GPDATA
 sudo mkdir -p $GPDATA
 sudo chown -R vagrant:vagrant $GPDATA
 mkdir $GPDATA/master
 mkdir $GPDATA/primary
+sudo rm -f /tmp/.s.PGSQL.*
 
 gpssh-exkeys -h `hostname`
 hostname > $GPDATA/hosts
