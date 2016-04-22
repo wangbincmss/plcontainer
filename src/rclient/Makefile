@@ -1,8 +1,14 @@
+# Global build Directories
+
+PLCONTAINER_DIR = ..
+
+# R build flags
 R_CFLAGS = $(shell pkg-config --cflags libR)
 R_LDLAGS = $(shell pkg-config --libs libR)
-override CFLAGS += $(DEBUG) -I../ -I../../../include -DCOMM_STANDALONE -Wall -Wextra -Werror
 
-common_src = $(shell find ../common -name "*.c")
+override CFLAGS += $(DEBUG) -I$(PLCONTAINER_DIR)/ -DCOMM_STANDALONE -Wall -Wextra -Werror
+
+common_src = $(shell find $(PLCONTAINER_DIR)/common -name "*.c")
 common_objs = $(foreach src,$(common_src),$(subst .c,.o,$(src)))
 shared_src = rcall.c rconversions.c
 
