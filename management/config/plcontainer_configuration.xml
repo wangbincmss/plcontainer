@@ -22,6 +22,12 @@
     </container>
 
     <container>
+        <name>plc_anaconda</name>
+        <container_id>plc_anaconda</container_id>
+        <memory_mb>256</memory_mb>
+    </container>
+    
+    <container>
         <name>plc_r</name>
         <container_id>plc_r</container_id>
         <memory_mb>256</memory_mb>

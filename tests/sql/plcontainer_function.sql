@@ -448,3 +448,12 @@ CREATE OR REPLACE FUNCTION pylog100_shared() RETURNS double precision AS $$
 import math
 return math.log10(100)
 $$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyanaconda() RETURNS double precision AS $$
+# container: plc_anaconda
+import sklearn
+import numpy
+import scipy
+import pandas
+return 1.0
+$$ LANGUAGE plcontainer;

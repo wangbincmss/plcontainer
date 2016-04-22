@@ -1,0 +1,106 @@
+select rlog100();
+ rlog100 
+---------
+ 2
+(1 row)
+
+select rbool('t');
+ rbool 
+-------
+ t
+(1 row)
+
+select rbool('f');
+ rbool 
+-------
+ f
+(1 row)
+
+select rint(NULL::int2);
+ rint 
+------
+    0
+(1 row)
+
+select rint(123::int2);
+ rint 
+------
+  124
+(1 row)
+
+select rint(234::int4);
+ rint 
+------
+  236
+(1 row)
+
+select rint(345::int8);
+ rint 
+------
+  348
+(1 row)
+
+select rfloat(3.1415926535897932384626433832::float4);
+ rfloat  
+---------
+ 4.14159
+(1 row)
+
+select rfloat(3.1415926535897932384626433832::float8);
+      rfloat      
+------------------
+ 5.14159265358979
+(1 row)
+
+select rtext('123');
+ rtext  
+--------
+ 123foo
+(1 row)
+
+select rtest_mia();
+       rtest_mia        
+------------------------
+ {1,2,3,4,5,6,7,8,9,10}
+(1 row)
+
+select vec8('{1.23, 1.32}'::float8[]);
+    vec8     
+-------------
+ {1.23,1.32}
+(1 row)
+
+select vec8('{1, 5,10, 100, 7}'::int8[]);
+      vec8      
+----------------
+ {1,5,10,100,7}
+(1 row)
+
+select vec4('{1.23, 1.32}'::float4[]);
+    vec4     
+-------------
+ {1.23,1.32}
+(1 row)
+
+select vec4('{1, 5,10, 100, 7}'::int4[]);
+      vec4      
+----------------
+ {1,5,10,100,7}
+(1 row)
+
+select rlog100_shared();
+ rlog100_shared 
+----------------
+ 2
+(1 row)
+
+select rpg_spi_exec('select 1');
+ rpg_spi_exec 
+--------------
+ 1
+(1 row)
+
+--select paster('{hello, happy}','{world, birthday}',' ');
+--select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
+-- This function is of "return setof record" type which is not supported yet
+-- select rtest_spi_ta('select oid, typname from pg_type where typname = ''oid'' or typname = ''text''');
