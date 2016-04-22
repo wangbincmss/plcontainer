@@ -21,12 +21,12 @@ sudo yum -y install R R-devel R-core
 sudo yum -y install libxml2 libxml2-devel
 wget https://bootstrap.pypa.io/get-pip.py
 sudo python get-pip.py
-sudo pip install psi lockfile paramiko setuptools epydoc
+sudo pip install psi lockfile paramiko setuptools epydoc psutil
 rm get-pip.py
 
 # Install Docker
 sudo cp /vagrant/docker.repo /etc/yum.repos.d/
-sudo yum -y install docker-engine
+sudo yum -y install docker-engine-1.11.0
 sudo systemctl start docker.service
 sudo systemctl enable docker.service
 
