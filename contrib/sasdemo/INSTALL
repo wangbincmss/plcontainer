@@ -1,9 +1,0 @@
-
-To install:
-
-  make
-  make install
-
-
-See sql/* for example use case
-
