@@ -1,9 +1,11 @@
 #!/bin/bash
 
 # Prepare target directory for GPDB installation
+sudo rm -rf /usr/local/greenplum-db-4.3.99.0dev
+sudo mkdir /usr/local/greenplum-db-4.3.99.0dev
+sudo chown -R vagrant:vagrant /usr/local/greenplum-db-4.3.99.0dev
 sudo rm -rf /usr/local/greenplum-db
-sudo mkdir /usr/local/greenplum-db
-sudo chown -R vagrant:vagrant /usr/local/greenplum-db
+sudo ln -s /usr/local/greenplum-db-4.3.99.0dev /usr/local/greenplum-db 
 
 # Get the GPDB from github
 sudo rm -rf /gpdb
@@ -17,4 +19,4 @@ cd /gpdb
 sudo make || exit 1
 sudo make install || exit 1
 sudo chown -R vagrant:vagrant /usr/local/greenplum-db
-
+sudo chown -R vagrant:vagrant /usr/local/greenplum-db-4.3.99.0dev
