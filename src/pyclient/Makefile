@@ -1,15 +1,15 @@
 # Global build Directories
 
-PLCONTAINER_DIR = ../
+PLCONTAINER_DIR = ..
 
 # Python build flags
 PYV=$(shell python -c "import sys;t='{v[0]}.{v[1]}'.format(v=list(sys.version_info[:2]));sys.stdout.write(t)")
 PYTHON_CFLAGS = $(shell pkg-config --cflags python-$(PYV))
 PYTHON_LDFLAGS = $(shell pkg-config --libs python-$(PYV))
 
-override CFLAGS += $(DEBUG) -I$(PLCONTAINER_DIR) -DCOMM_STANDALONE -Wall -Wextra -Werror
+override CFLAGS += $(DEBUG) -I$(PLCONTAINER_DIR)/ -DCOMM_STANDALONE -Wall -Wextra -Werror
 
-common_src = $(shell find ../common -name "*.c")
+common_src = $(shell find $(PLCONTAINER_DIR)/common -name "*.c")
 common_objs = $(foreach src,$(common_src),$(subst .c,.o,$(src)))
 python_src = $(shell find . -name "*.c")
 python_objs = $(foreach src,$(python_src),$(subst .c,.o,$(src)))
