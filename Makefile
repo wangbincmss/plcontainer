@@ -1,4 +1,4 @@
-NAME = plcontainer
+MODULE_big = plcontainer
 
 # Directories
 SRCDIR = ./src
@@ -8,10 +8,8 @@ MGMTDIR = ./management
 FILES = $(shell find $(SRCDIR) -not -path "*client*" -type f -name "*.c")
 OBJS = $(foreach FILE,$(FILES),$(subst .c,.o,$(FILE)))
 
-# GPDB Dependency
-top_builddir = /gpdb
-include $(top_builddir)/src/Makefile.global
-include $(top_builddir)/src/Makefile.shlib
+PGXS := $(shell pg_config --pgxs)
+include $(PGXS)
 
 all: all-lib
 
@@ -35,13 +33,6 @@ install-extra:
 .PHONY: installcheck
 installcheck:
 	$(MAKE) -C tests
-
-.PHONY: clean
-clean:
-	rm -f $(SRCDIR)/*.o
-	rm -f $(SRCDIR)/common/*.o
-	rm -f $(SRCDIR)/common/messages/*.o
-	rm -f $(SRCDIR)/plcontainer.so
 
 .PHONY: clients
 clients:
