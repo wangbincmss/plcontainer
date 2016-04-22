@@ -30,6 +30,7 @@ uninstall: uninstall-lib
 install-extra:
 	$(INSTALL_PROGRAM) '$(MGMTDIR)/bin/plcontainer-config' '$(DESTDIR)$(bindir)/plcontainer-config'
 	$(INSTALL_DATA) '$(MGMTDIR)/config/plcontainer_configuration.xml' '$(DESTDIR)$(datadir)/plcontainer/'
+	$(INSTALL_DATA) '$(MGMTDIR)/sql/plcontainer_install.sql' '$(DESTDIR)$(datadir)/plcontainer/'
 
 .PHONY: installcheck
 installcheck:
