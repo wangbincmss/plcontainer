@@ -442,12 +442,6 @@ ERROR:  exception occurred: (plcontainer.c:230)
 DETAIL:  
  Cannot compile function in Python 
  SyntaxError: ('invalid syntax', ('<string>', 7, 1, '\n'))
-select pylog100_shared();
- pylog100_shared 
------------------
-               2
-(1 row)
-
 select pyanaconda();
  pyanaconda 
 ------------

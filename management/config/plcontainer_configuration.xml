@@ -37,14 +37,14 @@
         <name>plc_python_shared</name>
         <container_id>plc_python_shared</container_id>
         <memory_mb>128</memory_mb>
-        <shared_directory host="/data" container="/test_share" access="ro"/>
+        <shared_directory host="/usr/local" container="/usr/local" access="ro"/>
     </container>
 
     <container>
         <name>plc_r_shared</name>
         <container_id>plc_r_shared</container_id>
         <memory_mb>256</memory_mb>
-        <shared_directory host="/data" container="/test_share" access="ro"/>
+        <shared_directory host="/usr/local" container="/usr/local" access="ro"/>
     </container>
 
 </configuration>

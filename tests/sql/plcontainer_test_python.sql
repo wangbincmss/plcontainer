@@ -66,5 +66,4 @@ select pysdset('d','333');
 select pysdgetall();
 select pyinvalid_function();
 select pyinvalid_syntax();
-select pylog100_shared();
 select pyanaconda();
