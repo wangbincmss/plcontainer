@@ -92,9 +92,12 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
 
         pinfo->nargs = procTup->pronargs;
         if (pinfo->nargs > 0) {
+            // This is required to avoid the cycle from being removed by optimizer
+            int volatile j;
+
             pinfo->argtypes = plc_top_alloc(pinfo->nargs * sizeof(plcTypeInfo));
-            for (i = 0; i < pinfo->nargs; i++) {
-                fill_type_info(procTup->proargtypes.values[i], &pinfo->argtypes[i], 0);
+            for (j = 0; j < pinfo->nargs; j++) {
+                fill_type_info(procTup->proargtypes.values[j], &pinfo->argtypes[j], 0);
             }
 
             argnamesArray = SysCacheGetAttr(PROCOID, procHeapTup,
