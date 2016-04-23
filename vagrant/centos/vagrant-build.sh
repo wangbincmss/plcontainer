@@ -15,6 +15,7 @@ git clone https://github.com/greenplum-db/gpdb.git /gpdb
 
 # Build GPDB
 cd /gpdb
+export BLD_ARCH=rhel5_x86_64
 ./configure --prefix=/usr/local/greenplum-db --enable-depend --enable-debug --with-python --with-libxml || exit 1
 sudo make || exit 1
 sudo make install || exit 1
