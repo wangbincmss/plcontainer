@@ -41,17 +41,24 @@ static void free_subtypes(plcType *typArr) {
     }
 }
 
-void free_callreq(callreq req) {
+void free_callreq(callreq req, int shared) {
     int i;
 
-    /* free the procedure */
-    pfree(req->proc.name);
-    pfree(req->proc.src);
+    if (!shared) {
+        /* free the procedure */
+        pfree(req->proc.name);
+        pfree(req->proc.src);
+    }
 
     /* free the arguments */
     for (i = 0; i < req->nargs; i++) {
-        pfree(req->args[i].name);
-        pfree(req->args[i].data.value);
+        if (!shared && req->args[i].name != NULL) {
+            pfree(req->args[i].name);
+        }
+        if (!req->args[i].data.isnull) {
+            pfree(req->args[i].data.value);
+        }
+        free_subtypes(&req->args[i].type);
     }
     pfree(req->args);
 

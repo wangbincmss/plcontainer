@@ -23,6 +23,6 @@ typedef struct call_req {
   Frees a callreq and all subfields of the struct, this function
   assumes ownership of all pointers in the struct and substructs
 */
-void free_callreq(callreq req);
+void free_callreq(callreq req, int shared);
 
 #endif /* PLC_MESSAGE_CALLREQ_H */
