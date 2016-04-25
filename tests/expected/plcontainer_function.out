@@ -362,6 +362,22 @@ CREATE OR REPLACE FUNCTION pysdgetall() RETURNS setof text AS $$
 items = sorted(SD.items())
 return [ ':'.join([x[0],x[1]]) for x in items ]
 $$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pyunargs1(varchar) RETURNS text AS $$
+# container: plc_python
+return args[0]
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pyunargs2(a int, varchar) RETURNS text AS $$
+# container: plc_python
+return str(a) + args[1]
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pyunargs3(a int, varchar, c varchar) RETURNS text AS $$
+# container: plc_python
+return str(a) + args[1] + c
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pyunargs4(int, int, int, int) RETURNS int AS $$
+# container: plc_python
+return len(args)
+$$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION pyinvalid_function() RETURNS double precision AS $$
 # container: plc_python
 import math

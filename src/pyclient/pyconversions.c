@@ -439,10 +439,14 @@ static plcPyOutputFunc plc_get_output_function(plcDatatype dt) {
     return res;
 }
 
-static void plc_parse_type(plcPyType *pytype, plcType *type) {
+static void plc_parse_type(plcPyType *pytype, plcType *type, char *name) {
     int i = 0;
-    //pytype->name = strdup(type->name); TODO: implement type name to support UDTs
-    pytype->name = strdup("results");
+
+    if (name != NULL) {
+        pytype->name = strdup(name);
+    } else {
+        pytype->name = NULL;
+    }
     pytype->type = type->type;
     pytype->nSubTypes = type->nSubTypes;
     pytype->conv.inputfunc  = plc_get_input_function(pytype->type);
@@ -450,7 +454,7 @@ static void plc_parse_type(plcPyType *pytype, plcType *type) {
     if (pytype->nSubTypes > 0) {
         pytype->subTypes = (plcPyType*)malloc(pytype->nSubTypes * sizeof(plcPyType));
         for (i = 0; i < type->nSubTypes; i++)
-            plc_parse_type(&pytype->subTypes[i], &type->subTypes[i]);
+            plc_parse_type(&pytype->subTypes[i], &type->subTypes[i], NULL);
     } else {
         pytype->subTypes = NULL;
     }
@@ -470,9 +474,9 @@ plcPyFunction *plc_py_init_function(callreq call) {
     res->objectid = call->objectid;
 
     for (i = 0; i < res->nargs; i++)
-        plc_parse_type(&res->args[i], &call->args[i].type);
+        plc_parse_type(&res->args[i], &call->args[i].type, call->args[i].name);
 
-    plc_parse_type(&res->res, &call->retType);
+    plc_parse_type(&res->res, &call->retType, "result");
 
     return res;
 }
