@@ -1,1 +1,4 @@
 /client
+/*.so
+/bin/client
+/bin/*.so
