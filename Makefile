@@ -45,7 +45,7 @@ containers: clients
 	docker build -f dockerfiles/Dockerfile.python -t plc_python .
 	docker build -f dockerfiles/Dockerfile.R.shared -t plc_r_shared .
 	docker build -f dockerfiles/Dockerfile.python.shared -t plc_python_shared .
-	docker build -f dockerfiles/Dockerfile.python.anaconda -t plc_anaconda .
+	#docker build -f dockerfiles/Dockerfile.python.anaconda -t plc_anaconda .
 
 .PHONY: cleancontainers
 cleancontainers:
@@ -53,5 +53,5 @@ cleancontainers:
 	docker rmi -f plc_r
 	docker rmi -f plc_python_shared
 	docker rmi -f plc_r_shared
-	docker rmi -f plc_anaconda
+	#docker rmi -f plc_anaconda
 	docker ps -a | grep -v CONTAINER | awk '{ print $$1}' | xargs -i docker rm {}
