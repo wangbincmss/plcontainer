@@ -770,7 +770,7 @@ plr_SPI_exec( SEXP rsql )
     switch (resp->msgtype) {
        case MT_CALLREQ:
           handle_call((callreq)resp, plcconn);
-          free_callreq((callreq)resp);
+          free_callreq((callreq)resp, 0);
           goto receive;
        case MT_RESULT:
            break;

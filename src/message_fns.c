@@ -46,12 +46,15 @@ static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, 
 
 plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
     int           i, len;
-    Datum *       argnames, argnamesArray;
+    Datum        *argnames = NULL;
+    bool         *argnulls = NULL;
+    Datum         argnamesArray;
     Datum         srcdatum, namedatum;
     bool          isnull;
     Oid           procoid;
     Form_pg_proc  procTup;
-    HeapTuple     procHeapTup, textHeapTup;
+    HeapTuple     procHeapTup,
+                  textHeapTup = NULL;
     Form_pg_type  typeTup;
     plcProcInfo  *pinfo = NULL;
 
@@ -102,31 +105,36 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
 
             argnamesArray = SysCacheGetAttr(PROCOID, procHeapTup,
                                             Anum_pg_proc_proargnames, &isnull);
-            if (isnull) {
-                ReleaseSysCache(procHeapTup);
-                elog(ERROR, "null arguments!!!");
-            }
-
-            textHeapTup = SearchSysCache(TYPEOID, ObjectIdGetDatum(TEXTOID), 0, 0, 0);
-            if (!HeapTupleIsValid(textHeapTup)) {
-                elog(FATAL, "cannot find text type in cache");
-            }
-            typeTup = (Form_pg_type)GETSTRUCT(textHeapTup);
-            deconstruct_array(DatumGetArrayTypeP(argnamesArray), TEXTOID,
-                              typeTup->typlen, typeTup->typbyval, typeTup->typalign,
-                              &argnames, NULL, &len);
-            if (len != pinfo->nargs) {
-                elog(FATAL, "something bad happened, nargs != len");
+            /* If at least some arguments have names */
+            if (!isnull) {
+                textHeapTup = SearchSysCache(TYPEOID, ObjectIdGetDatum(TEXTOID), 0, 0, 0);
+                if (!HeapTupleIsValid(textHeapTup)) {
+                    elog(FATAL, "cannot find text type in cache");
+                }
+                typeTup = (Form_pg_type)GETSTRUCT(textHeapTup);
+                deconstruct_array(DatumGetArrayTypeP(argnamesArray), TEXTOID,
+                                  typeTup->typlen, typeTup->typbyval, typeTup->typalign,
+                                  &argnames, &argnulls, &len);
+                if (len != pinfo->nargs) {
+                    elog(FATAL, "something bad happened, nargs != len");
+                }
             }
 
             pinfo->argnames = plc_top_alloc(pinfo->nargs * sizeof(char*));
             for (i = 0; i < pinfo->nargs; i++) {
-                pinfo->argnames[i] =
-                    plc_top_strdup(DatumGetCString(
-                            DirectFunctionCall1(textout, argnames[i])
-                        ));
+                if (!isnull && !argnulls[i]) {
+                    pinfo->argnames[i] =
+                        plc_top_strdup(DatumGetCString(
+                                DirectFunctionCall1(textout, argnames[i])
+                            ));
+                } else {
+                    pinfo->argnames[i] = NULL;
+                }
             }
-            ReleaseSysCache(textHeapTup);
+
+            if (textHeapTup != NULL) {
+                ReleaseSysCache(textHeapTup);
+            }
         } else {
             pinfo->argtypes = NULL;
             pinfo->argnames = NULL;
@@ -154,7 +162,8 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
 void free_proc_info(plcProcInfo *proc) {
     int i;
     for (i = 0; i < proc->nargs; i++) {
-        pfree(proc->argnames[i]);
+        if (proc->argnames[i] != NULL)
+            pfree(proc->argnames[i]);
         if (proc->argtypes[i].nSubTypes > 0)
             free_type_info(proc->argtypes[i].subTypes,
                            proc->argtypes[i].nSubTypes);

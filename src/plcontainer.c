@@ -141,6 +141,7 @@ static plcontainer_result plcontainer_get_result(FunctionCallInfo  fcinfo,
 
     if (conn != NULL) {
         plcontainer_channel_send(conn, (message)req);
+        free_callreq(req, 1);
 
         while (1) {
             int     res = 0;

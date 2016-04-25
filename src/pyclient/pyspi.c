@@ -22,7 +22,7 @@ static plcontainer_result receive_from_backend() {
     switch (resp->msgtype) {
        case MT_CALLREQ:
           handle_call((callreq)resp, conn);
-          free_callreq((callreq)resp);
+          free_callreq((callreq)resp, 0);
           return receive_from_backend();
        case MT_RESULT:
            break;
