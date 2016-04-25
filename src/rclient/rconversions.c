@@ -12,8 +12,6 @@ static SEXP plc_r_object_from_float4(char *input);
 static SEXP plc_r_object_from_float8(char *input);
 static SEXP plc_r_object_from_text(char *input);
 static SEXP plc_r_object_from_text_ptr(char *input);
-static SEXP plc_r_object_from_array_dim(plcArray *arr, plcRInputFunc infunc,
-                    int *idx, int *ipos, char **pos, int vallen, int dim);
 static SEXP plc_r_object_from_array (char *input);
 
 static int plc_r_object_as_int1(SEXP *input, char **output, plcRType *type);
@@ -81,110 +79,124 @@ static SEXP plc_r_object_from_text_ptr(char *input) {
     return arg;
 }
 
-static SEXP plc_r_object_from_array_dim(plcArray *arr,
-										 plcRInputFunc infunc,
-										 int *idx,
-										 int *ipos,
-										 char **pos,
-										 int vallen,
-										 int dim) {
-    SEXP res = NULL, tmp=NULL;
-    if (dim == arr->meta->ndims) {
-        if (arr->nulls[*ipos] != 0) {
-        	res = R_NilValue;
-        } else {
-        	/*
-        	 * call the input function for the element in the array
-        	 */
-            res = infunc(*pos);
-        }
-
-        *ipos += 1;
-        /*
-         * this is the length of the item
-         */
-        *pos = *pos + vallen;
-
-    } else {
-        PROTECT( res = get_r_vector(arr->meta->type,  arr->meta->dims[dim]) );
-        for (idx[dim] = 0; idx[dim] < arr->meta->dims[dim]; idx[dim]++) {
-            SEXP obj;
-            obj = plc_r_object_from_array_dim(arr, infunc, idx, ipos, pos, vallen, dim+1);
-
-            switch(arr->meta->type){
-            /* 2 and 4 byte integer pgsql datatype => use R INTEGER */
-                 case PLC_DATA_INT2:
-                     INTEGER_DATA(res)[idx[dim]] = asInteger(obj) ;
-                     break;
-                 case PLC_DATA_INT4:
-                     INTEGER_DATA(res)[idx[dim]] = asInteger(obj) ;
-                     break;
-
-                     /*
-                      * Other numeric types => use R REAL
-                      * Note pgsql int8 is mapped to R REAL
-                      * because R INTEGER is only 4 byte
-                      */
-                 case PLC_DATA_INT8:
-                     NUMERIC_DATA(res)[idx[dim]] = (int64)asReal(obj);
-                     break;
-
-                 case PLC_DATA_FLOAT4:
-                     NUMERIC_DATA(res)[idx[dim]] = (float4 )asReal(obj);
-                     break;
-
-                 case PLC_DATA_FLOAT8:
-
-                     NUMERIC_DATA(res)[idx[dim]] = (float8 )asReal(obj);
-                     break;
-                 case PLC_DATA_INT1:
-                     LOGICAL_DATA(res)[idx[dim]] = asLogical(obj);
-                     break;
-                 case PLC_DATA_RECORD:
-                 case PLC_DATA_UDT:
-                 case PLC_DATA_INVALID:
-                 case PLC_DATA_ARRAY:
-                 	lprintf(ERROR, "unhandled type %d", arr->meta->type);
-                 	break;
-                 case PLC_DATA_TEXT:
-                 default:
-                     /* Everything else is defaulted to string */
-                	 if ( obj == R_NilValue ){
-                		 SET_STRING_ELT(res, idx[dim],NA_STRING);
-                	 }else{
-                		 tmp =  STRING_ELT(obj,0);
-                		 SET_STRING_ELT(res, idx[dim],tmp);
-                	 }
-            }
-            UNPROTECT(1);
-        }
-    }
-    return res;
-}
 
 static SEXP plc_r_object_from_array (char *input) {
     plcArray *arr = (plcArray*)input;
-    SEXP res = R_NilValue;
+    SEXP res = R_NilValue,obj=NULL;
 
     if (arr->meta->ndims == 0) {
     	PROTECT( res = get_r_vector(arr->meta->type,  0) );
     } else {
-        int  *idx;
-        int  ipos;
         char *pos;
         int   vallen = 0;
+        int   arr_length=1, i;
+
         plcRInputFunc infunc;
 
-        idx = malloc(sizeof(int) * arr->meta->ndims);
-        memset(idx, 0, sizeof(int) * arr->meta->ndims);
-        ipos = 0;
         pos = arr->data;
+
+        /* calculate the length of the array */
+        for (i=0; i <  arr->meta->ndims; i++){
+        	arr_length *= arr->meta->dims[i];
+        }
+
+        /* allocate a vector */
+        PROTECT( res = get_r_vector(arr->meta->type,  arr_length) );
         vallen = plc_get_type_length(arr->meta->type);
         infunc = plc_get_input_function(arr->meta->type);
-        if (arr->meta->type == PLC_DATA_TEXT)
-            infunc = plc_r_object_from_text_ptr;
 
-        PROTECT(res = plc_r_object_from_array_dim(arr, infunc, idx, &ipos, &pos, vallen, 0));
+        if (arr->meta->type == PLC_DATA_TEXT){
+            infunc = plc_r_object_from_text_ptr;
+        }
+
+        for( i=0; i<arr_length;i++){
+			if (arr->nulls[i] != 0) {
+				obj = R_NilValue;
+			} else {
+				/*
+				 * call the input function for the element in the array
+				 */
+				obj = infunc(pos);
+			}
+			switch(arr->meta->type){
+				 /* 2 and 4 byte integer pgsql datatype => use R INTEGER */
+				 case PLC_DATA_INT2:
+				 case PLC_DATA_INT4:
+					 if (arr->nulls[i] != 0){
+						 INTEGER_DATA(res)[i] = NA_INTEGER ;
+					 }else{
+						 INTEGER_DATA(res)[i] = asInteger(obj) ;
+					 }
+					 break;
+
+					 /*
+					  * Other numeric types => use R REAL
+					  * Note pgsql int8 is mapped to R REAL
+					  * because R INTEGER is only 4 byte
+					  */
+				 case PLC_DATA_INT8:
+					 if (arr->nulls[i] != 0){
+						 NUMERIC_DATA(res)[i] = NA_REAL ;
+					 }else{
+						 NUMERIC_DATA(res)[i] = (float8)asReal(obj);
+					 }
+					 break;
+
+				 case PLC_DATA_FLOAT4:
+					 if (arr->nulls[i] != 0){
+						 NUMERIC_DATA(res)[i] = NA_REAL ;
+					 }else{
+						 NUMERIC_DATA(res)[i] = (float4 )asReal(obj);
+					 }
+					 break;
+
+				 case PLC_DATA_FLOAT8:
+					 if (arr->nulls[i] != 0){
+						 NUMERIC_DATA(res)[i] = NA_REAL ;
+					 }else{
+						 NUMERIC_DATA(res)[i] = (float8 )asReal(obj);
+					 }
+					 break;
+				 case PLC_DATA_INT1:
+					 if (arr->nulls[i] != 0){
+						 LOGICAL_DATA(res)[i] = NA_LOGICAL;
+					 }else{
+						 LOGICAL_DATA(res)[i] = asLogical(obj);
+					 }
+					 break;
+				 case PLC_DATA_RECORD:
+				 case PLC_DATA_UDT:
+				 case PLC_DATA_INVALID:
+				 case PLC_DATA_ARRAY:
+					lprintf(ERROR, "unhandled type %d", arr->meta->type);
+					break;
+				 case PLC_DATA_TEXT:
+				 default:
+					 /* Everything else is defaulted to string */
+					 if (arr->nulls[i] != 0){
+						 SET_STRING_ELT(res, i,NA_STRING);
+					 }else{
+						 obj =  STRING_ELT(obj,0);
+						 SET_STRING_ELT(res, i,obj);
+					 }
+			}
+			/* move position to next element in the source array */
+			pos += vallen;
+			UNPROTECT(1);
+        }
+		if (arr->meta->ndims > 0)
+		{
+			SEXP	matrix_dims;
+
+			/* attach dimensions */
+			PROTECT(matrix_dims = allocVector(INTSXP, arr->meta->ndims));
+			for (i = 0; i < arr->meta->ndims; i++)
+				INTEGER_DATA(matrix_dims)[i] = arr->meta->dims[i];
+
+			setAttrib(res, R_DimSymbol, matrix_dims);
+			UNPROTECT(1);
+		}
+
     }
     UNPROTECT(1);
     return res;
@@ -346,6 +358,7 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
     SEXP        	mtx;
     int              ptr;
 
+
     meta = (plcRArrMeta*)iter->payload;
     ptrs = (plcRArrPointer*)iter->position;
     res  = (rawdata*)pmalloc(sizeof(rawdata));
@@ -354,7 +367,7 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
 
     ptr = meta->ndims - 1;
     idx  =  ptrs[ptr].pos;
-    mtx = ptrs[ptr].obj[0 ];
+    mtx = ptrs[ptr].obj[0];
     if ((mtx == R_NilValue)
     		|| ( (TYPEOF(mtx) == LGLSXP) && (asLogical(mtx) == NA_LOGICAL) )
 			|| ( (TYPEOF(mtx) == INTSXP) && (asInteger(mtx) == NA_INTEGER) )
@@ -386,7 +399,8 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
 
 			case PLC_DATA_INT8:
 				res->value = pmalloc(8);
-				if (NUMERIC_DATA(mtx)[idx] == NA_REAL){
+
+				if ( R_IsNA(NUMERIC_DATA(mtx)[idx]) != 0 ){
 					*((int64 *)res->value) = (int64)0;
 			        res->isnull = 1;
 				}else{
@@ -397,7 +411,7 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
 
 			case PLC_DATA_FLOAT4:
 				res->value = pmalloc(4);
-				if (NUMERIC_DATA(mtx)[idx] == NA_REAL){
+				if (R_IsNA(NUMERIC_DATA(mtx)[idx])){
 					res->isnull = 1;
 					*((float4 *)res->value) = (float4)0;
 				}else{
@@ -406,7 +420,7 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
 				break;
 			case PLC_DATA_FLOAT8:
 				res->value = pmalloc(8);
-				if (NUMERIC_DATA(mtx)[idx] == NA_REAL){
+				if (R_IsNA(NUMERIC_DATA(mtx)[idx])){
 					res->isnull = 1;
 					*((float8 *)res->value) = (float8)0;
 				}else{
@@ -445,28 +459,7 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
 
     }
 
-    while (ptr >= 0) {
-        ptrs[ptr].pos += 1;
-        /* If we finished up iterating over this dimension */
-        if (ptrs[ptr].pos == meta->dims[ptr]) {
-        	//TODO unprotect
-            ptrs[ptr].obj = NULL;
-            ptrs[ptr].pos = 0;
-            ptr -= 1;
-        }
-        /* If we found the "next" dimension to iterate over */
-        else if (ptrs[ptr].pos < meta->dims[ptr]) {
-            ptr += 1;
-            while (ptr < meta->ndims) {
-            	//TODO this won't work
-//                ptrs[ptr].obj = ptrs[ptr-1].obj[ ptrs[ptr-1].pos ];
-                //TODO protect
-                ptrs[ptr].pos = 0;
-                ptr += 1;
-            }
-            break;
-        }
-    }
+    ptrs[ptr].pos += 1;
 
     return res;
 }
@@ -476,7 +469,8 @@ static int plc_r_object_as_array(SEXP *input, char **output, plcRType *type) {
     plcArrayMeta    *arrmeta;
     plcIterator     *iter;
     size_t           dims[PLC_MAX_ARRAY_DIMS];
-   // SEXP        	 *stack[PLC_MAX_ARRAY_DIMS];
+    SEXP			 rdims;
+    // SEXP        	 *stack[PLC_MAX_ARRAY_DIMS];
     int              ndims = 0;
     int              res = 0;
     int              i = 0;
@@ -486,8 +480,13 @@ static int plc_r_object_as_array(SEXP *input, char **output, plcRType *type) {
     if (*input != R_NilValue && (isVector(*input) || isMatrix(*input)) ) {
         /* TODO this is just for vectors */
 
-    	ndims = 1;
-    	dims[0] = length(*input);
+    	PROTECT(rdims = getAttrib(*input, R_DimSymbol));
+    	ndims = length(rdims);
+    	for ( i=0; i< ndims; i++){
+    		dims[i] = INTEGER(rdims)[i];
+    	}
+    	UNPROTECT(1);
+
 
         /* Allocate the iterator */
         iter = (plcIterator*)pmalloc(sizeof(plcIterator));
