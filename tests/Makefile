@@ -1,7 +1,7 @@
 include ../Makefile
 
 REGRESS_OPTS = --dbname=$(PL_TESTDB)
-REGRESS = plcontainer_install plcontainer_schema plcontainer_populate plcontainer_function plcontainer_test_python plcontainer_test_r
+REGRESS = plcontainer_install plcontainer_schema plcontainer_populate plcontainer_function plcontainer_test_python plcontainer_test_anaconda plcontainer_test_r
 PSQLDIR = $(bindir)
 
 .PHONY: default

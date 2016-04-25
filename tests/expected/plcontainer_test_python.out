@@ -442,9 +442,3 @@ ERROR:  exception occurred: (plcontainer.c:230)
 DETAIL:  
  Cannot compile function in Python 
  SyntaxError: ('invalid syntax', ('<string>', 7, 1, '\n'))
-select pyanaconda();
- pyanaconda 
-------------
-          1
-(1 row)
-
