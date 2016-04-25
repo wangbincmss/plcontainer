@@ -1,9 +1,10 @@
 Pkgname: plcontainer 
 Architecture: #arch
 OS: #os
-Version: pv0.1_gpdb4.3orca
+Version: 0.1.0_gpdb4.3orca
 GPDBVersion: 4.3
 Description: Provides PL/Container procedural language implementation for the Greenplum Database. 
 PostInstall:
 - Master: "echo 'Please source your $GPHOME/greenplum_path.sh file and restart the database.';
-          echo 'You can enable PL/Container by running \"psql -f $GPHOME/share/postgresql/plcontainer/plcontainer_install.sql -d mydatabase\"';"
+          echo 'You can enable PL/Container by running \"psql -f $GPHOME/share/postgresql/plcontainer/plcontainer_install.sql -d mydatabase\"';
+          echo 'Before running your first PL/Container function you must initialize the PL/Container configuration by running \"plcontainer-config --reset\"';"
