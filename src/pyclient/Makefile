@@ -25,6 +25,7 @@ clean_common:
 
 client: $(python_objs) $(common_objs)
 	LIBRARY_PATH=$(LD_LIBRARY_PATH) $(CC) -o $@ $^ $(PYTHON_LDFLAGS) $(LIBS)
+	cp client bin
 
 debug: DEBUG = -D_DEBUG_CLIENT -g
 
@@ -36,3 +37,4 @@ all: client
 clean: clean_common
 	rm -f *.o
 	rm -f client
+	rm -f bin/client

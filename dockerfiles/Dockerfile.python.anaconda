@@ -10,6 +10,6 @@ ENV LD_LIBRARY_PATH /root/anaconda/lib
 ENV PYTHONHOME=/root/anaconda
 
 # Running the Python client inside of container
-ADD ./src/pyclient /clientdir
+ADD ./src/pyclient/bin /clientdir
 EXPOSE 8080
 CMD ["/clientdir/client"]

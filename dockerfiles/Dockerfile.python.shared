@@ -1,7 +1,7 @@
 FROM centos:7.2.1511
 
 # Running Python client inside of container
-ADD ./src/pyclient /clientdir
+ADD ./src/pyclient/bin /clientdir
 EXPOSE 8080
 CMD ["/clientdir/client.sh"]
 
