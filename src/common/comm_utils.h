@@ -60,6 +60,8 @@ interpreted as representing official policies, either expressed or implied, of t
     typedef float float4;
     typedef double float8;
     typedef char bool;
+    #define true    ((bool) 1)
+    #define false   ((bool) 0)
     /* End of extraction from c.h */
 
     #define lprintf(lvl, fmt, ...)            \

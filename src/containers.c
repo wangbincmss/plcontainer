@@ -22,11 +22,13 @@ static container_t *containers;
 
 static void insert_container(char *image, plcConn *conn);
 static void init_containers();
-static char *get_memory_option(plcContainer *cont);
-static char *get_sharing_options(plcContainer *cont);
 static inline bool is_whitespace (const char c);
 
 #ifndef CONTAINER_DEBUG
+
+static char *get_memory_option(plcContainer *cont);
+static char *get_sharing_options(plcContainer *cont);
+static char *shell(const char *cmd);
 
 static char *shell(const char *cmd) {
     FILE* fCmd;
@@ -57,25 +59,6 @@ static char *shell(const char *cmd) {
     }
 
     return data;
-}
-
-#endif
-
-static void insert_container(char *image, plcConn *conn) {
-    size_t i;
-    for (i = 0; i < CONTAINER_NUMBER; i++) {
-        if (containers[i].name == NULL) {
-            containers[i].name = plc_top_strdup(image);
-            containers[i].conn = conn;
-            return;
-        }
-    }
-}
-
-static void init_containers() {
-    containers = (container_t*)plc_top_alloc(CONTAINER_NUMBER * sizeof(container_t));
-    memset(containers, 0, CONTAINER_NUMBER * sizeof(container_t));
-    containers_init = 1;
 }
 
 static char *get_memory_option(plcContainer *cont) {
@@ -129,6 +112,25 @@ static char *get_sharing_options(plcContainer *cont) {
         res[0] = '\0';
     }
     return res;
+}
+
+#endif /* not CONTAINER_DEBUG */
+
+static void insert_container(char *image, plcConn *conn) {
+    size_t i;
+    for (i = 0; i < CONTAINER_NUMBER; i++) {
+        if (containers[i].name == NULL) {
+            containers[i].name = plc_top_strdup(image);
+            containers[i].conn = conn;
+            return;
+        }
+    }
+}
+
+static void init_containers() {
+    containers = (container_t*)plc_top_alloc(CONTAINER_NUMBER * sizeof(container_t));
+    memset(containers, 0, CONTAINER_NUMBER * sizeof(container_t));
+    containers_init = 1;
 }
 
 plcConn *find_container(const char *image) {

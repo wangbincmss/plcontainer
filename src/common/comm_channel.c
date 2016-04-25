@@ -198,13 +198,20 @@ static int send_float8(plcConn *conn, double f) {
 }
 
 static int send_cstring(plcConn *conn, char *s) {
-    debug_print(WARNING, "    ===> sending cstring '%s'", s);
     int res = 0;
-    int cnt = strlen(s);
-    res |= send_int32(conn, cnt);
-    if (res == 0) {
-        res = plcBufferAppend(conn, s, cnt);
+
+    debug_print(WARNING, "    ===> sending cstring '%s'", s);
+    if (s == NULL) {
+        res = send_int32(conn, 0);
+    } else {
+        int cnt = strlen(s);
+
+        res |= send_int32(conn, cnt);
+        if (res == 0) {
+            res = plcBufferAppend(conn, s, cnt);
+        }
     }
+
     return res;
 }
 
@@ -346,17 +353,20 @@ static int receive_raw(plcConn *conn, char *s, size_t len) {
 }
 
 static int receive_cstring(plcConn *conn, char **s) {
-    int cnt;
     int res = 0;
+    int cnt;
+
     if (receive_int32(conn, &cnt) < 0) {
         return -1;
     }
 
-    *s   = pmalloc(cnt + 1);
-    if (cnt > 0) {
+    if (cnt == 0) {
+        *s = NULL;
+    } else {
+        *s   = pmalloc(cnt + 1);
         res = plcBufferRead(conn, *s, cnt);
+        (*s)[cnt] = 0;
     }
-    (*s)[cnt] = 0;
 
     debug_print(WARNING, "    <=== receiving cstring '%s'", *s);
     return res;

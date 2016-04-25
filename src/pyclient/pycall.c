@@ -19,7 +19,7 @@
  */
 
 static char *create_python_func(callreq req);
-static PyObject *arguments_to_pytuple (plcConn *conn, plcPyFunction *pyfunc);
+static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc);
 static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *pyfunc);
 static int fill_rawdata(rawdata *res, plcConn *conn, PyObject *retval, plcPyFunction *pyfunc);
 
@@ -124,6 +124,7 @@ void handle_call(callreq req, plcConn *conn) {
 
         /* Modify function code for compiling it into Python object */
         func = create_python_func(req);
+        lprintf(WARNING, "Function code is: %s", func);
 
         /* The function will be in the dictionary because it was wrapped with "def proc_name:... " */
         val = PyRun_String(func, Py_single_input, dict, dict);
@@ -190,25 +191,27 @@ static char *create_python_func(callreq req) {
     mlen = sizeof("def ") + namelen + sizeof("():\n\t") + (strlen(src) * 2);
     /* function delimiter*/
     mlen += sizeof("\n\n");
-    /* room for n-1 commas and the n argument names */
-    mlen += req->nargs - 1;
+    /* room for n commas and the n+1 argument names */
+    mlen += req->nargs;
+    mlen += sizeof("args");
     for (i = 0; i < req->nargs; i++) {
-        mlen += strlen(req->args[i].name);
+        if (req->args[i].name != NULL) {
+            mlen += strlen(req->args[i].name);
+        }
     }
     mlen += 1; /* null byte */
 
     mrc  = malloc(mlen);
-    plen = snprintf(mrc, mlen, "def %s(", name);
+    plen = snprintf(mrc, mlen, "def %s(args", name);
     assert(plen >= 0 && ((size_t)plen) < mlen);
 
     sp = src;
     mp = mrc + plen;
 
     for (i = 0; i < req->nargs; i++) {
-        if (i > 0)
+        if (req->args[i].name != NULL) {
             mp += snprintf(mp, mlen - (mp - mrc), ",%s", req->args[i].name);
-        else
-            mp += snprintf(mp, mlen - (mp - mrc), "%s", req->args[i].name);
+        }
     }
 
     mp += snprintf(mp, mlen - (mp - mrc), "):\n\t");
@@ -234,37 +237,71 @@ static char *create_python_func(callreq req) {
     return mrc;
 }
 
-static PyObject *arguments_to_pytuple (plcConn *conn, plcPyFunction *pyfunc) {
+static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
     PyObject *args;
+    PyObject *arglist;
     int i;
+    int notnull = 0;
+    int pos;
 
-    args = PyTuple_New(pyfunc->nargs);
+    /* Amount of elements that have names and should make it to the input tuple */
+    for (i = 0; i < pyfunc->nargs; i++) {
+        if (pyfunc->args[i].name != NULL) {
+            notnull += 1;
+        }
+    }
+
+    /* Creating a tuple that would be input to the function and list of arguments */
+    args = PyTuple_New(notnull + 1);
+    arglist = PyList_New(pyfunc->nargs);
+
+    /* First element of the argument list is the full list of arguments */
+    PyTuple_SetItem(args, 0, arglist);
+    pos = 1;
     for (i = 0; i < pyfunc->nargs; i++) {
         PyObject *arg = NULL;
 
+        /* Get the argument from the callreq structure */
         if (pyfunc->call->args[i].data.isnull) {
             Py_INCREF(Py_None);
             arg = Py_None;
         } else {
             if (pyfunc->args[i].conv.inputfunc == NULL) {
                 raise_execution_error(conn,
-                                      "Parameter '%s' type %d is not supported",
+                                      "Parameter '%s' (#%d) type %d is not supported",
                                       pyfunc->args[i].name,
+                                      i,
                                       pyfunc->args[i].type);
                 return NULL;
             }
             arg = pyfunc->args[i].conv.inputfunc(pyfunc->call->args[i].data.value);
         }
+
+        /* Argument cannot be NULL unless some error has happened as Py_None != NULL */
         if (arg == NULL) {
             raise_execution_error(conn,
-                                  "Converting parameter '%s' to Python type failed",
-                                  pyfunc->args[i].name);
+                                  "Converting parameter '%s' (#%d) to Python type failed",
+                                  pyfunc->args[i].name, i);
             return NULL;
         }
 
-        if (PyTuple_SetItem(args, i, arg) != 0) {
+        /* Only named arguments are passed to the function input tuple */
+        if (pyfunc->args[i].name != NULL) {
+            if (PyTuple_SetItem(args, pos, arg) != 0) {
+                raise_execution_error(conn,
+                                      "Appending Python list element %d for argument '%s' has failed",
+                                      i, pyfunc->args[i].name);
+                return NULL;
+            }
+            /* As the object reference was stolen by setitem we need to incref */
+            Py_INCREF(arg);
+            pos += 1;
+        }
+
+        /* All the arguments, including unnamed, are passed to the arguments array */
+        if (PyList_SetItem(arglist, i, arg) != 0) {
             raise_execution_error(conn,
-                                  "Setting Python list element %d for argument '%s' has failed",
+                                  "Appending Python list element %d for argument '%s' has failed",
                                   i, pyfunc->args[i].name);
             return NULL;
         }
