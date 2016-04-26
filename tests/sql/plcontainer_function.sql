@@ -62,29 +62,59 @@ create or replace function rtest_mia() returns int[] as $$
 as.matrix(array(1:10,c(2,5)))
 $$ language plcontainer;
 
-create or replace function vec8(arg1 _float8) returns _float8 as
+create or replace function vec(arg1 _float8) returns _float8 as
 $$
 # container: plc_r
 arg1
 $$ language 'plcontainer';
 
-create or replace function vec4(arg1 _float4) returns _float4 as
+create or replace function vec(arg1 _float4) returns _float4 as
 $$
 # container: plc_r
 arg1
 $$ language 'plcontainer';
 
-create or replace function vec8(arg1 _int8) returns _int8 as
+create or replace function vec(arg1 _int8) returns _int8 as
 $$
 # container: plc_r
 arg1
 $$ language 'plcontainer';
 
-create or replace function vec4(arg1 _int4) returns _int4 as
+create or replace function vec(arg1 _int4) returns _int4 as
 $$
 # container: plc_r
 arg1
 $$ language 'plcontainer';
+
+CREATE OR REPLACE FUNCTION rintarr(arr int8[]) RETURNS int8 AS $$
+# container: plc_r
+return (sum(arr, na.rm=TRUE))
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rintarr(arr int4[]) RETURNS int4 AS $$
+# container: plc_r
+return (sum(arr, na.rm=TRUE))
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rintarr(arr int2[]) RETURNS int2 AS $$
+# container: plc_r
+return (sum(arr, na.rm=TRUE))
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rfloatarr(arr float8[]) RETURNS float8 AS $$
+# container: plc_r
+return (sum(arr, na.rm=TRUE))
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rfloatarr(arr float4[]) RETURNS float4 AS $$
+# container: plc_r
+return (sum(arr, na.rm=TRUE))
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rboolarr(arr boolean[]) RETURNS int AS $$
+# container: plc_r
+return (sum(arr, na.rm=TRUE))
+$$ LANGUAGE plcontainer;
 
 create or replace function paster(arg1 _text,arg2 _text,arg3 text) returns text[] as
 $$
