@@ -1,3 +1,4 @@
+set datestyle='ISO,MDY';
 select rlog100();
 select rbool('t');
 select rbool('f');
@@ -7,6 +8,9 @@ select rint(234::int4);
 select rint(345::int8);
 select rfloat(3.1415926535897932384626433832::float4);
 select rfloat(3.1415926535897932384626433832::float8);
+select rnumeric(3.1415926535897932384626433832::numeric);
+select rtimestamp('2012-01-02 12:34:56.789012'::timestamp);
+select rtimestamptz('2012-01-02 12:34:56.789012 UTC+4'::timestamptz);
 select rtext('123');
 select rtest_mia();
 select vec8('{1.23, 1.32}'::float8[]);

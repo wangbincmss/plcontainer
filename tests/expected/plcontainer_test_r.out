@@ -1,3 +1,4 @@
+set datestyle='ISO,MDY';
 select rlog100();
  rlog100 
 ---------
@@ -52,6 +53,24 @@ select rfloat(3.1415926535897932384626433832::float8);
  5.14159265358979
 (1 row)
 
+select rnumeric(3.1415926535897932384626433832::numeric);
+     rnumeric     
+------------------
+ 6.14159265358979
+(1 row)
+
+select rtimestamp('2012-01-02 12:34:56.789012'::timestamp);
+         rtimestamp         
+----------------------------
+ 2012-01-02 13:34:56.789011
+(1 row)
+
+select rtimestamptz('2012-01-02 12:34:56.789012 UTC+4'::timestamptz);
+         rtimestamptz          
+-------------------------------
+ 2012-01-02 08:34:56.789012-08
+(1 row)
+
 select rtext('123');
  rtext  
 --------
@@ -59,9 +78,9 @@ select rtext('123');
 (1 row)
 
 select rtest_mia();
-       rtest_mia        
-------------------------
- {1,2,3,4,5,6,7,8,9,10}
+         rtest_mia          
+----------------------------
+ {{1,2,3,4,5},{6,7,8,9,10}}
 (1 row)
 
 select vec8('{1.23, 1.32}'::float8[]);
