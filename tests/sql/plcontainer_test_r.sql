@@ -13,10 +13,33 @@ select rtimestamp('2012-01-02 12:34:56.789012'::timestamp);
 select rtimestamptz('2012-01-02 12:34:56.789012 UTC+4'::timestamptz);
 select rtext('123');
 select rtest_mia();
-select vec8('{1.23, 1.32}'::float8[]);
-select vec8('{1, 5,10, 100, 7}'::int8[]);
-select vec4('{1.23, 1.32}'::float4[]);
-select vec4('{1, 5,10, 100, 7}'::int4[]);
+select vec('{1.23, 1.32}'::float8[]);
+select vec('{1, 5,10, 100, 7}'::int8[]);
+select vec('{1.23, 1.32}'::float4[]);
+select vec('{1, 5,10, 100, 7}'::int4[]);
+
+select rintarr('{1,2,3,4}'::int2[]);
+select rintarr('{1,2,3,null}'::int2[]);
+select rintarr('{null}'::int2[]);
+select rintarr('{1,2,3,4,5}'::int4[]);
+select rintarr('{1,2,3,4,null}'::int4[]);
+select rintarr('{null}'::int4[]);
+select rintarr('{1,2,3,4,6}'::int8[]);
+select rintarr('{1,2,3,6,null}'::int8[]);
+select rintarr('{null}'::int8[]);
+
+select rfloatarr('{1.2,2.3,3.4,5.6}'::float8[]);
+select rfloatarr('{1.2,2.3,3.4,null}'::float8[]);
+select rfloatarr('{null}'::float8[]);
+
+select rfloatarr('{1.2,2.3,3.4,5.6,6.7}'::float4[]);
+select rfloatarr('{1.2,2.3,3.4,5.6,null}'::float4[]);
+select rfloatarr('{null}'::float4[]);
+
+select rboolarr('{1,1,0}'::bool[]);
+select rboolarr('{1,1,0,NULL}'::bool[]);
+select rboolarr('{NULL}'::bool[]);
+
 select rlog100_shared();
 select rpg_spi_exec('select 1');
 --select paster('{hello, happy}','{world, birthday}',' ');

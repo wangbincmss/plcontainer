@@ -83,28 +83,136 @@ select rtest_mia();
  {{1,2,3,4,5},{6,7,8,9,10}}
 (1 row)
 
-select vec8('{1.23, 1.32}'::float8[]);
-    vec8     
+select vec('{1.23, 1.32}'::float8[]);
+     vec     
 -------------
  {1.23,1.32}
 (1 row)
 
-select vec8('{1, 5,10, 100, 7}'::int8[]);
-      vec8      
+select vec('{1, 5,10, 100, 7}'::int8[]);
+      vec       
 ----------------
  {1,5,10,100,7}
 (1 row)
 
-select vec4('{1.23, 1.32}'::float4[]);
-    vec4     
+select vec('{1.23, 1.32}'::float4[]);
+     vec     
 -------------
  {1.23,1.32}
 (1 row)
 
-select vec4('{1, 5,10, 100, 7}'::int4[]);
-      vec4      
+select vec('{1, 5,10, 100, 7}'::int4[]);
+      vec       
 ----------------
  {1,5,10,100,7}
+(1 row)
+
+select rintarr('{1,2,3,4}'::int2[]);
+ rintarr 
+---------
+      10
+(1 row)
+
+select rintarr('{1,2,3,null}'::int2[]);
+ rintarr 
+---------
+       6
+(1 row)
+
+select rintarr('{null}'::int2[]);
+ rintarr 
+---------
+       0
+(1 row)
+
+select rintarr('{1,2,3,4,5}'::int4[]);
+ rintarr 
+---------
+      15
+(1 row)
+
+select rintarr('{1,2,3,4,null}'::int4[]);
+ rintarr 
+---------
+      10
+(1 row)
+
+select rintarr('{null}'::int4[]);
+ rintarr 
+---------
+       0
+(1 row)
+
+select rintarr('{1,2,3,4,6}'::int8[]);
+ rintarr 
+---------
+      16
+(1 row)
+
+select rintarr('{1,2,3,6,null}'::int8[]);
+ rintarr 
+---------
+      12
+(1 row)
+
+select rintarr('{null}'::int8[]);
+ rintarr 
+---------
+       0
+(1 row)
+
+select rfloatarr('{1.2,2.3,3.4,5.6}'::float8[]);
+ rfloatarr 
+-----------
+      12.5
+(1 row)
+
+select rfloatarr('{1.2,2.3,3.4,null}'::float8[]);
+ rfloatarr 
+-----------
+       6.9
+(1 row)
+
+select rfloatarr('{null}'::float8[]);
+ rfloatarr 
+-----------
+         0
+(1 row)
+
+select rfloatarr('{1.2,2.3,3.4,5.6,6.7}'::float4[]);
+ rfloatarr 
+-----------
+      19.2
+(1 row)
+
+select rfloatarr('{1.2,2.3,3.4,5.6,null}'::float4[]);
+ rfloatarr 
+-----------
+      12.5
+(1 row)
+
+select rfloatarr('{null}'::float4[]);
+ rfloatarr 
+-----------
+         0
+(1 row)
+
+select rboolarr('{1,1,0}'::bool[]);
+ rboolarr 
+----------
+        2
+(1 row)
+
+select rboolarr('{1,1,0,NULL}'::bool[]);
+ rboolarr 
+----------
+        2
+(1 row)
+
+select rboolarr('{NULL}'::bool[]);
+ rboolarr 
+----------
+        0
 (1 row)
 
 select rlog100_shared();
