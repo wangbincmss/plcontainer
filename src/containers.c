@@ -5,6 +5,9 @@
 #include <string.h>
 #include <unistd.h>
 
+#include "postgres.h"
+#include "utils/ps_status.h"
+
 #include "common/comm_utils.h"
 #include "common/comm_channel.h"
 #include "common/messages/messages.h"
@@ -29,6 +32,7 @@ static inline bool is_whitespace (const char c);
 static char *get_memory_option(plcContainer *cont);
 static char *get_sharing_options(plcContainer *cont);
 static char *shell(const char *cmd);
+static void cleanup(char *dockerid);
 
 static char *shell(const char *cmd) {
     FILE* fCmd;
@@ -114,6 +118,31 @@ static char *get_sharing_options(plcContainer *cont) {
     return res;
 }
 
+static void cleanup(char *dockerid) {
+    pid_t pid;
+
+    /* We fork the process to syncronously wait for container to exit */
+    pid = fork();
+    if (pid == 0) {
+        char psname[200];
+        char cmd[1000];
+
+        /* Setting application name to let the system know it is us */
+        sprintf(psname, "plcontainer cleaner %s", dockerid);
+        set_ps_display(psname, false);
+
+        /* Wait for container to exit */
+        sprintf(cmd, "docker wait %s", dockerid);
+        system(cmd);
+
+        /* Remove the container leftover filesystem data */
+        sprintf(cmd, "docker rm %s", dockerid);
+        system(cmd);
+
+        _exit(0);
+    }
+}
+
 #endif /* not CONTAINER_DEBUG */
 
 static void insert_container(char *image, plcConn *conn) {
@@ -195,7 +224,6 @@ plcConn *start_container(plcContainer *cont) {
     }
     elog(DEBUG1, "Calling following command: '%s'", cmd);
     ports = shell(cmd);
-    pfree(cmd);
     /*
        output:
        $ sudo docker port dockerid
@@ -206,6 +234,11 @@ plcConn *start_container(plcContainer *cont) {
         lprintf(FATAL, "cannot find port in %s", ports);
     }
     port = atoi(exposed + 1);
+
+    /* Create a process to clean up the container after it finishes */
+    cleanup(dockerid);
+
+    pfree(cmd);
     pfree(ports);
     pfree(dockerid);
 
