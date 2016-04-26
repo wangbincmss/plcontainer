@@ -35,6 +35,23 @@ CREATE OR REPLACE FUNCTION rfloat(f float8) RETURNS float8 AS $$
 return (as.numeric(f)+2)
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION rnumeric(n numeric) RETURNS numeric AS $$
+# container: plc_r
+return (n+3.0)
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtimestamp(t timestamp) RETURNS timestamp AS $$
+# container: plc_r
+options(digits.secs = 6)
+tmp <- strptime(t,'%Y-%m-%d %H:%M:%OS')
+return (as.character(tmp + 3600))
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtimestamptz(t timestamptz) RETURNS timestamptz AS $$
+# container: plc_r
+t
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION rtext(arg varchar) RETURNS varchar AS $$
 # container: plc_r
 return(paste(arg,'foo',sep=''))
