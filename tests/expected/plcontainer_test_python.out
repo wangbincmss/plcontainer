@@ -23,7 +23,7 @@ select pybool('t');
 (1 row)
 
 select pyint(NULL::int2);
-ERROR:  exception occurred: (plcontainer.c:230)
+ERROR:  exception occurred: (plcontainer.c:231)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
@@ -339,7 +339,7 @@ select pylogging();
 INFO:  this is the info message
 NOTICE:  this is the notice message
 WARNING:  this is the warning message
-ERROR:  this is the error message (plcontainer.c:213)
+ERROR:  this is the error message (plcontainer.c:214)
 select pylogging2();
 INFO:  this is the info message
 CONTEXT:  SQL statement "select pylogging()"
@@ -347,7 +347,7 @@ NOTICE:  this is the notice message
 CONTEXT:  SQL statement "select pylogging()"
 WARNING:  this is the warning message
 CONTEXT:  SQL statement "select pylogging()"
-ERROR:  this is the error message (plcontainer.c:213)
+ERROR:  this is the error message (plcontainer.c:214)
 CONTEXT:  SQL statement "select pylogging()"
 select pygdset('1','a');
  pygdset 
@@ -430,15 +430,39 @@ select pysdgetall();
  d:333
 (4 rows)
 
+select pyunargs1('foo');
+ pyunargs1 
+-----------
+ foo
+(1 row)
+
+select pyunargs2(123, 'foo');
+ pyunargs2 
+-----------
+ 123foo
+(1 row)
+
+select pyunargs3(123, 'foo', 'bar');
+ pyunargs3 
+-----------
+ 123foobar
+(1 row)
+
+select pyunargs4(1,null,null,1);
+ pyunargs4 
+-----------
+         4
+(1 row)
+
 select pyinvalid_function();
-ERROR:  exception occurred: (plcontainer.c:230)
+ERROR:  exception occurred: (plcontainer.c:231)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
   File "<string>", line 5, in pyinvalid_function
 AttributeError: 'module' object has no attribute 'foobar'
 select pyinvalid_syntax();
-ERROR:  exception occurred: (plcontainer.c:230)
+ERROR:  exception occurred: (plcontainer.c:231)
 DETAIL:  
  Cannot compile function in Python 
  SyntaxError: ('invalid syntax', ('<string>', 7, 1, '\n'))
