@@ -454,6 +454,18 @@ select pyunargs4(1,null,null,1);
          4
 (1 row)
 
+select pylargeint8in(array_agg(id)) from generate_series(1,100000) id;
+ pylargeint8in 
+---------------
+       50000.5
+(1 row)
+
+select avg(x) from (select unnest(pylargeint8out(100000)) as x) as q;
+   avg   
+---------
+ 49999.5
+(1 row)
+
 select pyinvalid_function();
 ERROR:  exception occurred: (plcontainer.c:231)
 DETAIL:  
