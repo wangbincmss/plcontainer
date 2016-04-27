@@ -40,6 +40,8 @@ select rboolarr('{1,1,0}'::bool[]);
 select rboolarr('{1,1,0,NULL}'::bool[]);
 select rboolarr('{NULL}'::bool[]);
 
+select rtimestamparr($${'2012-01-02 12:34:56.789012','2012-01-03 12:34:56.789012'}$$::timestamp[]);
+
 select rlog100_shared();
 select rpg_spi_exec('select 1');
 --select paster('{hello, happy}','{world, birthday}',' ');
