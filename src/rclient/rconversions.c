@@ -110,9 +110,7 @@ static SEXP plc_r_object_from_array (char *input) {
         }
 
         for( i=0; i<arr_length;i++){
-			if (arr->nulls[i] != 0) {
-				obj = R_NilValue;
-			} else {
+			if (arr->nulls[i] == 0) {
 				/*
 				 * call the input function for the element in the array
 				 */
@@ -481,9 +479,14 @@ static int plc_r_object_as_array(SEXP *input, char **output, plcRType *type) {
         /* TODO this is just for vectors */
 
     	PROTECT(rdims = getAttrib(*input, R_DimSymbol));
+    	if (rdims != R_NilValue){
     	ndims = length(rdims);
-    	for ( i=0; i< ndims; i++){
-    		dims[i] = INTEGER(rdims)[i];
+			for ( i=0; i< ndims; i++){
+				dims[i] = INTEGER(rdims)[i];
+			}
+    	}else{
+    		ndims = 1;
+    		dims[0]=length(*input);
     	}
     	UNPROTECT(1);
 

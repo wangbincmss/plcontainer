@@ -93,6 +93,13 @@ CREATE OR REPLACE FUNCTION rboolarr(arr boolean[]) RETURNS int AS $$
 # container: plc_r
 return (sum(arr, na.rm=TRUE))
 $$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rtimestamparr(arr timestamp[]) RETURNS timestamp[] AS $$
+# container: plc_r
+options(digits.secs = 6)
+tmp <- strptime(arr,'%Y-%m-%d %H:%M:%OS')
+return (as.character(tmp+3600))
+$$
+language plcontainer;
 create or replace function paster(arg1 _text,arg2 _text,arg3 text) returns text[] as
 $$
 #container: plc_r
