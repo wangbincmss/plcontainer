@@ -124,7 +124,6 @@ void handle_call(callreq req, plcConn *conn) {
 
         /* Modify function code for compiling it into Python object */
         func = create_python_func(req);
-        lprintf(WARNING, "Function code is: %s", func);
 
         /* The function will be in the dictionary because it was wrapped with "def proc_name:... " */
         val = PyRun_String(func, Py_single_input, dict, dict);
