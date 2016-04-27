@@ -26,6 +26,7 @@ static int parse_container(xmlNode *node, plcContainer *cont) {
     xmlChar *value = NULL;
     int has_name = 0;
     int has_id = 0;
+    int has_command = 0;
     int num_shared_dirs = 0;
 
     /* First iteration - parse name, container_id and memory_mb and count the
@@ -48,6 +49,13 @@ static int parse_container(xmlNode *node, plcContainer *cont) {
                 has_id = 1;
                 value = xmlNodeGetContent(cur_node);
                 cont->dockerid = plc_top_strdup((char*)value);
+            }
+
+            if (xmlStrcmp(cur_node->name, (const xmlChar *)"command") == 0) {
+                processed = 1;
+                has_command = 1;
+                value = xmlNodeGetContent(cur_node);
+                cont->command = plc_top_strdup((char*)value);
             }
 
             if (xmlStrcmp(cur_node->name, (const xmlChar *)"memory_mb") == 0) {
@@ -76,12 +84,17 @@ static int parse_container(xmlNode *node, plcContainer *cont) {
     }
 
     if (has_name == 0) {
-        elog(ERROR, "Container name must be specified in configuartion");
+        elog(ERROR, "Container name in tag <name> must be specified in configuartion");
         return -1;
     }
 
     if (has_id == 0) {
-        elog(ERROR, "Container ID must be specified in configuration");
+        elog(ERROR, "Container ID in tag <container_id> must be specified in configuration");
+        return -1;
+    }
+
+    if (has_command == 0) {
+        elog(ERROR, "Container startup command in tag <command> must be specified in configuration");
         return -1;
     }
 
@@ -236,7 +249,7 @@ int plc_read_container_config(bool verbose) {
     sprintf(filename, "%s/plcontainer_configuration.xml", data_directory);
     doc = xmlReadFile(filename, NULL, 0);
     if (doc == NULL) {
-        elog(ERROR, "Error: could not parse file %s\n", filename);
+        elog(ERROR, "Error: could not parse file %s, wrongly formatted XML or missing configuration file\n", filename);
         return -1;
     }
 

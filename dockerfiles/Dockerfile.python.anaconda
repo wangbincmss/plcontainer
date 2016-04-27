@@ -12,4 +12,4 @@ ENV PYTHONHOME=/root/anaconda
 # Running the Python client inside of container
 ADD ./src/pyclient/bin /clientdir
 EXPOSE 8080
-CMD ["/clientdir/client"]
+WORKDIR /clientdir

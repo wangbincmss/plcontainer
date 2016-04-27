@@ -21,6 +21,7 @@ typedef struct plcSharedDir {
 typedef struct plcContainer {
     char         *name;
     char         *dockerid;
+    char         *command;
     int           memoryMb;
     int           nSharedDirs;
     plcSharedDir *sharedDirs;

@@ -202,9 +202,9 @@ plcConn *start_container(plcContainer *cont) {
     char *mem   = get_memory_option(cont);
     char *share = get_sharing_options(cont);
 
-    len = 100 + strlen(mem) + strlen(share) + strlen(cont->name);
+    len = 200 + strlen(mem) + strlen(share) + strlen(cont->dockerid) + strlen(cont->command);
     cmd = pmalloc(len);
-    cnt = snprintf(cmd, len, "docker run -d -P %s %s %s", mem, share, cont->name);
+    cnt = snprintf(cmd, len, "docker run -d -P %s %s %s %s", mem, share, cont->dockerid, cont->command);
     if (cnt < 0 || cnt >= len) {
         lprintf(FATAL, "docker image name is too long");
     }
