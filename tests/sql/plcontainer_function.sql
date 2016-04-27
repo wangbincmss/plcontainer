@@ -498,6 +498,16 @@ CREATE OR REPLACE FUNCTION pyunargs4(int, int, int, int) RETURNS int AS $$
 return len(args)
 $$ LANGUAGE plcontainer;
 
+create or replace function pylargeint8in(a int8[]) returns float8 as $BODY$
+#container : plc_python
+return sum(a)/float(len(a))
+$BODY$ language plcontainer;
+
+create or replace function pylargeint8out(n int) returns int8[] as $BODY$
+#container : plc_python
+return range(n)
+$BODY$ language plcontainer;
+
 CREATE OR REPLACE FUNCTION pyinvalid_function() RETURNS double precision AS $$
 # container: plc_python
 import math
