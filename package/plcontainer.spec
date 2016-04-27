@@ -8,7 +8,6 @@ Prefix:         /temp
 AutoReq:        no
 AutoProv:       no
 Provides:       plcontainer = %{plc_ver}
-Requires:       docker-engine >= 1.10.0
 
 %description
 Provides PL/Container procedural language implementation for the Greenplum Database.
