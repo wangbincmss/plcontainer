@@ -144,6 +144,8 @@ void handle_call(callreq req, plcConn *conn) {
         pyfunc->pyfunc = val;
 
         plc_py_function_cache_put(pyfunc);
+    } else {
+        pyfunc->call = req;
     }
 
     args = arguments_to_pytuple(conn, pyfunc);
@@ -164,6 +166,7 @@ void handle_call(callreq req, plcConn *conn) {
         process_call_results(conn, retval, pyfunc);
     }
 
+    pyfunc->call = NULL;
     Py_XDECREF(args);
     Py_XDECREF(retval);
     return;

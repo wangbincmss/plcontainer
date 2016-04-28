@@ -70,5 +70,7 @@ select pyunargs3(123, 'foo', 'bar');
 select pyunargs4(1,null,null,1);
 select pylargeint8in(array_agg(id)) from generate_series(1,100000) id;
 select avg(x) from (select unnest(pylargeint8out(100000)) as x) as q;
+select pylargetextin(string_agg(x,',')) from (select x::varchar from generate_series(1,100000) x) as q;
+select length(pylargetextout(100000));
 select pyinvalid_function();
 select pyinvalid_syntax();

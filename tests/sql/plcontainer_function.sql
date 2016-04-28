@@ -518,15 +518,25 @@ CREATE OR REPLACE FUNCTION pyunargs4(int, int, int, int) RETURNS int AS $$
 return len(args)
 $$ LANGUAGE plcontainer;
 
-create or replace function pylargeint8in(a int8[]) returns float8 as $BODY$
+CREATE OR REPLACE FUNCTION pylargeint8in(a int8[]) RETURNS float8 AS $$
 #container : plc_python
 return sum(a)/float(len(a))
-$BODY$ language plcontainer;
+$$ LANGUAGE plcontainer;
 
-create or replace function pylargeint8out(n int) returns int8[] as $BODY$
+CREATE OR REPLACE FUNCTION pylargeint8out(n int) RETURNS int8[] AS $$
 #container : plc_python
 return range(n)
-$BODY$ language plcontainer;
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pylargetextin(t text) RETURNS int AS $$
+#container : plc_python
+return len(t)
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pylargetextout(n int) RETURNS text AS $$
+#container : plc_python
+return ','.join([str(x) for x in xrange(1,n+1)])
+$$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION pyinvalid_function() RETURNS double precision AS $$
 # container: plc_python

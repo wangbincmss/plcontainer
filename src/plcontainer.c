@@ -94,6 +94,8 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
             free_result(pinfo->result);
             SRF_RETURN_DONE(funcctx);
         }
+    } else {
+        oldcontext = MemoryContextSwitchTo(pl_container_caller_context);
     }
 
     /* First time call for SRF or just a call of scalar function */
@@ -105,9 +107,9 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     /* Process the result message from client */
     result = plcontainer_process_result(fcinfo, pinfo);
     pinfo->resrow += 1;
+    MemoryContextSwitchTo(oldcontext);
 
     if (fcinfo->flinfo->fn_retset) {
-        MemoryContextSwitchTo(oldcontext);
         SRF_RETURN_NEXT(funcctx, result);
     } else {
         free_result(pinfo->result);
@@ -183,8 +185,8 @@ static plcontainer_result plcontainer_get_result(FunctionCallInfo  fcinfo,
 /*
  * Processing client results message
  */
-static Datum plcontainer_process_result(FunctionCallInfo    fcinfo,
-                                        plcProcInfo        *pinfo) {
+static Datum plcontainer_process_result(FunctionCallInfo  fcinfo,
+                                        plcProcInfo      *pinfo) {
     Datum              result = (Datum) 0;
     plcontainer_result resmsg = pinfo->result;
 
