@@ -65,25 +65,31 @@ $$ language plcontainer;
 create or replace function vec(arg1 _float8) returns _float8 as
 $$
 # container: plc_r
-arg1
+arg1+1
 $$ language 'plcontainer';
 
 create or replace function vec(arg1 _float4) returns _float4 as
 $$
 # container: plc_r
-arg1
+arg1+1
 $$ language 'plcontainer';
 
 create or replace function vec(arg1 _int8) returns _int8 as
 $$
 # container: plc_r
-arg1
+arg1+1
 $$ language 'plcontainer';
 
 create or replace function vec(arg1 _int4) returns _int4 as
 $$
 # container: plc_r
-arg1
+as.integer(arg1+1)
+$$ language 'plcontainer';
+
+create or replace function vec(arg1 _numeric) returns _numeric as
+$$
+# container: plc_r
+arg1+1
 $$ language 'plcontainer';
 
 CREATE OR REPLACE FUNCTION rintarr(arr int8[]) RETURNS int8 AS $$
@@ -107,6 +113,11 @@ return (sum(arr, na.rm=TRUE))
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION rfloatarr(arr float4[]) RETURNS float4 AS $$
+# container: plc_r
+return (sum(arr, na.rm=TRUE))
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rfloatarr(arr numeric[]) RETURNS numeric AS $$
 # container: plc_r
 return (sum(arr, na.rm=TRUE))
 $$ LANGUAGE plcontainer;

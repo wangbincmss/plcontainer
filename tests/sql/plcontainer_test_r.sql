@@ -17,6 +17,7 @@ select vec('{1.23, 1.32}'::float8[]);
 select vec('{1, 5,10, 100, 7}'::int8[]);
 select vec('{1.23, 1.32}'::float4[]);
 select vec('{1, 5,10, 100, 7}'::int4[]);
+select vec('{1, 5,10, 100, 7}'::numeric[]);
 
 select rintarr('{1,2,3,4}'::int2[]);
 select rintarr('{1,2,3,null}'::int2[]);
@@ -35,6 +36,10 @@ select rfloatarr('{null}'::float8[]);
 select rfloatarr('{1.2,2.3,3.4,5.6,6.7}'::float4[]);
 select rfloatarr('{1.2,2.3,3.4,5.6,null}'::float4[]);
 select rfloatarr('{null}'::float4[]);
+
+select rfloatarr('{1.2,2.3,3.4,5.6,6.7}'::numeric[]);
+select rfloatarr('{1.2,2.3,3.4,5.6,null}'::numeric[]);
+select rfloatarr('{null}'::numeric[]);
 
 select rboolarr('{1,1,0}'::bool[]);
 select rboolarr('{1,1,0,NULL}'::bool[]);
