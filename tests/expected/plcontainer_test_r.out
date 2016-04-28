@@ -86,25 +86,31 @@ select rtest_mia();
 select vec('{1.23, 1.32}'::float8[]);
      vec     
 -------------
- {1.23,1.32}
+ {2.23,2.32}
 (1 row)
 
 select vec('{1, 5,10, 100, 7}'::int8[]);
       vec       
 ----------------
- {1,5,10,100,7}
+ {2,6,11,101,8}
 (1 row)
 
 select vec('{1.23, 1.32}'::float4[]);
      vec     
 -------------
- {1.23,1.32}
+ {2.23,2.32}
 (1 row)
 
 select vec('{1, 5,10, 100, 7}'::int4[]);
       vec       
 ----------------
- {1,5,10,100,7}
+ {2,6,11,101,8}
+(1 row)
+
+select vec('{1, 5,10, 100, 7}'::numeric[]);
+      vec       
+----------------
+ {2,6,11,101,8}
 (1 row)
 
 select rintarr('{1,2,3,4}'::int2[]);
@@ -192,6 +198,24 @@ select rfloatarr('{1.2,2.3,3.4,5.6,null}'::float4[]);
 (1 row)
 
 select rfloatarr('{null}'::float4[]);
+ rfloatarr 
+-----------
+         0
+(1 row)
+
+select rfloatarr('{1.2,2.3,3.4,5.6,6.7}'::numeric[]);
+ rfloatarr 
+-----------
+      19.2
+(1 row)
+
+select rfloatarr('{1.2,2.3,3.4,5.6,null}'::numeric[]);
+ rfloatarr 
+-----------
+      12.5
+(1 row)
+
+select rfloatarr('{null}'::numeric[]);
  rfloatarr 
 -----------
          0
