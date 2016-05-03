@@ -12,13 +12,13 @@
 
 // Docker API version used in all the API calls
 // v1.23 is available in Docker v1.11.x+
-static char *plc_docker_api_version = "v1.23";
+static char *plc_docker_api_version = "v1.22";
 
 // Default location of the Docker API unix socket
 static char *plc_docker_socket = "/var/run/docker.sock";
 
 // Post message template. Used by "create" call
-static char *plc_docker_post_message_json = 
+static char *plc_docker_post_message_json =
         "POST %s HTTP/1.1\r\n"
         "Content-Length: %d\r\n"
         "Content-Type: application/json\r\n\r\n"
@@ -31,11 +31,11 @@ static char *plc_docker_post_message_text =
         "Content-Type: text/plain\r\n\r\n"
         "%s";
 
-static char *plc_docker_get_message = 
+static char *plc_docker_get_message =
         "GET /%s/containers/%s/json HTTP/1.1\r\n\r\n";
 
 // JSON body of the "create" call with container creation parameters
-static char *plc_docker_create_request = 
+static char *plc_docker_create_request =
         "{\n"
         "    \"AttachStdin\": false,\n"
         "    \"AttachStdout\": false,\n"
@@ -56,11 +56,11 @@ static char *plc_docker_containerid_regex =
         "\\{\\s*\"[Ii][Dd]\\s*\"\\:\\s*\"(\\w+)\"\\s*,\\s*\"[Ww]arnings\"\\s*\\:([^\\}]*)\\s*\\}";
 
 // Regular expression for parsing container inspection JSON response
-static char *plc_docker_port_regex = 
+static char *plc_docker_port_regex =
         "\"8080\\/tcp\"\\s*\\:\\s*\\[.*\"HostPort\"\\s*\\:\\s*\"([0-9]*)\".*\\]";
 
 // Request for deleting the container
-static char *plc_docker_delete_request = 
+static char *plc_docker_delete_request =
         "DELETE /%s/containers/%s HTTP/1.1\r\n\r\n";
 
 /* End of templates */
@@ -191,7 +191,7 @@ static int docker_parse_port_mapping(char* response, int *port) {
     int         wdatalen, datalen;
     pg_wchar   *data;
     char       *portstr;
-    
+
     masklen = strlen(plc_docker_port_regex);
     mask = (pg_wchar *) palloc((masklen + 1) * sizeof(pg_wchar));
     wmasklen = pg_mb2wchar_with_len(plc_docker_port_regex, mask, masklen);
@@ -346,7 +346,7 @@ static int docker_call(int sockfd, char *request, char **response, int silent) {
         elog(ERROR, "Error sending data to the Docker API socket during container create call");
         return -1;
     }
-    
+
     *response = palloc(8192);
     res = recv_message(sockfd, *response, 8192);
     if (res < 0) {
@@ -394,7 +394,7 @@ static int plc_docker_container_command(int sockfd, char *name, const char *cmd,
 int plc_docker_connect() {
     struct sockaddr_un  address;
     int                 sockfd;
-    
+
     /* Create the socket */
     sockfd = socket(PF_UNIX, SOCK_STREAM, 0);
     if (sockfd < 0) {
