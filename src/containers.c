@@ -12,6 +12,7 @@
 #include "common/comm_channel.h"
 #include "common/messages/messages.h"
 #include "plc_configuration.h"
+#include "plc_docker_api.h"
 #include "containers.h"
 
 typedef struct {
@@ -29,115 +30,31 @@ static inline bool is_whitespace (const char c);
 
 #ifndef CONTAINER_DEBUG
 
-static char *get_memory_option(plcContainer *cont);
-static char *get_sharing_options(plcContainer *cont);
-static char *shell(const char *cmd);
-static void cleanup(char *dockerid);
-
-static char *shell(const char *cmd) {
-    FILE* fCmd;
-    int ret;
-    char* data;
-
-    fCmd = popen(cmd, "r");
-    if (fCmd == NULL) {
-        lprintf(FATAL, "Cannot execute command '%s', error is: %s",
-                       cmd, strerror(errno));
-    }
-
-    data = pmalloc(1024);
-    if (data == NULL) {
-        lprintf(ERROR, "Cannot allocate command buffer '%s': %s",
-                       cmd, strerror(errno));
-    }
-
-    if (fgets(data, 1024, fCmd) == NULL) {
-        lprintf(ERROR, "Cannot read output of the command '%s': %s",
-                       cmd, strerror(errno));
-    }
-
-    ret = pclose(fCmd);
-    if (ret < 0) {
-        lprintf(FATAL, "Cannot close the command file descriptor '%s': %s",
-                       cmd, strerror(errno));
-    }
-
-    return data;
-}
-
-static char *get_memory_option(plcContainer *cont) {
-    char *res = pmalloc(30);
-    if (cont->memoryMb > 0) {
-        sprintf(res, "-m %dm", cont->memoryMb);
-    } else {
-        res[0] = '\0';
-    }
-    return res;
-}
-
-static char *get_sharing_options(plcContainer *cont) {
-    char *res = NULL;
-
-    if (cont->nSharedDirs > 0) {
-        char **volumes = NULL;
-        int totallen = 0;
-        char *pos;
-        int i;
-
-        volumes = pmalloc(cont->nSharedDirs * sizeof(char*));
-        for (i = 0; i < cont->nSharedDirs; i++) {
-            volumes[i] = pmalloc(10 + strlen(cont->sharedDirs[i].host) +
-                                 strlen(cont->sharedDirs[i].container));
-            if (cont->sharedDirs[i].mode == PLC_ACCESS_READONLY) {
-                sprintf(volumes[i], "-v %s:%s:ro", cont->sharedDirs[i].host,
-                        cont->sharedDirs[i].container);
-            } else if (cont->sharedDirs[i].mode == PLC_ACCESS_READWRITE) {
-                sprintf(volumes[i], "-v %s:%s:rw", cont->sharedDirs[i].host,
-                        cont->sharedDirs[i].container);
-            } else {
-                elog(ERROR, "Cannot determine directory sharing mode");
-            }
-            totallen += strlen(volumes[i]);
-        }
-
-        res = pmalloc(totallen + 2*cont->nSharedDirs);
-        pos = res;
-        for (i = 0; i < cont->nSharedDirs; i++) {
-            memcpy(pos, volumes[i], strlen(volumes[i]));
-            pos += strlen(volumes[i]);
-            *pos = ' ';
-            pos += 1;
-            pfree(volumes[i]);
-        }
-        *pos = '\0';
-        pfree(volumes);
-    } else {
-        res = pmalloc(1);
-        res[0] = '\0';
-    }
-    return res;
-}
-
 static void cleanup(char *dockerid) {
-    pid_t pid;
+    pid_t pid = 0;
 
     /* We fork the process to syncronously wait for container to exit */
     pid = fork();
     if (pid == 0) {
-        char psname[200];
-        char cmd[1000];
+        int res;
+        int sockfd;
 
-        /* Setting application name to let the system know it is us */
-        sprintf(psname, "plcontainer cleaner %s", dockerid);
-        set_ps_display(psname, false);
+        sockfd = plc_docker_connect();
+        if (sockfd < 0) {
+            _exit(1);
+        }
 
-        /* Wait for container to exit */
-        sprintf(cmd, "docker wait %s", dockerid);
-        system(cmd);
+        res = plc_docker_wait_container(sockfd, dockerid);
+        if (res < 0) {
+            _exit(1);
+        }
 
-        /* Remove the container leftover filesystem data */
-        sprintf(cmd, "docker rm %s", dockerid);
-        system(cmd);
+        res = plc_docker_delete_container(sockfd, dockerid);
+        if (res < 0) {
+            _exit(1);
+        }
+
+        plc_docker_disconnect(sockfd);
 
         _exit(0);
     }
@@ -181,66 +98,52 @@ plcConn *start_container(plcContainer *cont) {
     unsigned int sleepus = 25000;
     unsigned int sleepms = 0;
     ping_message mping = NULL;
+    plcConn *conn = NULL;
 
 #ifdef CONTAINER_DEBUG
 
-    static plcConn *conn;
-    if (conn != NULL) {
-        return conn;
-    }
     port = 8080;
 
 #else
 
-    plcConn *conn;
+    int sockfd;
+    int res = 0;
+    char *name;
 
-    char  *cmd;
-    char *dockerid, *ports, *exposed;
-    int   cnt;
-    int   len;
-
-    char *mem   = get_memory_option(cont);
-    char *share = get_sharing_options(cont);
-
-    len = 200 + strlen(mem) + strlen(share) + strlen(cont->dockerid) + strlen(cont->command);
-    cmd = pmalloc(len);
-    cnt = snprintf(cmd, len, "docker run -d -P %s %s %s %s", mem, share, cont->dockerid, cont->command);
-    if (cnt < 0 || cnt >= len) {
-        lprintf(FATAL, "docker image name is too long");
+    sockfd = plc_docker_connect();
+    if (sockfd < 0) {
+        elog(ERROR, "Cannot connect to the Docker API socket");
+        return conn;
     }
-    pfree(mem);
-    pfree(share);
-    /*
-      output:
-      $ sudo docker run -d -P plcontainer
-      bd1a714ac07cf31b15b26697a65e2405d993696a6dd8ad08a06210d3bc47c942
-     */
 
-    elog(DEBUG1, "Calling following command: '%s'", cmd);
-    dockerid = shell(cmd);
-    cnt      = snprintf(cmd, len, "docker port %s", dockerid);
-    if (cnt < 0 || cnt >= len) {
-        lprintf(FATAL, "docker image name is too long");
+    res = plc_docker_create_container(sockfd, cont, &name);
+    if (res < 0) {
+        elog(ERROR, "Cannot create Docker container");
+        return conn;
     }
-    elog(DEBUG1, "Calling following command: '%s'", cmd);
-    ports = shell(cmd);
-    /*
-       output:
-       $ sudo docker port dockerid
-       8080/tcp -> 0.0.0.0:32777
-    */
-    exposed = strstr(ports, ":");
-    if (exposed == NULL) {
-        lprintf(FATAL, "cannot find port in %s", ports);
+
+    res = plc_docker_start_container(sockfd, name);
+    if (res < 0) {
+        elog(ERROR, "Cannot start Docker container");
+        return conn;
     }
-    port = atoi(exposed + 1);
+
+    res = plc_docker_inspect_container(sockfd, name, &port);
+    if (res < 0) {
+        elog(ERROR, "Cannot parse host port exposed by Docker container");
+        return conn;
+    }
+
+    res = plc_docker_disconnect(sockfd);
+    if (res < 0) {
+        elog(ERROR, "Cannot disconnect from the Docker API socket");
+        return conn;
+    }
 
     /* Create a process to clean up the container after it finishes */
-    cleanup(dockerid);
+    cleanup(name);
 
-    pfree(cmd);
-    pfree(ports);
-    pfree(dockerid);
+    pfree(name);
 
 #endif // CONTAINER_DEBUG
 
