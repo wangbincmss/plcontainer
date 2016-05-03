@@ -72,7 +72,7 @@ static int docker_parse_port_mapping(char* response, int *port);
 static int get_content_length(char *msg, int *len);
 static int send_message(int sockfd, char *message);
 static int recv_message(int sockfd, char *buf, int buflen);
-static int recv_port_mapping(int sockfd, char *buf, int buflen, int *port);
+static int recv_port_mapping(int sockfd, int *port);
 static int docker_call(int sockfd, char *request, char **response, int silent);
 static int plc_docker_container_command(int sockfd, char *name, const char *cmd, int silent);
 
@@ -302,9 +302,12 @@ static int recv_message(int sockfd, char *buf, int buflen) {
     return 0;
 }
 
-static int recv_port_mapping(int sockfd, char *buf, int buflen, int *port) {
-    int received = 0;
+static int recv_port_mapping(int sockfd, int *port) {
+    int   received = 0;
+    char *buf;
+    int   buflen = 16384;
 
+    buf = palloc(buflen);
     memset(buf, 0, buflen);
     while (received < buflen) {
         int bytes = 0;
@@ -330,6 +333,9 @@ static int recv_port_mapping(int sockfd, char *buf, int buflen, int *port) {
             return -1;
         }
     }
+
+    /* Print Docker response */
+    elog(DEBUG1, "Docker API response:\n%s", buf);
 
     return 0;
 }
@@ -363,19 +369,23 @@ static int docker_call(int sockfd, char *request, char **response, int silent) {
 }
 
 static int plc_docker_container_command(int sockfd, char *name, const char *cmd, int silent) {
-    char  message[2048];
-    char  apiendpoint[200];
-    char *response = NULL;
+    char *message     = NULL;
+    char *apiendpoint = NULL;
+    char *response    = NULL;
+    char *apiendpointtemplate = "/%s/containers/%s/%s";
     int   res = 0;
 
     /* Get Docker API endpoint for current API version */
+    apiendpoint = palloc(20 + strlen(apiendpointtemplate) + strlen(plc_docker_api_version)
+                            + strlen(name) + strlen(cmd));
     sprintf(apiendpoint,
-            "/%s/containers/%s/%s",       // URL to request
+            apiendpointtemplate,       // URL to request
             plc_docker_api_version,       // Docker API version we use
             name,                         // Container name
             cmd);                         // Command to execute
 
     /* Fill in the HTTP message */
+    message = palloc(40 + strlen(plc_docker_post_message_text) + strlen(apiendpoint));
     sprintf(message,
             plc_docker_post_message_text, // POST message template
             apiendpoint,                  // API endpoint to call
@@ -384,6 +394,8 @@ static int plc_docker_container_command(int sockfd, char *name, const char *cmd,
 
     docker_call(sockfd, message, &response, silent);
 
+    pfree(apiendpoint);
+    pfree(message);
     if (response) {
         pfree(response);
     }
@@ -392,8 +404,8 @@ static int plc_docker_container_command(int sockfd, char *name, const char *cmd,
 }
 
 int plc_docker_connect() {
-    struct sockaddr_un  address;
-    int                 sockfd;
+    struct sockaddr_un address;
+    int                sockfd;
 
     /* Create the socket */
     sockfd = socket(PF_UNIX, SOCK_STREAM, 0);
@@ -417,29 +429,34 @@ int plc_docker_connect() {
 }
 
 int plc_docker_create_container(int sockfd, plcContainer *cont, char **name) {
-    char  message[2048];
-    char  message_body[2048];
-    char  apiendpoint[200];
-    char *response = NULL;
-    char *sharing;
+    char *message      = NULL;
+    char *message_body = NULL;
+    char *apiendpoint  = NULL;
+    char *response     = NULL;
+    char *sharing      = NULL;
+    char *apiendpointtemplate = "/%s/containers/create";
     int   res = 0;
 
     /* Get Docker API endpoint for current API version */
+    apiendpoint = palloc(20 + strlen(apiendpointtemplate) + strlen(plc_docker_api_version));
     sprintf(apiendpoint,
-            "/%s/containers/create",
+            apiendpointtemplate,
             plc_docker_api_version);
 
     /* Get Docket API "create" call JSON message body */
     sharing = get_sharing_options(cont);
+    message_body = palloc(40 + strlen(plc_docker_create_request) + strlen(cont->command)
+                             + strlen(cont->dockerid) + strlen(sharing));
     sprintf(message_body,
             plc_docker_create_request,
             cont->command,
             cont->dockerid,
             sharing,
             ((long long)cont->memoryMb) * 1024 * 1024);
-    pfree(sharing);
 
     /* Fill in the HTTP message */
+    message = palloc(40 + strlen(plc_docker_post_message_json) + strlen(apiendpoint)
+                        + strlen(message_body));
     sprintf(message,
             plc_docker_post_message_json, // HTTP POST request template
             apiendpoint,                  // API endpoint to call
@@ -447,6 +464,11 @@ int plc_docker_create_container(int sockfd, plcContainer *cont, char **name) {
             message_body);                // POST message JSON content
 
     docker_call(sockfd, message, &response, 0);
+
+    pfree(apiendpoint);
+    pfree(sharing);
+    pfree(message_body);
+    pfree(message);
 
     res = docker_parse_container_id(response, name);
     if (res < 0) {
@@ -466,11 +488,12 @@ int plc_docker_start_container(int sockfd, char *name) {
 }
 
 int plc_docker_inspect_container(int sockfd, char *name, int *port) {
-    char message[200];
-    char response[8192];
+    char *message;
     int  res = 0;
 
     /* Fill in the HTTP message */
+    message = palloc(20 + strlen(plc_docker_get_message) + strlen(name)
+                        + strlen(plc_docker_api_version));
     sprintf(message,
             plc_docker_get_message,
             plc_docker_api_version,
@@ -478,19 +501,17 @@ int plc_docker_inspect_container(int sockfd, char *name, int *port) {
     elog(DEBUG1, "Docker API request:\n%s", message);
 
     res = send_message(sockfd, message);
+    pfree(message);
     if (res < 0) {
         elog(ERROR, "Error sending data to the Docker API socket during container delete call");
         return -1;
     }
 
-    res = recv_port_mapping(sockfd, response, 8192, port);
+    res = recv_port_mapping(sockfd, port);
     if (res < 0) {
         elog(ERROR, "Error receiving data from the Docker API socket during container delete call");
         return -1;
     }
-
-    /* Print Docker response */
-    elog(DEBUG1, "Docker API response:\n%s", response);
 
     return res;
 }
@@ -500,11 +521,13 @@ int plc_docker_wait_container(int sockfd, char *name) {
 }
 
 int plc_docker_delete_container(int sockfd, char *name) {
-    char  message[2048];
+    char *message;
     char *response = NULL;
     int   res = 0;
 
     /* Fill in the HTTP message */
+    message = palloc(20 + strlen(plc_docker_delete_request) + strlen(name)
+                        + strlen(plc_docker_api_version));
     sprintf(message,
             plc_docker_delete_request, // Delete message template
             plc_docker_api_version,    // API version
@@ -512,6 +535,7 @@ int plc_docker_delete_container(int sockfd, char *name) {
 
     docker_call(sockfd, message, &response, 1);
 
+    pfree(message);
     if (response) {
         pfree(response);
     }
