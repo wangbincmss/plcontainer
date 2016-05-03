@@ -49,6 +49,10 @@ select rtimestamparr($${'2012-01-02 12:34:56.789012','2012-01-03 12:34:56.789012
 
 select rlog100_shared();
 select rpg_spi_exec('select 1');
+
+select rlogging();
+select rlogging2();
+
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
 -- This function is of "return setof record" type which is not supported yet

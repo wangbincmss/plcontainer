@@ -10,7 +10,7 @@ override CFLAGS += $(DEBUG) -I$(PLCONTAINER_DIR)/ -DCOMM_STANDALONE -Wall -Wextr
 
 common_src = $(shell find $(PLCONTAINER_DIR)/common -name "*.c")
 common_objs = $(foreach src,$(common_src),$(subst .c,.o,$(src)))
-shared_src = rcall.c rconversions.c
+shared_src = rcall.c rconversions.c rlogging.c
 
 .PHONY: default
 default: clean all
@@ -26,7 +26,7 @@ clean_common:
 
 librcall.so: $(shared_src)
 	$(CC) $(R_CFLAGS) $(CFLAGS) -fpic -c $(shared_src) $^
-	$(CC) -shared -o librcall.so rcall.o rconversions.o
+	$(CC) -shared -o librcall.so rcall.o rconversions.o rlogging.o
 	cp librcall.so bin
 
 client: client.o librcall.so $(common_objs)

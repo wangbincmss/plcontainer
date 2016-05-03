@@ -96,6 +96,22 @@ static char * create_r_func(callreq req);
             "return(data)\n" \
             "}"
 
+#define PG_LOG_DEBUG_CMD \
+	"plr.debug <- function(msg) {.Call(\"plr_debug\",msg)}"
+#define PG_LOG_LOG_CMD \
+	"plr.log <- function(msg) {.Call(\"plr_log\",msg)}"
+#define PG_LOG_INFO_CMD \
+	"plr.info <- function(msg) {.Call(\"plr_info\",msg)}"
+#define PG_LOG_NOTICE_CMD \
+	"plr.notice <- function(msg) {.Call(\"plr_notice\",msg)}"
+#define PG_LOG_WARNING_CMD \
+	"plr.warning <- function(msg) {.Call(\"plr_warning\",msg)}"
+#define PG_LOG_ERROR_CMD \
+	"plr.error <- function(msg) {.Call(\"plr_error\",msg)}"
+#define PG_LOG_FATAL_CMD \
+	"plr.fatal <- function(msg) {.Call(\"plr_fatal\",msg)}"
+
+
 int R_SignalHandlers = 1;  /* Exposed in R_interface.h */
 
 static void load_r_cmd(const char *cmd);
@@ -135,7 +151,7 @@ extern SEXP plr_SPI_execp(const char * sql);
 
 
 
-plcConn* plcconn;
+plcConn* plcconn_global;
 
 
 void r_init( ) {
@@ -173,6 +189,13 @@ void r_init( ) {
     load_r_cmd(QUOTE_LITERAL_CMD);
     load_r_cmd(QUOTE_IDENT_CMD);
     load_r_cmd(SPI_EXEC_CMD);
+    load_r_cmd(PG_LOG_DEBUG_CMD);
+    load_r_cmd(PG_LOG_LOG_CMD);
+    load_r_cmd(PG_LOG_INFO_CMD);
+    load_r_cmd(PG_LOG_NOTICE_CMD);
+    load_r_cmd(PG_LOG_WARNING_CMD);
+    load_r_cmd(PG_LOG_ERROR_CMD);
+    load_r_cmd(PG_LOG_FATAL_CMD);
     load_r_cmd(SPI_DBGETQUERY_CMD);
 }
 
@@ -235,12 +258,11 @@ void handle_call(callreq req, plcConn* conn) {
     char            *func,
                     *errmsg;
 
-    //plcontainer_result res;
 
     /*
      * Keep our connection for future calls from R back to us.
     */
-    plcconn = conn;
+    plcconn_global = conn;
 
     /* wrap the input in a function and evaluate the result */
 
@@ -478,42 +500,133 @@ SEXP get_r_array(plcArray *plcArray)
 	return vec;
 
 }
+#ifdef XXX
+static int process_data_frame(plcConn *conn, SEXP retval)
+{
+	SEXP dfcol,
+		 dfcolcell;
+
+	int nr,
+	    nc,
+		row,
+		col;
+
+	plcROutputFunc *output_functions;
+    plcontainer_result res;
+
+
+    res->data    = malloc(res->rows * sizeof(rawdata*));
+
+    for (i=0; i<res->rows;i++){
+    	res->data[i] = malloc(res->cols * sizeof(rawdata));
+    }
+    plc_r_copy_type(&res->types[0], &r_func->res);
+    res->names[0] = r_func->res.name;
+        int i=0;
+
+        /* allocate a result */
+        res          = malloc(sizeof(str_plcontainer_result));
+        res->msgtype = MT_RESULT;
+        res->names   = malloc(1 * sizeof(char*));
+        res->types   = malloc(1 * sizeof(plcType));
+
+	/*
+	 * dataframes are lists of columns
+	 * each column is a list, the length of which is the number of rows
+	 * each column will be the same type
+	 */
+
+	nc = length(retval);
+
+	// get the first columns, then the length of the first col is the number of rows
+	dfcol = VECTOR_ELT(retval, 0);
+	nr = length(dfcol);
+	output_functions = malloc(nc*sizeof(plcROutputFunc *));
+
+	/* figure out the type for each column */
+
+	for (col=0; col < nc; col++){
+		dfcol = VECTOR_ELT(retval,nc);
+		dfcolcell = VECTOR_ELT(dfcol, 0 );
+
+		switch(TYPEOF(dfcolcell)){
+			case INTSXP:
+				output_functions[col] = plc_r_object_as_int4;
+				break;
+			case REALSXP:
+				output_functions[col] = plc_r_object_as_int4;
+				break;
+			case STRSXP:
+			case LGLSXP:
+		}
+
+	}
+
+	for (row=0; row < nr; row++){
+		for (col=0;col < nc; col++){
+
+		}
+	}
+
+}
+#endif
+
 static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func) {
     plcontainer_result res;
+    int i=0;
 
     /* allocate a result */
     res          = malloc(sizeof(str_plcontainer_result));
     res->msgtype = MT_RESULT;
     res->names   = malloc(1 * sizeof(char*));
     res->types   = malloc(1 * sizeof(plcType));
-    res->rows = res->cols = 1;
+
+    if (Rf_isFrame(retval)){
+		res->rows 	= nrows(retval);
+	    res->cols   = ncols(retval);
+	    SEXP col    = VECTOR_ELT(retval,0);
+	    int l = length(col);
+	    lprintf(DEBUG1, "length its %d\n",l);
+
+	}else{
+	    res->rows   = 1;
+	    res->cols   = 1;
+	}
+
+
     res->data    = malloc(res->rows * sizeof(rawdata*));
-    res->data[0] = malloc(res->cols * sizeof(rawdata));
+    for (i=0; i<res->rows;i++){
+    	res->data[i] = malloc(res->cols * sizeof(rawdata));
+    }
     plc_r_copy_type(&res->types[0], &r_func->res);
     res->names[0] = r_func->res.name;
 
     if (retval == R_NilValue) {
         res->data[0][0].isnull = 1;
         res->data[0][0].value = NULL;
+
     } else {
         int ret = 0;
-        res->data[0][0].isnull = 0;
-        if (r_func->res.conv.outputfunc == NULL) {
-            raise_execution_error(plcconn,
-                                  "Type %d is not yet supported by R container",
-                                  (int)res->types[0].type);
-            free_result(res);
-            return -1;
-        }
-        //TODO change output function to take value, not pointer
-        ret = r_func->res.conv.outputfunc(&retval, &res->data[0][0].value, &r_func->res);
-        if (ret != 0) {
-            raise_execution_error(plcconn,
-                                  "Exception raised converting function output to function output type %d",
-                                  (int)res->types[0].type);
-            free_result(res);
-            return -1;
-        }
+        for ( i=0; i < res->rows; i++){
+
+			res->data[i][0].isnull = 0;
+			if (r_func->res.conv.outputfunc == NULL) {
+					raise_execution_error(plcconn_global,
+										  "Type %d is not yet supported by R container",
+										  (int)res->types[0].type);
+					free_result(res);
+					return -1;
+			}
+			//TODO change output function to take value, not pointer
+			ret = r_func->res.conv.outputfunc(retval, &res->data[i][0].value, &r_func->res);
+			if (ret != 0) {
+				raise_execution_error(plcconn_global,
+									  "Exception raised converting function output to function output type %d",
+									  (int)res->types[0].type);
+				free_result(res);
+				return -1;
+			}
+		}
     }
 
     /* send the result back */
@@ -712,7 +825,7 @@ pg_get_one_r(char *value,  plcDatatype column_type, SEXP *obj, int elnum)
         case PLC_DATA_TEXT:
         default:
             /* Everything else is defaulted to string */
-            SET_STRING_ELT(*obj, elnum, COPY_TO_USER_STRING(*((char **)value)));
+            SET_STRING_ELT(*obj, elnum, COPY_TO_USER_STRING(((char *)value)));
     }
 }
 
@@ -755,13 +868,13 @@ plr_SPI_exec( SEXP rsql )
      */
     msg->statement = (char *)sql;
 
-    plcontainer_channel_send(plcconn, (message)msg);
+    plcontainer_channel_send(plcconn_global, (message)msg);
 
     /* we don't need it anymore */
     pfree(msg);
 
     receive:
-    res = plcontainer_channel_receive(plcconn, &resp);
+    res = plcontainer_channel_receive(plcconn_global, &resp);
     if (res < 0) {
         lprintf (ERROR, "Error receiving data from the backend, %d", res);
         return NULL;
@@ -769,7 +882,7 @@ plr_SPI_exec( SEXP rsql )
 
     switch (resp->msgtype) {
        case MT_CALLREQ:
-          handle_call((callreq)resp, plcconn);
+          handle_call((callreq)resp, plcconn_global);
           free_callreq((callreq)resp, 0);
           goto receive;
        case MT_RESULT:

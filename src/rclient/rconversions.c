@@ -14,14 +14,14 @@ static SEXP plc_r_object_from_text(char *input);
 static SEXP plc_r_object_from_text_ptr(char *input);
 static SEXP plc_r_object_from_array (char *input);
 
-static int plc_r_object_as_int1(SEXP *input, char **output, plcRType *type);
-static int plc_r_object_as_int2(SEXP *input, char **output, plcRType *type);
-static int plc_r_object_as_int4(SEXP *input, char **output, plcRType *type);
-static int plc_r_object_as_int8(SEXP *input, char **output, plcRType *type);
-static int plc_r_object_as_float4(SEXP *input, char **output, plcRType *type);
-static int plc_r_object_as_float8(SEXP *input, char **output, plcRType *type);
-static int plc_r_object_as_text(SEXP *input, char **output, plcRType *type);
-static int plc_r_object_as_array(SEXP *input, char **output, plcRType *type);
+static int plc_r_object_as_int1(SEXP input, char **output, plcRType *type);
+static int plc_r_object_as_int2(SEXP input, char **output, plcRType *type);
+static int plc_r_object_as_int4(SEXP input, char **output, plcRType *type);
+static int plc_r_object_as_int8(SEXP input, char **output, plcRType *type);
+static int plc_r_object_as_float4(SEXP input, char **output, plcRType *type);
+static int plc_r_object_as_float8(SEXP input, char **output, plcRType *type);
+static int plc_r_object_as_text(SEXP input, char **output, plcRType *type);
+static int plc_r_object_as_array(SEXP input, char **output, plcRType *type);
 
 static void plc_r_object_iter_free (plcIterator *iter);
 static rawdata *plc_r_object_as_array_next (plcIterator *iter);
@@ -200,19 +200,19 @@ static SEXP plc_r_object_from_array (char *input) {
     return res;
 }
 
-static int plc_r_object_as_int1(SEXP *input, char **output, plcRType *type UNUSED) {
+static int plc_r_object_as_int1(SEXP input, char **output, plcRType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(1);
     *output = out;
-    switch(TYPEOF(*input)){
+    switch(TYPEOF(input)){
     	case LGLSXP:
-    		*((int8*)out) = (int8)asLogical(*input);
+    		*((int8*)out) = (int8)asLogical(input);
     		break;
     	case INTSXP:
-    		*((int8*)out) = (int8)asInteger(*input)==0?0:1;
+    		*((int8*)out) = (int8)asInteger(input)==0?0:1;
     		break;
     	case REALSXP:
-    		*((int8*)out) = (int8)asReal(*input) == 0?0:1;
+    		*((int8*)out) = (int8)asReal(input) == 0?0:1;
     		break;
     	default:
     		res = -1;
@@ -220,20 +220,20 @@ static int plc_r_object_as_int1(SEXP *input, char **output, plcRType *type UNUSE
     return res;
 }
 
-static int plc_r_object_as_int2(SEXP *input, char **output, plcRType *type UNUSED) {
+static int plc_r_object_as_int2(SEXP input, char **output, plcRType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(2);
     *output = out;
 
-    switch(TYPEOF(*input)){
+    switch(TYPEOF(input)){
        	case LGLSXP:
-       		*((short*)out) = (short)asLogical(*input);
+       		*((short*)out) = (short)asLogical(input);
        		break;
        	case INTSXP:
-       	    *((short*)out) = (short)asInteger(*input);
+       	    *((short*)out) = (short)asInteger(input);
        		break;
        	case REALSXP:
-       	    *((short*)out) = (short)asReal(*input);
+       	    *((short*)out) = (short)asReal(input);
        		break;
        	default:
        		res = -1;
@@ -242,20 +242,20 @@ static int plc_r_object_as_int2(SEXP *input, char **output, plcRType *type UNUSE
     return res;
 }
 
-static int plc_r_object_as_int4(SEXP *input, char **output, plcRType *type UNUSED) {
+static int plc_r_object_as_int4(SEXP input, char **output, plcRType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(4);
     *output = out;
 
-    switch(TYPEOF(*input)){
+    switch(TYPEOF(input)){
        	case LGLSXP:
-       		*((int*)out) = (int)asLogical(*input);
+       		*((int*)out) = (int)asLogical(input);
        		break;
        	case INTSXP:
-            *((int*)out) = (int)asInteger(*input);
+            *((int*)out) = (int)asInteger(input);
        		break;
        	case REALSXP:
-       	    *((int*)out) = (int)asReal(*input);
+       	    *((int*)out) = (int)asReal(input);
        		break;
        	default:
        		res = -1;
@@ -264,20 +264,20 @@ static int plc_r_object_as_int4(SEXP *input, char **output, plcRType *type UNUSE
     return res;
 }
 
-static int plc_r_object_as_int8(SEXP *input, char **output, plcRType *type UNUSED) {
+static int plc_r_object_as_int8(SEXP input, char **output, plcRType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(8);
     *output = out;
 
-    switch(TYPEOF(*input)){
+    switch(TYPEOF(input)){
 		case LGLSXP:
-			*((int64*)out) = (int64)asLogical(*input);
+			*((int64*)out) = (int64)asLogical(input);
 			break;
 		case INTSXP:
-			*((int64*)out) = (int64)asInteger(*input);
+			*((int64*)out) = (int64)asInteger(input);
 			break;
 		case REALSXP:
-			*((int64*)out) = (int64)asReal(*input);
+			*((int64*)out) = (int64)asReal(input);
 			break;
 		default:
 			res = -1;
@@ -285,20 +285,20 @@ static int plc_r_object_as_int8(SEXP *input, char **output, plcRType *type UNUSE
     return res;
 }
 
-static int plc_r_object_as_float4(SEXP *input, char **output, plcRType *type UNUSED) {
+static int plc_r_object_as_float4(SEXP input, char **output, plcRType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(4);
     *output = out;
 
-    switch(TYPEOF(*input)){
+    switch(TYPEOF(input)){
 		case LGLSXP:
-			*((float4*)out) = (float4)asLogical(*input);
+			*((float4*)out) = (float4)asLogical(input);
 			break;
 		case INTSXP:
-			*((float4*)out) = (float4)asInteger(*input);
+			*((float4*)out) = (float4)asInteger(input);
 			break;
 		case REALSXP:
-			*((float4*)out) = (float4)asReal(*input);
+			*((float4*)out) = (float4)asReal(input);
 			break;
 		default:
 			res = -1;
@@ -307,20 +307,20 @@ static int plc_r_object_as_float4(SEXP *input, char **output, plcRType *type UNU
     return res;
 }
 
-static int plc_r_object_as_float8(SEXP *input, char **output, plcRType *type UNUSED) {
+static int plc_r_object_as_float8(SEXP input, char **output, plcRType *type UNUSED) {
     int res = 0;
     char *out = (char*)malloc(8);
     *output = out;
 
-    switch(TYPEOF(*input)){
+    switch(TYPEOF(input)){
 		case LGLSXP:
-			*((float8*)out) = (float8)asLogical(*input);
+			*((float8*)out) = (float8)asLogical(input);
 			break;
 		case INTSXP:
-			*((float8*)out) = (float8)asInteger(*input);
+			*((float8*)out) = (float8)asInteger(input);
 			break;
 		case REALSXP:
-			*((float8*)out) = (float8)asReal(*input);
+			*((float8*)out) = (float8)asReal(input);
 			break;
 		default:
 			res = -1;
@@ -328,10 +328,10 @@ static int plc_r_object_as_float8(SEXP *input, char **output, plcRType *type UNU
     return res;
 }
 
-static int plc_r_object_as_text(SEXP *input, char **output, plcRType *type UNUSED) {
+static int plc_r_object_as_text(SEXP input, char **output, plcRType *type UNUSED) {
     int res = 0;
 
-    *output = strdup(CHAR(asChar(*input)));
+    *output = strdup(CHAR(asChar(input)));
     return res;
 }
 
@@ -365,7 +365,7 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
 
     ptr = meta->ndims - 1;
     idx  =  ptrs[ptr].pos;
-    mtx = ptrs[ptr].obj[0];
+    mtx = ptrs[ptr].obj;
     if ((mtx == R_NilValue)
     		|| ( (TYPEOF(mtx) == LGLSXP) && (asLogical(mtx) == NA_LOGICAL) )
 			|| ( (TYPEOF(mtx) == INTSXP) && (asInteger(mtx) == NA_INTEGER) )
@@ -462,7 +462,7 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
     return res;
 }
 
-static int plc_r_object_as_array(SEXP *input, char **output, plcRType *type) {
+static int plc_r_object_as_array(SEXP input, char **output, plcRType *type) {
     plcRArrMeta    *meta;
     plcArrayMeta    *arrmeta;
     plcIterator     *iter;
@@ -475,10 +475,10 @@ static int plc_r_object_as_array(SEXP *input, char **output, plcRType *type) {
     plcRArrPointer *ptrs;
 
     /* We allow only vector to be returned as arrays */
-    if (*input != R_NilValue && (isVector(*input) || isMatrix(*input)) ) {
+    if (input != R_NilValue && (isVector(input) || isMatrix(input)) ) {
         /* TODO this is just for vectors */
 
-    	PROTECT(rdims = getAttrib(*input, R_DimSymbol));
+    	PROTECT(rdims = getAttrib(input, R_DimSymbol));
     	if (rdims != R_NilValue){
     	ndims = length(rdims);
 			for ( i=0; i< ndims; i++){
@@ -486,7 +486,7 @@ static int plc_r_object_as_array(SEXP *input, char **output, plcRType *type) {
 			}
     	}else{
     		ndims = 1;
-    		dims[0]=length(*input);
+    		dims[0]=length(input);
     	}
     	UNPROTECT(1);
 

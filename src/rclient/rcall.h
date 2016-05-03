@@ -9,6 +9,12 @@
 #undef _POSIX_C_SOURCE
 #endif
 
+// Global connection object
+plcConn* plcconn_global;
+
+// Global execution termination flag
+int plc_is_execution_terminated;
+
 // Processing of the Greenplum function call
 void handle_call(callreq req, plcConn* conn);
 

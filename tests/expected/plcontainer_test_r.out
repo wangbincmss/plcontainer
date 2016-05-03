@@ -257,6 +257,17 @@ select rpg_spi_exec('select 1');
  1
 (1 row)
 
+select rlogging();
+INFO:  this is the info message
+NOTICE:  this is the notice message
+WARNING:  this is the warning message
+ERROR:  this is the error message (plcontainer.c:216)
+select rlogging2();
+ rlogging2 
+-----------
+ 
+(1 row)
+
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
 -- This function is of "return setof record" type which is not supported yet

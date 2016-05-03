@@ -35,13 +35,13 @@
 
 typedef struct plcRType plcRType;
 typedef SEXP (*plcRInputFunc)(char*);
-typedef int (*plcROutputFunc)(SEXP* , char**, plcRType*);
+typedef int (*plcROutputFunc)(SEXP , char**, plcRType*);
 
 #define PLC_MAX_ARRAY_DIMS 2
 
 typedef struct plcRArrPointer {
     size_t    pos;
-    SEXP *obj;
+    SEXP obj;
 } plcRArrPointer;
 
 typedef struct plcRArrMeta {

@@ -123,6 +123,19 @@ create or replace function rpg_spi_exec(arg1 text) returns text as $$
 #container: plc_r
 (pg.spi.exec(arg1))[[1]]
 $$ language plcontainer;
+CREATE OR REPLACE FUNCTION rlogging() RETURNS void AS $$
+# container: plc_r
+plr.debug('this is the debug message')
+plr.log('this is the log message')
+plr.info('this is the info message')
+plr.notice('this is the notice message')
+plr.warning('this is the warning message')
+plr.error('this is the error message')
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rlogging2() RETURNS void AS $$
+# container: plc_r
+pg.spi.exec('select rlogging()');
+$$ LANGUAGE plcontainer;
 -- create type for next function
 create type user_type as (fname text, lname text, username text);
 create or replace function rtest_spi_tup(arg1 text) returns setof user_type as $$
