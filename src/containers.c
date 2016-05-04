@@ -4,6 +4,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <time.h>
 
 #include "postgres.h"
 #include "utils/ps_status.h"
@@ -36,24 +37,57 @@ static void cleanup(char *dockerid) {
     /* We fork the process to syncronously wait for container to exit */
     pid = fork();
     if (pid == 0) {
-        int res;
-        int sockfd;
+        char    psname[200];
+        int     res;
+        int     sockfd;
+        int     attempt = 0;
+        clock_t start;
+        clock_t end;
 
+        /* Setting application name to let the system know it is us */
+        sprintf(psname, "plcontainer cleaner %s", dockerid);
+        set_ps_display(psname, false);
+
+        /* We make 5 attempts to start waiting for the container */
+        for (attempt = 0; attempt < 5; attempt++) {
+
+            /* Connect to the Docker API and execute "wait" command for the
+             * target container to wait for its termination */
+            start = clock();
+            sockfd = plc_docker_connect();
+            if (sockfd > 0) {
+                res = plc_docker_wait_container(sockfd, dockerid);
+                plc_docker_disconnect(sockfd);
+            } else {
+                res = -1;
+            }
+            end = clock();
+
+            /* If "wait" has finished successfully - container has finished
+             * and we can remove the container */
+            if (res == 0) {
+                break;
+            }
+
+            /* If we "waited" for more than 1 minute and wait failed, this might
+             * happen due to network issue and we should reset the attempt
+             * counter and start over */
+            if ( (end - start) / CLOCKS_PER_SEC > 60 ) {
+                attempt = 0;
+            }
+
+            /* Sleep for 1 second in case of failed attempt */
+            sleep(1);
+        }
+
+        /* Connect to the Docker API to remove the container */
         sockfd = plc_docker_connect();
-        if (sockfd < 0) {
-            _exit(1);
+        if (sockfd > 0) {
+            res = plc_docker_delete_container(sockfd, dockerid);
+            if (res < 0) {
+                _exit(1);
+            }
         }
-
-        res = plc_docker_wait_container(sockfd, dockerid);
-        if (res < 0) {
-            _exit(1);
-        }
-
-        res = plc_docker_delete_container(sockfd, dockerid);
-        if (res < 0) {
-            _exit(1);
-        }
-
         plc_docker_disconnect(sockfd);
 
         _exit(0);
