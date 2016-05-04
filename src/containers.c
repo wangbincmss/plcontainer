@@ -105,6 +105,8 @@ static void insert_container(char *image, plcConn *conn) {
             return;
         }
     }
+    // Fatal would cause the session to be closed
+    elog(FATAL, "Single session cannot handle more than %d open containers simultaneously", CONTAINER_NUMBER);
 }
 
 static void init_containers() {
