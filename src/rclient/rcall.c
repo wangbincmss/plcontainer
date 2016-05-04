@@ -299,6 +299,9 @@ void handle_call(callreq req, plcConn* conn) {
         SETCAR(call, r);
     }
 
+    /* call the function */
+    plc_is_execution_terminated = 0;
+
     strres = R_tryEval(call, R_GlobalEnv, &errorOccurred);
     UNPROTECT(1); //call
 
@@ -318,8 +321,9 @@ void handle_call(callreq req, plcConn* conn) {
         return;
     }
 
-    process_call_results(conn, strres, r_func);
-
+    if (plc_is_execution_terminated == 0) {
+    	process_call_results(conn, strres, r_func);
+    }
 
     plc_r_free_function(r_func);
 
@@ -858,7 +862,10 @@ plr_SPI_exec( SEXP rsql )
         error("%s", "cannot execute empty query");
         return NULL;
     }
-
+    /* If the execution was terminated we don't need to proceed with SPI */
+    if (plc_is_execution_terminated != 0) {
+    	return NULL;
+    }
 
     msg            = pmalloc(sizeof(*msg));
     msg->msgtype   = MT_SQL;
