@@ -71,7 +71,7 @@ static int docker_parse_container_id(char* response, char **name);
 static int docker_parse_port_mapping(char* response, int *port);
 static int get_content_length(char *msg, int *len);
 static int send_message(int sockfd, char *message);
-static int recv_message(int sockfd, char *buf, int buflen);
+static int recv_message(int sockfd, char **response);
 static int recv_port_mapping(int sockfd, int *port);
 static int docker_call(int sockfd, char *request, char **response, int silent);
 static int plc_docker_container_command(int sockfd, char *name, const char *cmd, int silent);
@@ -279,11 +279,15 @@ static int send_message(int sockfd, char *message) {
     return 0;
 }
 
-static int recv_message(int sockfd, char *buf, int buflen) {
-    int received = 0;
-    int len = 0;
+static int recv_message(int sockfd, char **response) {
+    int   received = 0;
+    int   len = 0;
+    char *buf;
+    int   buflen = 8192;
 
+    buf = palloc(buflen);
     memset(buf, 0, buflen);
+
     while (len == 0 || received < len) {
         int bytes = 0;
 
@@ -295,10 +299,30 @@ static int recv_message(int sockfd, char *buf, int buflen) {
         received += bytes;
 
         if (len == 0) {
+            /* Parse the message to fing Content-Length */
             get_content_length(buf, &len);
+
+            /* If the message will not fit into buffer - reallocate it */
+            if (len + 1000 > buflen) {
+                int   newbuflen;
+                char *newbuf;
+
+                newbuflen = len + 1000;
+                newbuf = palloc(newbuflen);
+
+                /* Copy the old buffer data into the new buffer */
+                memset(newbuf, 0, newbuflen);
+                memcpy(newbuf, buf, buflen);
+
+                /* Free old buffer replacing it with the new one */
+                pfree(buf);
+                buf = newbuf;
+                buflen = newbuflen;
+            }
         }
     }
 
+    *response = buf;
     return 0;
 }
 
@@ -306,6 +330,7 @@ static int recv_port_mapping(int sockfd, int *port) {
     int   received = 0;
     char *buf;
     int   buflen = 16384;
+    int   headercheck = 0;
 
     buf = palloc(buflen);
     memset(buf, 0, buflen);
@@ -319,9 +344,13 @@ static int recv_port_mapping(int sockfd, int *port) {
         }
         received += bytes;
 
-        if (strncmp(buf, "HTTP/1.1 200 OK", 15) != 0) {
-            elog(ERROR, "Error in response from Docker API socket: '%s'", buf);
-            return -1;
+        /* Check that the message contain correct HTTP response header */
+        if (!headercheck) {
+            if (strncmp(buf, "HTTP/1.1 200 OK", 15) != 0) {
+                elog(ERROR, "Error in response from Docker API socket: '%s'", buf);
+                return -1;
+            }
+            headercheck = 1;
         }
 
         if (docker_parse_port_mapping(buf, port) == 0) {
@@ -331,6 +360,13 @@ static int recv_port_mapping(int sockfd, int *port) {
         if (strstr(buf, "\r\n0\r\n")) {
             elog(ERROR, "Error - cannot find port mapping information for container");
             return -1;
+        }
+
+        /* If the buffer is close to the end, we shift it to the beginning */
+        if (buflen - received < 1000) {
+            memcpy(buf, buf + received - 1000, 1000);
+            received = 1000;
+            memset(buf + received, 0, buflen - received);
         }
     }
 
@@ -353,8 +389,7 @@ static int docker_call(int sockfd, char *request, char **response, int silent) {
         return -1;
     }
 
-    *response = palloc(8192);
-    res = recv_message(sockfd, *response, 8192);
+    res = recv_message(sockfd, response);
     if (res < 0) {
         elog(ERROR, "Error receiving data from the Docker API socket during container create call");
         return -1;
