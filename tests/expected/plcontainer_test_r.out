@@ -263,11 +263,14 @@ NOTICE:  this is the notice message
 WARNING:  this is the warning message
 ERROR:  this is the error message (plcontainer.c:216)
 select rlogging2();
- rlogging2 
------------
- 
-(1 row)
-
+INFO:  this is the info message
+CONTEXT:  SQL statement "select rlogging()"
+NOTICE:  this is the notice message
+CONTEXT:  SQL statement "select rlogging()"
+WARNING:  this is the warning message
+CONTEXT:  SQL statement "select rlogging()"
+ERROR:  this is the error message (plcontainer.c:216)
+CONTEXT:  SQL statement "select rlogging()"
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
 -- This function is of "return setof record" type which is not supported yet
