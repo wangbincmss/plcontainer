@@ -14,7 +14,7 @@ You can find more information in the user guide
 
 ```shell
 git clone https://github.com/greenplum-db/plcontainer.git
-cd vagrant/centos
+cd plcontainer/vagrant/centos
 vagrant up
 ```
 
