@@ -153,6 +153,33 @@ create or replace function rpg_spi_exec(arg1 text) returns text as $$
 (pg.spi.exec(arg1))[[1]]
 $$ language plcontainer;
 
+CREATE OR REPLACE FUNCTION rconcatall() RETURNS text AS $$
+# container: plc_r
+res = pg.spi.exec('select fname from users order by 1')
+paste(res, sep=',',collapse=',')
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rnested_call_one(a text) RETURNS text AS $$
+# container: plc_r
+q = "SELECT rnested_call_two('%s')"
+q = gsub("%s",a,q)
+r = pg.spi.exec(q)
+return (r[0])
+$$ LANGUAGE plcontainer ;
+
+CREATE OR REPLACE FUNCTION rnested_call_two(a text) RETURNS text AS $$
+# container: plc_r
+q = "SELECT rnested_call_three('%s')"
+q = gsub("%s",a,q)
+r = pg.spi.exec(q)
+return (r[0])
+$$ LANGUAGE plcontainer ;
+
+CREATE OR REPLACE FUNCTION rnested_call_three(a text) RETURNS text AS $$
+# container: plc_r
+return (a)
+$$ LANGUAGE plcontainer ;
+
 CREATE OR REPLACE FUNCTION rlogging() RETURNS void AS $$
 # container: plc_r
 plr.debug('this is the debug message')
@@ -168,6 +195,11 @@ CREATE OR REPLACE FUNCTION rlogging2() RETURNS void AS $$
 pg.spi.exec('select rlogging()');
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION runargs1(varchar) RETURNS text AS $$
+# container: plc_r
+return (args[0])
+$$ LANGUAGE plcontainer;
+
 -- create type for next function
 create type user_type as (fname text, lname text, username text);
 
@@ -180,6 +212,38 @@ create or replace function rtest_spi_ta(arg1 text) returns setof record as $$
 #container: plc_r
 pg.spi.exec(arg1)
 $$ language plcontainer;
+
+CREATE OR REPLACE FUNCTION rsetofint4() RETURNS setof int4 AS $$
+# container: plc_r
+as.vector(array(1:15,c(5,3)))
+$$ LANGUAGE plcontainer ;
+CREATE OR REPLACE FUNCTION rsetofint8() RETURNS setof int8 AS $$
+# container: plc_r
+as.vector(array(2:16,c(5,3)))
+$$ LANGUAGE plcontainer ;
+CREATE OR REPLACE FUNCTION rsetofint2() RETURNS setof int2 AS $$
+# container: plc_r
+as.vector(array(3:17,c(5,3)))
+$$ LANGUAGE plcontainer ;
+CREATE OR REPLACE FUNCTION rsetoffloat4() RETURNS setof float4 AS $$
+# container: plc_r
+as.vector(array(2.5:15,c(5,3)))
+$$ LANGUAGE plcontainer ;
+
+CREATE OR REPLACE FUNCTION rsetoffloat8() RETURNS setof float8 AS $$
+# container: plc_r
+as.vector(array(4.5:15,c(5,3)))
+$$ LANGUAGE plcontainer ;
+
+CREATE OR REPLACE FUNCTION rsetoffloat8array() RETURNS setof float8[] AS $$
+# container: plc_r
+as.vector(c(array(5.5:15),array(3.5:15)))
+$$ LANGUAGE plcontainer ;
+
+CREATE OR REPLACE FUNCTION rsetoftext() RETURNS setof text AS $$
+# container: plc_r
+as.vector(c("like", "dislike", "hate", "like", "don't know", "like", "dislike"))
+$$ LANGUAGE plcontainer ;
 
 /* ========================== Python Functions ========================== */
 

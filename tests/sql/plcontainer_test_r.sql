@@ -53,6 +53,13 @@ select rpg_spi_exec('select 1');
 select rlogging();
 select rlogging2();
 
+select rsetofint4();
+select rsetofint8();
+select rsetofint2();
+select rsetoffloat4();
+select rsetoffloat8();
+select rsetoftext();
+
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
 -- This function is of "return setof record" type which is not supported yet

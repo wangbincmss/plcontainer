@@ -271,6 +271,118 @@ WARNING:  this is the warning message
 CONTEXT:  SQL statement "select rlogging()"
 ERROR:  this is the error message (plcontainer.c:216)
 CONTEXT:  SQL statement "select rlogging()"
+select rsetofint4();
+ rsetofint4 
+------------
+          1
+          2
+          3
+          4
+          5
+          6
+          7
+          8
+          9
+         10
+         11
+         12
+         13
+         14
+         15
+(15 rows)
+
+select rsetofint8();
+ rsetofint8 
+------------
+          2
+          3
+          4
+          5
+          6
+          7
+          8
+          9
+         10
+         11
+         12
+         13
+         14
+         15
+         16
+(15 rows)
+
+select rsetofint2();
+ rsetofint2 
+------------
+          3
+          4
+          5
+          6
+          7
+          8
+          9
+         10
+         11
+         12
+         13
+         14
+         15
+         16
+         17
+(15 rows)
+
+select rsetoffloat4();
+ rsetoffloat4 
+--------------
+          2.5
+          3.5
+          4.5
+          5.5
+          6.5
+          7.5
+          8.5
+          9.5
+         10.5
+         11.5
+         12.5
+         13.5
+         14.5
+          2.5
+          3.5
+(15 rows)
+
+select rsetoffloat8();
+ rsetoffloat8 
+--------------
+          4.5
+          5.5
+          6.5
+          7.5
+          8.5
+          9.5
+         10.5
+         11.5
+         12.5
+         13.5
+         14.5
+          4.5
+          5.5
+          6.5
+          7.5
+(15 rows)
+
+select rsetoftext();
+ rsetoftext 
+------------
+ like
+ dislike
+ hate
+ like
+ don't know
+ like
+ dislike
+(7 rows)
+
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
 -- This function is of "return setof record" type which is not supported yet
