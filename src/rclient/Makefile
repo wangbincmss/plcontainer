@@ -31,7 +31,7 @@ librcall.so: $(shared_src)
 
 client: client.o librcall.so $(common_objs)
 	$(CC) -o $@ $^ $(R_LDLAGS)
-	mv client bin
+	cp client bin
 
 debug: DEBUG = -D_DEBUG_CLIENT -g
 
