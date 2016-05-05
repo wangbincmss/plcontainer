@@ -635,6 +635,7 @@ plcRFunction *plc_R_init_function(callreq call) {
     res->proc.src  = strdup(call->proc.src);
     res->proc.name = strdup(call->proc.name);
     res->nargs = call->nargs;
+    res->retset = call->retset;
     res->args = (plcRType*)malloc(res->nargs * sizeof(plcRType));
 
     for (i = 0; i < res->nargs; i++)

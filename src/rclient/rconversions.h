@@ -50,8 +50,10 @@ typedef struct plcRFunction {
     callreq     call;
     SEXP        RProc;
     int         nargs;
-    plcRType   *args;
-    plcRType    res;
+    int			retset;
+    unsigned int  objectid;
+    plcRType  *args;
+    plcRType   res;
 } plcRFunction;
 
 int get_entry_length(plcDatatype type);
