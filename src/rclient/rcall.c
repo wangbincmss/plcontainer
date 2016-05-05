@@ -282,10 +282,10 @@ void handle_call(callreq req, plcConn* conn) {
 
     if(req->nargs > 0)
     {
-        rargs = arguments_to_r(conn, r_func);	//			convert_args(req);
-        PROTECT(obj = args = allocList(req->nargs));
+        rargs = arguments_to_r(conn, r_func);
+        PROTECT(obj = args = allocList(req->nargs +1));
 
-        for (i = 0; i < req->nargs; i++)
+        for (i = 0; i < (req->nargs + 1); i++)
         {
             SETCAR(obj, VECTOR_ELT(rargs, i));
             obj = CDR(obj);
@@ -380,7 +380,7 @@ static SEXP parse_r_code(const char *code,  plcConn* conn, int *errorOccurred) {
             errmsg  = strdup(last_R_error_msg);
         }else{
             errmsg =  strdup("Parse Error\n");
-            errmsg =  realloc(errmsg, strlen(errmsg)+strlen(code));
+            errmsg =  realloc(errmsg, strlen(errmsg)+strlen(code)+1);
             errmsg =  strcat(errmsg, code);
         }
         goto error;
@@ -408,9 +408,12 @@ static char * create_r_func(callreq req) {
     int i;
 
     // calculate space required for args
+    mlen = 5; // for args,
     for (i=0;i<req->nargs;i++){
         // +4 for , and space
-        mlen += strlen(req->args[i].name) + 4;
+    	if ( req->args[i].name != NULL ){
+    		mlen += strlen(req->args[i].name) + 4;
+    	}
     }
     /*
      * room for function source and function call
@@ -418,21 +421,26 @@ static char * create_r_func(callreq req) {
     mlen += strlen(req->proc.src) + strlen(req->proc.name) + 40;
 
     mrc  = pmalloc(mlen);
-    plen = snprintf(mrc,mlen,"%s <- function(",req->proc.name);
+
+    // create the first part of the function name and add the args array
+    plen = snprintf(mrc,mlen,"%s <- function(args",req->proc.name);
+
+    for ( i=0; i < req->nargs; i++ ){
+
+    	if ( req->args[i].name != NULL ){
+    		/*
+    		 * add a comma, note if there are no args this will not be added
+    		 * and if there are some it will be added before the arg
+    		 */
+    		strcat(mrc,", ") ;
+    		plen += 2;
+
+    		strcat( mrc,req->args[i].name);
 
 
-    for (i=0;i<req->nargs;i++){
-
-        strcat( mrc,req->args[i].name);
-
-        /* add a comma if not the last arg */
-        if ( i < (req->nargs-1) ){
-            strcat(mrc,", ") ;
-            plen += 2;
-        }
-
-        /* keep track of where we are copying */
-        plen+=strlen(req->args[i].name);
+			/* keep track of where we are copying */
+			plen+=strlen(req->args[i].name);
+    	}
     }
 
     /* finish the function definition from where we left off */
@@ -640,19 +648,29 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
 
     return 0;
 }
-static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
-    SEXP r_args, element;
-    int i;
 
-    /* create the argument list */
-    PROTECT(r_args = allocVector(VECSXP, r_func->nargs));
+static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
+    SEXP r_args, allargs, element;
+    int i, pos=1, notnull=0;
+
+    /* number of arguments that have names and should make it to the input tuple */
+	for (i = 0; i < r_func->nargs; i++) {
+		if (r_func->call->args[i].name != NULL) {
+			notnull += 1;
+		}
+	}
+
+    /* create the argument list  plus 1 for the unnamed args vector */
+    PROTECT(r_args = allocVector(VECSXP, notnull+1));
+    allargs = allocVector(VECSXP,r_func->nargs);
+
+    /* all argument vector is the 1st argument */
+    SET_VECTOR_ELT( r_args, 0, allargs );
 
     for (i = 0; i < r_func->nargs; i++) {
 
         if (r_func->call->args[i].data.isnull) {
-        	PROTECT(element=R_NilValue);
-        	SET_VECTOR_ELT( r_args, i, element );
-        	UNPROTECT(1);
+        	element=R_NilValue;
         } else {
 
         	if (r_func->args[i].conv.inputfunc == NULL) {
@@ -671,8 +689,13 @@ static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
                                   r_func->args[i].name);
             return NULL;
         }
+        if( r_func->call->args[i].name != NULL){
+        	SET_VECTOR_ELT( r_args, pos, element );
+        }
+        /* all arguments named or otherwise go in here */
+        SET_VECTOR_ELT( allargs, i, element );
+        pos++;
 
-        SET_VECTOR_ELT( r_args, i, element );
     }
     return r_args;
 }
