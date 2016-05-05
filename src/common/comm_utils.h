@@ -40,6 +40,10 @@ interpreted as representing official policies, either expressed or implied, of t
 
     #include <stdio.h>
 
+    /* Compatibility with R that defines WARNING and ERROR by itself */
+    #undef WARNING
+    #undef ERROR
+
     /* Error level codes from GPDB utils/elog.h header */
     #define DEBUG2     13
     #define DEBUG1     14
