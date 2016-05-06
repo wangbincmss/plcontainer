@@ -514,22 +514,39 @@ static int process_data_frame(plcConn *conn, SEXP retval) {
 }
 #endif
 
-static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func) {
-    plcontainer_result res;
-    int i=0, ret=0;
-    char *p=NULL;
+static int handle_matrix( SEXP retval, plcRFunction *r_func, plcontainer_result res )
+{
+    int i=0;
 
-    /* allocate a result */
-    res          = malloc(sizeof(str_plcontainer_result));
-    res->msgtype = MT_RESULT;
-    res->names   = malloc(1 * sizeof(char*));
-    res->types   = malloc(1 * sizeof(plcType));
+    res->rows = length(retval);
+    res->cols = 1;
+    res->data = malloc(res->rows * sizeof(rawdata*));
 
+    for (i=0; i<res->rows;i++){
+        res->data[i] = malloc(res->cols * sizeof(rawdata));
+    }
+    plc_r_copy_type(&res->types[0], &r_func->res);
+    res->names[0] = r_func->res.name;
+    if (r_func->res.conv.outputfunc == NULL) {
+        raise_execution_error(plcconn_global,
+                              "Type %d is not yet supported by R container",
+                              (int)res->types[0].type);
+        free_result(res);
+        return -1;
+    }
+    return 0;
+}
+static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result res )
+{
+    int i=0;
+    rawdata *raw;
 
-    if ( r_func->retset != 0 ){
-    	res->rows = length(retval);
-    	res->cols = 1;
-    	res->data = malloc(res->rows * sizeof(rawdata*));
+    if (isMatrix(retval) ){
+        handle_matrix( retval, r_func, res );
+    }else{
+        res->rows = length(retval);
+        res->cols = 1;
+        res->data = malloc(res->rows * sizeof(rawdata*));
 
         for (i=0; i<res->rows;i++){
             res->data[i] = malloc(res->cols * sizeof(rawdata));
@@ -547,118 +564,41 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
                     free_result(res);
                     return -1;
             }
-            // TODO this is duplicated in rconversions.c needs to be refactored
-            switch (r_func->res.type) {
-                case PLC_DATA_INT2:
-                case PLC_DATA_INT4:
+            raw = plc_r_vector_element_rawdata(retval, i, r_func->res.type);
+            res->data[i] = raw;
 
-                    /* 2 and 4 byte integer pgsql datatype => use R INTEGER */
-                    p = pmalloc(4);
-                    res->data[i][0].value = p;
-
-                    if (INTEGER_DATA(retval)[i] == NA_INTEGER) {
-                        *((int *)p) = (int)0;
-                        res->data[i][0].isnull = 1;
-                    } else {
-                        *((int *)p) = INTEGER_DATA(retval)[i];
-                    }
-                    break;
-
-                    /*
-                     * Other numeric types => use R REAL
-                     * Note pgsql int8 is mapped to R REAL
-                     * because R INTEGER is only 4 byte
-                     */
-
-                case PLC_DATA_INT8:
-                    p = pmalloc(8);
-                    res->data[i][0].value = p;
-
-                    if (INTEGER_DATA(retval)[i] == NA_INTEGER) {
-                        *((int64 *)p) = (int64)0;
-                        res->data[i][0].isnull = 1;
-                    } else {
-                        *((int64 *)p) = (int64)(INTEGER_DATA(retval)[i]);
-                    }
-
-                    break;
-
-                case PLC_DATA_FLOAT4:
-                    p = pmalloc(4);
-                    res->data[i][0].value = p;
-
-                    if (R_IsNA(NUMERIC_DATA(retval)[i])) {
-                        res->data[i][0].isnull = 1;
-                        *((float4 *)p) = (float4)0;
-                    } else {
-                        *((float4 *)p) = (float4)(NUMERIC_DATA(retval)[i]);
-                    }
-                    break;
-                case PLC_DATA_FLOAT8:
-                    p = pmalloc(8);
-                    res->data[i][0].value = p;
-
-                    if (R_IsNA(NUMERIC_DATA(retval)[i])) {
-                        res->data[i][0].isnull = 1;
-                        *((float8 *)p) = (float8)0;
-                    } else {
-                        *((float8 *)p) = (float8)(NUMERIC_DATA(retval)[i]);
-                    }
-                    break;
-                case PLC_DATA_INT1:
-                    p = pmalloc(1);
-                    res->data[i][0].value = p;
-
-                    if (LOGICAL_DATA(retval)[i] == NA_LOGICAL) {
-                        res->data[i][0].isnull = 1;
-                        *((int *)p) = (int)0;
-                    } else {
-                        *((int *)p) = LOGICAL_DATA(retval)[i];
-                    }
-                    break;
-                case PLC_DATA_RECORD:
-                case PLC_DATA_UDT:
-                case PLC_DATA_INVALID:
-                case PLC_DATA_ARRAY:
-                    lprintf(ERROR, "un-handled type %d", r_func->res.type);
-                    break;
-                case PLC_DATA_TEXT:
-
-                    if (retval == NA_STRING || STRING_ELT(retval, i) == NA_STRING) {
-                        res->data[i][0].isnull = TRUE;
-                        p  = NULL;
-                    } else {
-                        res->data[i][0].isnull = FALSE;
-                        p  = pstrdup((char *) CHAR( STRING_ELT(retval, i) ));
-                    }
-                    res->data[i][0].value = p;
-
-                default:
-                    /* Everything else is defaulted to string */
-                    ;//SET_STRING_ELT(*obj, elnum, COPY_TO_USER_STRING(value));
-            }
-
-            if (ret != 0) {
-                raise_execution_error(plcconn_global,
-                                      "Exception raised converting function output to function output type %d",
-                                      (int)res->types[0].type);
-                free_result(res);
-                return -1;
-            }
         }
+    }
+    return 0;
+}
+static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func) {
+    plcontainer_result res;
+    int i=0, ret=0;
 
+    /* allocate a result */
+    res          = malloc(sizeof(str_plcontainer_result));
+    res->msgtype = MT_RESULT;
+    res->names   = malloc(1 * sizeof(char*));
+    res->types   = malloc(1 * sizeof(plcType));
+
+
+    if ( r_func->retset != 0 ){
+        if (handle_retset( retval, r_func, res ) != 0 ){
+            free_result(res);
+            return -1;
+        }
     }else{
-		if (Rf_isFrame(retval)){
-			res->rows 	= nrows(retval);
-			res->cols   = ncols(retval);
-			SEXP col    = VECTOR_ELT(retval,0);
-			int l = length(col);
-			lprintf(DEBUG1, "length its %d\n",l);
+        if (Rf_isFrame(retval)){
+            res->rows     = nrows(retval);
+            res->cols   = ncols(retval);
+            SEXP col    = VECTOR_ELT(retval,0);
+            int l = length(col);
+            lprintf(DEBUG1, "length its %d\n",l);
 
-		}else{
-			res->rows   = 1;
-			res->cols   = 1;
-		}
+        }else{
+            res->rows   = 1;
+            res->cols   = 1;
+        }
 
 
         res->data = malloc(res->rows * sizeof(rawdata*));

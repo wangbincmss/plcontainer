@@ -61,5 +61,6 @@ plcRFunction *plc_R_init_function(callreq call) ;
 void plc_r_copy_type(plcType *type, plcRType *pytype);
 void plc_r_free_function(plcRFunction *func);
 SEXP get_r_vector(plcDatatype type_id, int numels);
+rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type);
 
 #endif /* PLC_RCONVERSIONS_H */

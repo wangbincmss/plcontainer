@@ -343,40 +343,29 @@ static void plc_r_object_iter_free (plcIterator *iter) {
     return;
 }
 
-static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
-    plcRArrMeta     *meta;
-    plcRArrPointer  *ptrs;
-    rawdata         *res;
-    SEXP             mtx;
-    int              ptr;
-    int              idx;
+rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
+{
+    rawdata *res  = (rawdata*)pmalloc(sizeof(rawdata));
 
-    meta = (plcRArrMeta*)iter->payload;
-    ptrs = (plcRArrPointer*)iter->position;
-    res  = (rawdata*)pmalloc(sizeof(rawdata));
+    if ((vector == R_NilValue)
+                || ( (TYPEOF(vector) == LGLSXP) && (asLogical(vector) == NA_LOGICAL) )
+                || ( (TYPEOF(vector) == INTSXP) && (asInteger(vector) == NA_INTEGER) )
+                || ( (TYPEOF(vector) == STRSXP) && (vector == NA_STRING) )) {
 
-    ptr = meta->ndims - 1;
-    idx  =  ptrs[ptr].pos;
-    mtx = ptrs[ptr].obj;
-    if ((mtx == R_NilValue)
-            || ( (TYPEOF(mtx) == LGLSXP) && (asLogical(mtx) == NA_LOGICAL) )
-            || ( (TYPEOF(mtx) == INTSXP) && (asInteger(mtx) == NA_INTEGER) )
-            || ( (TYPEOF(mtx) == STRSXP) && (mtx == NA_STRING) )) {
-
-        res->isnull = 1;
-        res->value = NULL;
+            res->isnull = 1;
+            res->value = NULL;
     } else {
         res->isnull = 0;
-        switch (meta->type->type) {
+        switch (type) {
             case PLC_DATA_INT2:
             case PLC_DATA_INT4:
                 /* 2 and 4 byte integer pgsql datatype => use R INTEGER */
                 res->value = pmalloc(4);
-                if (INTEGER_DATA(mtx)[idx] == NA_INTEGER) {
+                if (INTEGER_DATA(vector)[idx] == NA_INTEGER) {
                     *((int *)res->value) = (int)0;
                     res->isnull = 1;
                 } else {
-                    *((int *)res->value) = INTEGER_DATA(mtx)[idx];
+                    *((int *)res->value) = INTEGER_DATA(vector)[idx];
                 }
                 break;
 
@@ -389,56 +378,56 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
             case PLC_DATA_INT8:
                 res->value = pmalloc(8);
 
-                if ( R_IsNA(NUMERIC_DATA(mtx)[idx]) != 0 ) {
+                if ( R_IsNA(NUMERIC_DATA(vector)[idx]) != 0 ) {
                     *((int64 *)res->value) = (int64)0;
                     res->isnull = 1;
                 } else {
-                    *((int64 *)res->value) = (int64)(NUMERIC_DATA(mtx)[idx]);
+                    *((int64 *)res->value) = (int64)(NUMERIC_DATA(vector)[idx]);
                 }
 
                 break;
 
             case PLC_DATA_FLOAT4:
                 res->value = pmalloc(4);
-                if (R_IsNA(NUMERIC_DATA(mtx)[idx])) {
+                if (R_IsNA(NUMERIC_DATA(vector)[idx])) {
                     res->isnull = 1;
                     *((float4 *)res->value) = (float4)0;
                 } else {
-                    *((float4 *)res->value) = (float4)(NUMERIC_DATA(mtx)[idx]);
+                    *((float4 *)res->value) = (float4)(NUMERIC_DATA(vector)[idx]);
                 }
                 break;
             case PLC_DATA_FLOAT8:
                 res->value = pmalloc(8);
-                if (R_IsNA(NUMERIC_DATA(mtx)[idx])) {
+                if (R_IsNA(NUMERIC_DATA(vector)[idx])) {
                     res->isnull = 1;
                     *((float8 *)res->value) = (float8)0;
                 } else {
-                    *((float8 *)res->value) = (float8)(NUMERIC_DATA(mtx)[idx]);
+                    *((float8 *)res->value) = (float8)(NUMERIC_DATA(vector)[idx]);
                 }
                 break;
             case PLC_DATA_INT1:
                 res->value = pmalloc(1);
-                if (LOGICAL_DATA(mtx)[idx] == NA_LOGICAL) {
+                if (LOGICAL_DATA(vector)[idx] == NA_LOGICAL) {
                     res->isnull = 1;
                     *((int *)res->value) = (int)0;
                 } else {
-                    *((int *)res->value) = LOGICAL_DATA(mtx)[idx];
+                    *((int *)res->value) = LOGICAL_DATA(vector)[idx];
                 }
                 break;
             case PLC_DATA_RECORD:
             case PLC_DATA_UDT:
             case PLC_DATA_INVALID:
             case PLC_DATA_ARRAY:
-                lprintf(ERROR, "un-handled type %d", meta->type->type);
+                lprintf(ERROR, "un-handled type %d", type);
                 break;
             case PLC_DATA_TEXT:
 
-                if (mtx == NA_STRING || STRING_ELT(mtx, idx) == NA_STRING) {
+                if (vector == NA_STRING || STRING_ELT(vector, idx) == NA_STRING) {
                     res->isnull = TRUE;
                     res->value  = NULL;
                 } else {
                     res->isnull = FALSE;
-                    res->value  = pstrdup((char *) CHAR( STRING_ELT(mtx, idx) ));
+                    res->value  = pstrdup((char *) CHAR( STRING_ELT(vector, idx) ));
                 }
 
             default:
@@ -447,7 +436,25 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
         }
 
     }
+    return res;
+}
 
+static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
+    plcRArrMeta     *meta;
+    plcRArrPointer  *ptrs;
+    rawdata         *res;
+    SEXP             mtx;
+    int              ptr;
+    int              idx;
+
+    meta = (plcRArrMeta*)iter->payload;
+    ptrs = (plcRArrPointer*)iter->position;
+
+    ptr = meta->ndims - 1;
+    idx  =  ptrs[ptr].pos;
+    mtx = ptrs[ptr].obj;
+
+    res = plc_r_vector_element_rawdata(mtx, idx, meta->type->type);
     ptrs[ptr].pos += 1;
 
     return res;
