@@ -146,7 +146,7 @@ static int docker_parse_container_id(char* response, char **name) {
 
     res = pg_regexec(&preg,
                      data,
-                     datalen,
+                     wdatalen,
                      0,
                      NULL,
                      3,
@@ -209,7 +209,7 @@ static int docker_parse_port_mapping(char* response, int *port) {
 
     res = pg_regexec(&preg,
                      data,
-                     datalen,
+                     wdatalen,
                      0,
                      NULL,
                      2,
