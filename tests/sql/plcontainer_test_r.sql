@@ -60,6 +60,11 @@ select rsetoffloat4();
 select rsetoffloat8();
 select rsetoftext();
 
+select runargs1('foo');
+select runargs2(123, 'foo');
+select runargs3(123, 'foo', 'bar');
+select runargs4(1,null,null,1);
+
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
 -- This function is of "return setof record" type which is not supported yet
