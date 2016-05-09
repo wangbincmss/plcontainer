@@ -50,7 +50,7 @@ typedef struct plcRFunction {
     callreq     call;
     SEXP        RProc;
     int         nargs;
-    int			retset;
+    int         retset;
     unsigned int  objectid;
     plcRType  *args;
     plcRType   res;
@@ -62,5 +62,6 @@ void plc_r_copy_type(plcType *type, plcRType *pytype);
 void plc_r_free_function(plcRFunction *func);
 SEXP get_r_vector(plcDatatype type_id, int numels);
 rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type);
+int plc_r_matrix_as_setof(SEXP input, int start, int dim1, char **output, plcRType *type);
 
 #endif /* PLC_RCONVERSIONS_H */

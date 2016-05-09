@@ -377,12 +377,20 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
 
             case PLC_DATA_INT8:
                 res->value = pmalloc(8);
-
-                if ( R_IsNA(NUMERIC_DATA(vector)[idx]) != 0 ) {
-                    *((int64 *)res->value) = (int64)0;
-                    res->isnull = 1;
+                if (IS_INTEGER(vector)){
+                    if (INTEGER_DATA(vector)[idx] == NA_INTEGER) {
+                        *((int64 *)res->value) = (int64)0;
+                        res->isnull = 1;
+                    } else {
+                        *((int64 *)res->value) = (int64)(INTEGER_DATA(vector)[idx]);
+                    }
                 } else {
-                    *((int64 *)res->value) = (int64)(NUMERIC_DATA(vector)[idx]);
+                    if (R_IsNA(NUMERIC_DATA(vector)[idx])) {
+                        res->isnull = 1;
+                        *((int64 *)res->value) = (int64)0;
+                    } else {
+                        *((int64 *)res->value) = (int64)(NUMERIC_DATA(vector)[idx]);
+                    }
                 }
 
                 break;
@@ -460,6 +468,88 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
     return res;
 }
 
+int plc_r_matrix_as_setof(SEXP input, int start, int dim1, char **output, plcRType *type){
+
+    plcRArrMeta    *meta;
+    plcArrayMeta   *arrmeta;
+    plcIterator    *iter;
+    size_t          dims[PLC_MAX_ARRAY_DIMS];
+    SEXP            rdims;
+    int             ndims = 0;
+    int             res = 0;
+    int             i = 0;
+    plcRArrPointer *ptrs;
+
+    if (input != R_NilValue && (isVector(input) || isMatrix(input)) ) {
+        PROTECT(rdims = getAttrib(input, R_DimSymbol));
+
+        /*
+         * we are translating this from a linear array into n rows
+         * so we lose one of the dimensions
+         */
+
+        if (rdims != R_NilValue) {
+            ndims = 1;
+            dims[0]=dim1;
+        }else{
+            ndims = 1;
+            dims[0]=dim1;
+        }
+        UNPROTECT(1);
+
+
+        /* Allocate the iterator */
+        iter = (plcIterator*)pmalloc(sizeof(plcIterator));
+
+        /* Initialize metas */
+        arrmeta = (plcArrayMeta*)pmalloc(sizeof(plcArrayMeta));
+        arrmeta->ndims = ndims;
+        arrmeta->dims = (int*)pmalloc(ndims * sizeof(int));
+        arrmeta->size = (ndims == 0) ? 0 : 1;
+        arrmeta->type = type->subTypes[0].type;
+
+        meta = (plcRArrMeta*)pmalloc(sizeof(plcRArrMeta));
+        meta->ndims = ndims;
+        meta->dims  = (size_t*)pmalloc(ndims * sizeof(size_t));
+        meta->outputfunc = plc_get_output_function(type->subTypes[0].type);
+        meta->type = &type->subTypes[0];
+
+        for (i = 0; i < ndims; i++) {
+            meta->dims[i] = dims[i];
+            arrmeta->dims[i] = (int)dims[i];
+            arrmeta->size *= (int)dims[i];
+        }
+
+        iter->meta = arrmeta;
+        iter->payload = (char*)meta;
+
+        /* Initializing initial position */
+        ptrs = (plcRArrPointer*)pmalloc(ndims * sizeof(plcRArrPointer));
+        for (i = 0; i < ndims; i++) {
+            ptrs[i].pos = start;
+            /* TODO this only works for one dimensional arrays */
+            ptrs[i].obj = input;
+        }
+        iter->position = (char*)ptrs;
+
+        /* not sure why this is necessary */
+        /* Initializing "data" */
+        iter->data = (char*)input;
+
+        /* Initializing "next" and "cleanup" functions */
+        iter->next = plc_r_object_as_array_next;
+        iter->cleanup = plc_r_object_iter_free;
+
+        *output = (char*)iter;
+
+
+    } else {
+        *output = NULL;
+        return -1;
+    }
+    return res;
+}
+
 static int plc_r_object_as_array(SEXP input, char **output, plcRType *type) {
     plcRArrMeta    *meta;
     plcArrayMeta   *arrmeta;
@@ -477,7 +567,7 @@ static int plc_r_object_as_array(SEXP input, char **output, plcRType *type) {
 
         PROTECT(rdims = getAttrib(input, R_DimSymbol));
         if (rdims != R_NilValue) {
-        ndims = length(rdims);
+            ndims = length(rdims);
             for ( i=0; i< ndims; i++) {
                 dims[i] = INTEGER(rdims)[i];
             }

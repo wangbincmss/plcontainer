@@ -89,7 +89,7 @@ static void load_r_cmd(const char *cmd);
 static void send_error(plcConn* conn, char *msg);
 static SEXP parse_r_code(const char *code,  plcConn* conn, int *errorOccurred);
 static char *create_r_func(callreq req);
-static int handle_matrix( SEXP retval, plcRFunction *r_func, plcontainer_result res );
+static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcontainer_result res );
 static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result res );
 static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func);
 static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func);
@@ -449,25 +449,42 @@ static int process_data_frame(plcConn *conn, SEXP retval) {
 }
 #endif
 
-static int handle_matrix( SEXP retval, plcRFunction *r_func, plcontainer_result res )
+static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcontainer_result res )
 {
-    int i=0;
+    int i=0, cols,start=0;
+    SEXP rdims;
 
-    res->rows = length(retval);
+    PROTECT(rdims = getAttrib(retval, R_DimSymbol));
+    // get the number of rows
+    if (rdims != R_NilValue) {
+        res->rows = INTEGER(rdims)[0];
+        cols = INTEGER(rdims)[1];
+    }
+    else {
+        UNPROTECT(1);
+        return -1;
+    }
+    UNPROTECT(1);
+
+    // this is a matrix of vectors but we only handle one column in set of right now
     res->cols = 1;
     res->data = malloc(res->rows * sizeof(rawdata*));
 
     for (i=0; i<res->rows;i++){
-        res->data[i] = malloc(res->cols * sizeof(rawdata));
+        res->data[i] = malloc(cols * sizeof(rawdata));
     }
     plc_r_copy_type(&res->types[0], &r_func->res);
     res->names[0] = r_func->res.name;
-    if (r_func->res.conv.outputfunc == NULL) {
-        raise_execution_error(plcconn_global,
-                              "Type %d is not yet supported by R container",
-                              (int)res->types[0].type);
-        free_result(res);
-        return -1;
+
+    start=0;
+
+    for ( i=0; i < res->rows; i++ ){
+        res->data[i][0].isnull=0;
+        if ( plc_r_matrix_as_setof(retval,start, cols, &res->data[i][0].value, &r_func->res)  != 0){
+            free_result(res);
+            return -1;
+        }
+        start = start + cols;
     }
     return 0;
 }
@@ -478,7 +495,7 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
     rawdata *raw;
 
     if (isMatrix(retval) ){
-        handle_matrix( retval, r_func, res );
+        handle_matrix_set( retval, r_func, res );
     }else{
         res->rows = length(retval);
         res->cols = 1;
