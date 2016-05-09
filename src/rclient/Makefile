@@ -1,10 +1,26 @@
+# Makefile for PL/Container R client
+
+ifeq (,${R_HOME})
+#R_HOME is not defined
+
+all:
+	@echo ""; \
+	 echo "*** Cannot build PL/Container R client because R_HOME cannot be found." ; \
+	 echo "*** Refer to the documentation for details."; \
+	 echo ""
+
+else
+#R_HOME is defined
+
 # Global build Directories
 
 PLCONTAINER_DIR = ..
 
 # R build flags
-R_CFLAGS = $(shell pkg-config --cflags libR)
-R_LDLAGS = $(shell pkg-config --libs libR)
+#R_CFLAGS = $(shell pkg-config --cflags libR)
+#R_LDLAGS = $(shell pkg-config --libs libR)
+R_CFLAGS = -I${R_HOME}/include
+R_LDLAGS = -Wl,--export-dynamic -fopenmp -Wl,-z,relro -L${R_HOME}/lib -lR
 
 override CFLAGS += $(DEBUG) -I$(PLCONTAINER_DIR)/ -DCOMM_STANDALONE -Wall -Wextra -Werror
 
@@ -35,7 +51,7 @@ client: client.o librcall.so $(common_objs)
 
 debug: DEBUG = -D_DEBUG_CLIENT -g
 
-debug: client 
+debug: client
 
 .PHONY: all
 all: client
@@ -44,3 +60,5 @@ clean: clean_common
 	rm -f *.o
 	rm -f client
 	rm -f bin/client
+
+endif # R_HOME check

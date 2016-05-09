@@ -265,6 +265,11 @@ CREATE OR REPLACE FUNCTION runargs4(int, int, int, int) RETURNS int AS $$
 return(length(args))
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION rversion() RETURNS varchar AS $$
+# container : plc_r_shared
+return(paste("R", getRversion()))
+$$ LANGUAGE plcontainer;
+
 /* ========================== Python Functions ========================== */
 
 CREATE OR REPLACE FUNCTION pylog100() RETURNS double precision AS $$
@@ -662,4 +667,10 @@ import numpy
 import scipy
 import pandas
 return 1.0
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyversion() RETURNS varchar AS $$
+# container : plc_python_shared
+import sys
+return str(sys.version_info)
 $$ LANGUAGE plcontainer;
