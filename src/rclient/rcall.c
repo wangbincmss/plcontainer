@@ -197,13 +197,9 @@ void handle_call(callreq req, plcConn* conn) {
     SEXP             r,
                      strres,
                      call,
-                     rargs//,
-                     //obj,
-                     //args
-                     ;
+                     rargs;
 
-    int              //i,
-                     errorOccurred;
+    int              errorOccurred;
 
     char            *func,
                     *errmsg;
