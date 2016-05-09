@@ -3,8 +3,10 @@
 PLCONTAINER_DIR = ..
 
 # Python build flags
-PYTHON_CFLAGS = $(shell pkg-config --cflags python-2.7)
-PYTHON_LDFLAGS = $(shell pkg-config --libs python-2.7)
+#PYTHON_CFLAGS = $(shell pkg-config --cflags python-2.7)
+#PYTHON_LDFLAGS = $(shell pkg-config --libs python-2.7)
+PYTHON_CFLAGS = $(shell python -c "from distutils import sysconfig; import sys; sys.stdout.write('-I' + sysconfig.get_python_inc())")
+PYTHON_LDFLAGS = $(shell python -c "from distutils import sysconfig; import sys; sys.stdout.write('-lpython' + sysconfig.get_config_var('VERSION'))")
 
 override CFLAGS += $(DEBUG) -I$(PLCONTAINER_DIR)/ -DCOMM_STANDALONE -Wall -Wextra -Werror
 
