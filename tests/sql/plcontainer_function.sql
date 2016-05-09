@@ -7,32 +7,32 @@ $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION rbool(b bool) RETURNS bool AS $$
 # container: plc_r
-return (as.logical(b))
+return (b)
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION rint(i int2) RETURNS int2 AS $$
 # container: plc_r
-return (as.integer(i)+1)
+return (i+1)
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION rint(i int4) RETURNS int4 AS $$
 # container: plc_r
-return (as.integer(i)+2)
+return (i+2)
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION rint(i int8) RETURNS int8 AS $$
 # container: plc_r
-return (as.integer(i)+3)
+return (i+3)
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION rfloat(f float4) RETURNS float4 AS $$
 # container: plc_r
-return (as.numeric(f)+1)
+return (f+1)
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION rfloat(f float8) RETURNS float8 AS $$
 # container: plc_r
-return (as.numeric(f)+2)
+return (f+2)
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION rnumeric(n numeric) RETURNS numeric AS $$
@@ -156,7 +156,7 @@ $$ language plcontainer;
 CREATE OR REPLACE FUNCTION rconcatall() RETURNS text AS $$
 # container: plc_r
 res = pg.spi.exec('select fname from users order by 1')
-paste(res, sep=',',collapse=',')
+paste(res, sep=',', collapse=',')
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION rnested_call_one(a text) RETURNS text AS $$
@@ -252,12 +252,12 @@ $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION runargs2(a int, varchar) RETURNS text AS $$
 # container: plc_r
-return(paste(as.character(a), args[[2]], sep=""))
+return(paste(a, args[[2]], sep=""))
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION runargs3(a int, varchar, c varchar) RETURNS text AS $$
 # container: plc_r
-return(paste(as.character(a), args[[2]], c, sep=""))
+return(paste(a, args[[2]], c, sep=""))
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION runargs4(int, int, int, int) RETURNS int AS $$
