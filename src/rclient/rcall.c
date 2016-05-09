@@ -54,12 +54,6 @@
 #define OPTIONS_THROWWARN_CMD \
             "options(warning.expression = expression(pg.thrownotice(last.warning)))"
 
-#define QUOTE_LITERAL_CMD \
-            "pg.quoteliteral <-function(sql) " \
-            "{.Call(\"plr_quote_literal\", sql)}"
-#define QUOTE_IDENT_CMD \
-            "pg.quoteident <-function(sql) " \
-            "{.Call(\"plr_quote_ident\", sql)}"
 #define SPI_EXEC_CMD \
             "pg.spi.exec <-function(sql) {.Call(\"plr_SPI_exec\", sql)}"
 
@@ -84,18 +78,23 @@
 #define PG_LOG_FATAL_CMD \
     "plr.fatal <- function(msg) {.Call(\"plr_fatal\",msg)}"
 
+/* R interface */
+void throw_pg_notice(const char **msg);
+void throw_r_error(const char **msg);
+SEXP plr_SPI_exec(SEXP rsql);
+
 /* Function definitions */
-void raise_execution_error (plcConn *conn, const char *format, ...);
-static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func);
-static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func);
-static void pg_get_one_r(char *value,  plcDatatype column_type, SEXP *obj, int elnum);
-static void pg_get_null( plcDatatype column_type, SEXP *obj, int elnum);
-int get_entry_length(plcDatatype type);
-static char * create_r_func(callreq req);
+static char *get_load_self_ref_cmd(const char *libstr);
 static void load_r_cmd(const char *cmd);
-static char * get_load_self_ref_cmd(const char *libstr);
 static void send_error(plcConn* conn, char *msg);
-static SEXP parse_r_code(const char *code, plcConn* conn, int *errorOccurred);
+static SEXP parse_r_code(const char *code,  plcConn* conn, int *errorOccurred);
+static char *create_r_func(callreq req);
+static int handle_matrix( SEXP retval, plcRFunction *r_func, plcontainer_result res );
+static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result res );
+static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func);
+static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func);
+static void pg_get_one_r(char *value,  plcDatatype column_type, SEXP *obj, int elnum);
+static void raise_execution_error (plcConn *conn, const char *format, ...);
 
 /* Externs */
 extern SEXP plr_SPI_execp(const char * sql);
@@ -142,8 +141,6 @@ void r_init( ) {
     load_r_cmd(THROWNOTICE_CMD);
     load_r_cmd(THROWERROR_CMD);
     load_r_cmd(OPTIONS_THROWWARN_CMD);
-    load_r_cmd(QUOTE_LITERAL_CMD);
-    load_r_cmd(QUOTE_IDENT_CMD);
     load_r_cmd(SPI_EXEC_CMD);
     load_r_cmd(PG_LOG_DEBUG_CMD);
     load_r_cmd(PG_LOG_LOG_CMD);
@@ -200,11 +197,12 @@ void handle_call(callreq req, plcConn* conn) {
     SEXP             r,
                      strres,
                      call,
-                     rargs,
-                     obj,
-                     args;
+                     rargs//,
+                     //obj,
+                     //args
+                     ;
 
-    int              i,
+    int              //i,
                      errorOccurred;
 
     char            *func,
@@ -232,19 +230,11 @@ void handle_call(callreq req, plcConn* conn) {
         return;
     }
 
-    if(req->nargs > 0) {
+    if (req->nargs > 0) {
         rargs = arguments_to_r(conn, r_func);
-        PROTECT(obj = args = allocList(req->nargs +1));
-
-        for (i = 0; i < (req->nargs + 1); i++) {
-            SETCAR(obj, VECTOR_ELT(rargs, i));
-            obj = CDR(obj);
-        }
-        UNPROTECT(1);
-        PROTECT(call = lcons(r, args));
+        PROTECT(call = lcons(r, rargs));
     } else {
-        PROTECT(call = allocVector(LANGSXP,1));
-        SETCAR(call, r);
+        PROTECT(call = lcons(r, R_NilValue));
     }
 
     /* call the function */
@@ -393,57 +383,6 @@ static char *create_r_func(callreq req) {
     return mrc;
 }
 
-SEXP get_r_array(plcArray *plcArray) {
-    SEXP   vec;
-    int *dims,ndim;
-
-    int nr =1,
-        nc=1,
-        nz=1,
-        i,j,k;
-
-    ndim = plcArray->meta->ndims;
-    dims = plcArray->meta->dims;
-
-    if (ndim == 1) {
-        nr = dims[0];
-    }
-    else if (ndim == 2) {
-        nr = dims[0];
-        nc = dims[1];
-    }
-    else if (ndim == 3) {
-        nr = dims[0];
-        nc = dims[1];
-        nz = dims[2];
-    }
-
-    PROTECT(vec = get_r_vector(plcArray->meta->type, plcArray->meta->size));
-    int isNull=0;
-    int elem_idx=0;
-    int elem_len =0;
-    for (i = 0; i < nr; i++) {
-        for (j = 0; j < nc; j++) {
-            for (k = 0; k < nz; k++) {
-                //int    idx = (k * nr * nc) + (j * nr) + i;
-
-                isNull = plcArray->nulls[elem_idx];
-                elem_len = get_entry_length(plcArray->meta->type);
-
-                if (!isNull) {
-                    pg_get_one_r(plcArray->data+elem_idx * elem_len , plcArray->meta->type, &vec, elem_idx);
-                } else {
-                    pg_get_null( plcArray->meta->type, &vec, elem_idx );
-                }
-
-                elem_idx++;
-            }
-        }
-    }
-    UNPROTECT(1);
-    return vec;
-}
-
 #ifdef XXX
 static int process_data_frame(plcConn *conn, SEXP retval) {
     SEXP dfcol,
@@ -536,6 +475,7 @@ static int handle_matrix( SEXP retval, plcRFunction *r_func, plcontainer_result 
     }
     return 0;
 }
+
 static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result res )
 {
     int i=0;
@@ -571,6 +511,7 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
     }
     return 0;
 }
+
 static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func) {
     plcontainer_result res;
     int i=0, ret=0;
@@ -645,8 +586,8 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
 }
 
 static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
-    SEXP r_args, allargs, element;
-    int i, pos=1, notnull=0;
+    SEXP r_args, r_curarg, allargs, element;
+    int i, notnull=0;
 
     /* number of arguments that have names and should make it to the input tuple */
     for (i = 0; i < r_func->nargs; i++) {
@@ -656,16 +597,18 @@ static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
     }
 
     /* create the argument list  plus 1 for the unnamed args vector */
-    PROTECT(r_args = allocVector(VECSXP, notnull+1));
-    PROTECT(allargs = allocVector(VECSXP,r_func->nargs));
+    PROTECT(r_args = r_curarg = allocList(notnull+1));
+    PROTECT(allargs = allocVector(VECSXP, r_func->nargs));
 
     /* all argument vector is the 1st argument */
-    SET_VECTOR_ELT( r_args, 0, allargs );
+    //SET_VECTOR_ELT( r_args, 0, allargs );
+    SETCAR(r_curarg, allargs);
+    r_curarg = CDR(r_curarg);
 
     for (i = 0; i < r_func->nargs; i++) {
 
         if (r_func->call->args[i].data.isnull) {
-            element=R_NilValue;
+            element = R_NilValue;
         } else {
 
             if (r_func->args[i].conv.inputfunc == NULL) {
@@ -687,41 +630,15 @@ static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
             return NULL;
         }
 
-        if( r_func->call->args[i].name != NULL){
-            SET_VECTOR_ELT( r_args, pos, element );
+        if( r_func->call->args[i].name != NULL) {
+            SETCAR(r_curarg, element);
+            r_curarg = CDR(r_curarg);
         }
 
         /* all arguments named or otherwise go in here */
         SET_VECTOR_ELT( allargs, i, element );
-        pos++;
-
     }
     return r_args;
-}
-
-static void pg_get_null(plcDatatype column_type,  SEXP *obj, int elnum) {
-    switch (column_type) {
-        case PLC_DATA_INT2:
-        case PLC_DATA_INT4:
-            INTEGER_DATA(*obj)[elnum] = NA_INTEGER;
-            break;
-        case PLC_DATA_INT8:
-        case PLC_DATA_FLOAT4:
-        case PLC_DATA_FLOAT8:
-            NUMERIC_DATA(*obj)[elnum] = NA_REAL;
-            break;
-        case PLC_DATA_INT1:
-            LOGICAL_DATA(*obj)[elnum] = NA_LOGICAL;
-            break;
-        case PLC_DATA_TEXT:
-            SET_STRING_ELT(*obj, elnum, NA_STRING);
-            break;
-        case PLC_DATA_RECORD:
-        case PLC_DATA_UDT:
-        case PLC_DATA_ARRAY:
-        default:
-            lprintf(ERROR, "un-handled type %d",column_type);
-    }
 }
 
 /*
@@ -903,7 +820,7 @@ SEXP plr_SPI_exec(SEXP rsql) {
     return r_result;
 }
 
-void raise_execution_error (plcConn *conn, const char *format, ...) {
+static void raise_execution_error (plcConn *conn, const char *format, ...) {
     va_list        args;
     error_message  err;
     char          *msg;
