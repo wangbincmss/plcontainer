@@ -592,12 +592,11 @@ static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
         }
     }
 
-    /* create the argument list  plus 1 for the unnamed args vector */
+    /* create the argument list plus 1 for the unnamed args list */
     PROTECT(r_args = r_curarg = allocList(notnull+1));
-    PROTECT(allargs = allocVector(VECSXP, r_func->nargs));
+    PROTECT(allargs = allocList(r_func->nargs));
 
     /* all argument vector is the 1st argument */
-    //SET_VECTOR_ELT( r_args, 0, allargs );
     SETCAR(r_curarg, allargs);
     r_curarg = CDR(r_curarg);
 
@@ -632,7 +631,8 @@ static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
         }
 
         /* all arguments named or otherwise go in here */
-        SET_VECTOR_ELT( allargs, i, element );
+        SETCAR(allargs, element);
+        allargs = CDR(allargs);
     }
     return r_args;
 }

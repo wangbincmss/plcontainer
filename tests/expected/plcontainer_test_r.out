@@ -383,6 +383,30 @@ select rsetoftext();
  dislike
 (7 rows)
 
+select runargs1('foo');
+ runargs1 
+----------
+ foo
+(1 row)
+
+select runargs2(123, 'foo');
+ runargs2 
+----------
+ 123foo
+(1 row)
+
+select runargs3(123, 'foo', 'bar');
+ runargs3  
+-----------
+ 123foobar
+(1 row)
+
+select runargs4(1,null,null,1);
+ runargs4 
+----------
+        4
+(1 row)
+
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
 -- This function is of "return setof record" type which is not supported yet

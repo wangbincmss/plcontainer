@@ -245,6 +245,26 @@ CREATE OR REPLACE FUNCTION rsetoftext() RETURNS setof text AS $$
 as.vector(c("like", "dislike", "hate", "like", "don't know", "like", "dislike"))
 $$ LANGUAGE plcontainer ;
 
+CREATE OR REPLACE FUNCTION runargs1(varchar) RETURNS text AS $$
+# container: plc_r
+return(args[[1]])
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION runargs2(a int, varchar) RETURNS text AS $$
+# container: plc_r
+return(paste(as.character(a), args[[2]], sep=""))
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION runargs3(a int, varchar, c varchar) RETURNS text AS $$
+# container: plc_r
+return(paste(as.character(a), args[[2]], c, sep=""))
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION runargs4(int, int, int, int) RETURNS int AS $$
+# container: plc_r
+return(length(args))
+$$ LANGUAGE plcontainer;
+
 /* ========================== Python Functions ========================== */
 
 CREATE OR REPLACE FUNCTION pylog100() RETURNS double precision AS $$
