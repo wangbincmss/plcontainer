@@ -217,10 +217,18 @@ CREATE OR REPLACE FUNCTION rsetofint4() RETURNS setof int4 AS $$
 # container: plc_r
 as.vector(array(1:15,c(5,3)))
 $$ LANGUAGE plcontainer ;
+
+CREATE OR REPLACE FUNCTION rsetofbool() RETURNS setof boolean AS $$
+# container: plc_r
+as.vector(c(TRUE,FALSE,TRUE,TRUE,FALSE,FALSE))
+$$ LANGUAGE plcontainer ;
+
+
 CREATE OR REPLACE FUNCTION rsetofint8() RETURNS setof int8 AS $$
 # container: plc_r
 as.vector(array(2:16,c(5,3)))
 $$ LANGUAGE plcontainer ;
+
 CREATE OR REPLACE FUNCTION rsetofint2() RETURNS setof int2 AS $$
 # container: plc_r
 as.vector(array(3:17,c(5,3)))
@@ -237,13 +245,30 @@ $$ LANGUAGE plcontainer ;
 
 CREATE OR REPLACE FUNCTION rsetoffloat8array() RETURNS setof float8[] AS $$
 # container: plc_r
-as.vector(c(array(5.5:15),array(3.5:15)))
+matrix(c(array(5.5:15),array(3.5:15)),2)
 $$ LANGUAGE plcontainer ;
+
+CREATE OR REPLACE FUNCTION rsetofint8array() RETURNS setof int8[] AS $$
+# container: plc_r
+matrix(c(array(5:15),array(3:15)),2)
+$$ LANGUAGE plcontainer ;
+
+CREATE OR REPLACE FUNCTION rsetofint4array() RETURNS setof int4[] AS $$
+# container: plc_r
+matrix(c(array(5:15),array(3:15)),2)
+$$ LANGUAGE plcontainer ;
+
 
 CREATE OR REPLACE FUNCTION rsetoftext() RETURNS setof text AS $$
 # container: plc_r
 as.vector(c("like", "dislike", "hate", "like", "don't know", "like", "dislike"))
 $$ LANGUAGE plcontainer ;
+
+CREATE OR REPLACE FUNCTION rsetoftextarray() RETURNS setof text[] AS $$
+# container: plc_r
+as.matrix(c("like", "dislike", "hate", "like","don't know", "like", "dislike","seven"),2)
+$$ LANGUAGE plcontainer ;
+
 
 CREATE OR REPLACE FUNCTION runargs1(varchar) RETURNS text AS $$
 # container: plc_r
