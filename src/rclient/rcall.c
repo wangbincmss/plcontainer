@@ -459,8 +459,8 @@ static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcontainer_res
     if (rdims != R_NilValue) {
         res->rows = INTEGER(rdims)[0];
         cols = INTEGER(rdims)[1];
-    }
-    else {
+
+    }else {
         UNPROTECT(1);
         return -1;
     }
@@ -494,7 +494,14 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
     int i=0;
     rawdata *raw;
 
-    if (isMatrix(retval) ){
+    /*
+     *  we check for the dims here to find arrays of text
+     *  a simple one dimensional array of text will be handled below
+     *  an n dimensional array of text will be handle in handle_matrix_set
+     *  having a dimension should guarantee that it is an array of text
+     */
+
+    if ( isMatrix(retval) || (IS_CHARACTER(retval) && getAttrib(retval, R_DimSymbol) != R_NilValue) ){
         handle_matrix_set( retval, r_func, res );
     }else{
         res->rows = length(retval);

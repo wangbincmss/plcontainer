@@ -60,6 +60,11 @@ select rsetoffloat4();
 select rsetoffloat8();
 select rsetoftext();
 
+select rsetoffloat8array();
+select rsetofint4array();
+select rsetofint8array();
+select rsetoftextarray();
+
 select runargs1('foo');
 select runargs2(123, 'foo');
 select runargs3(123, 'foo', 'bar');
