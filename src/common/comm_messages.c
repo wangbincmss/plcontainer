@@ -56,7 +56,11 @@ void free_callreq(callreq req, int shared) {
             pfree(req->args[i].name);
         }
         if (!req->args[i].data.isnull) {
-            pfree(req->args[i].data.value);
+            if (req->args[i].type.type == PLC_DATA_ARRAY ){
+                plc_free_array((plcArray *)req->args[i].data.value);
+            }else{
+                pfree(req->args[i].data.value);
+            }
         }
         free_subtypes(&req->args[i].type);
     }
