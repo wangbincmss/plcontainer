@@ -510,6 +510,8 @@ void plc_py_free_function(plcPyFunction *func) {
         plc_py_free_type(&func->args[i]);
     plc_py_free_type(&func->res);
     free(func->args);
+    free(func->proc.src);
+    free(func->proc.name);
     free(func);
 }
 
