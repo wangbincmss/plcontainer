@@ -41,10 +41,10 @@ static void free_subtypes(plcType *typArr) {
     }
 }
 
-void free_callreq(callreq req, int shared) {
+void free_callreq(callreq req, bool isShared, bool isSender) {
     int i;
 
-    if (!shared) {
+    if (!isShared) {
         /* free the procedure */
         pfree(req->proc.name);
         pfree(req->proc.src);
@@ -52,13 +52,13 @@ void free_callreq(callreq req, int shared) {
 
     /* free the arguments */
     for (i = 0; i < req->nargs; i++) {
-        if (!shared && req->args[i].name != NULL) {
+        if (!isShared && req->args[i].name != NULL) {
             pfree(req->args[i].name);
         }
-        if (!req->args[i].data.isnull) {
-            if (req->args[i].type.type == PLC_DATA_ARRAY ){
-                plc_free_array((plcArray *)req->args[i].data.value);
-            }else{
+        if (req->args[i].data.value != NULL) {
+            if (!isSender && req->args[i].type.type == PLC_DATA_ARRAY) {
+                plc_free_array((plcArray*)req->args[i].data.value);
+            } else {
                 pfree(req->args[i].data.value);
             }
         }
@@ -72,8 +72,27 @@ void free_callreq(callreq req, int shared) {
     pfree(req);
 }
 
-void free_result(plcontainer_result res) {
+void free_result(plcontainer_result res, bool isSender) {
     int i,j;
+
+    /* free the data array */
+    if (res->data != NULL) {
+        for (i = 0; i < res->rows; i++) {
+            for (j = 0; j < res->cols; j++) {
+                /* free the data if it is not null */
+                if (res->data[i][j].value != NULL) {
+                    if (!isSender && res->types[j].type == PLC_DATA_ARRAY) {
+                        plc_free_array((plcArray*)res->data[i][j].value);
+                    } else {
+                        pfree(res->data[i][j].value);
+                    }
+                }
+            }
+            /* free the row */
+            pfree(res->data[i]);
+        }
+        pfree(res->data);
+    }
 
     /* free the types and names arrays */
     for (i = 0; i < res->cols; i++) {
@@ -82,21 +101,6 @@ void free_result(plcontainer_result res) {
     }
     pfree(res->types);
     pfree(res->names);
-
-    /* free the data array */
-    if (res->data != NULL) {
-        for (i = 0; i < res->rows; i++) {
-            for (j = 0; j < res->cols; j++) {
-                if (res->data[i][j].value) {
-                    /* free the data if it is not null */
-                    pfree(res->data[i][j].value);
-                }
-            }
-            /* free the row */
-            pfree(res->data[i]);
-        }
-        pfree(res->data);
-    }
 
     pfree(res);
 }
@@ -115,16 +119,22 @@ plcArray *plc_alloc_array(int ndims) {
 
 void plc_free_array(plcArray *arr) {
     int i;
-    if (arr->meta->type == PLC_DATA_TEXT) {
-        for (i = 0; i < arr->meta->size; i++)
-            if ( ((char**)arr->data)[i] != NULL )
-                pfree(((char**)arr->data)[i]);
+    if (arr != NULL) {
+        if (arr->meta->type == PLC_DATA_TEXT) {
+            for (i = 0; i < arr->meta->size; i++)
+                if ( ((char**)arr->data)[i] != NULL )
+                    pfree(((char**)arr->data)[i]);
+        }
+        if (arr->meta->size > 0) {
+            pfree(arr->data);
+            pfree(arr->nulls);
+        }
+        if (arr->meta->ndims > 0) {
+            pfree(arr->meta->dims);
+        }
+        pfree(arr->meta);
+        pfree(arr);
     }
-    pfree(arr->data);
-    pfree(arr->nulls);
-    pfree(arr->meta->dims);
-    pfree(arr->meta);
-    pfree(arr);
 }
 
 int plc_get_type_length(plcDatatype dt) {

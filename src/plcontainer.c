@@ -91,7 +91,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
         /* If we processed all the rows we can return immediately */
         if (!bFirstTimeCall && pinfo->resrow >= pinfo->result->rows) {
-            free_result(pinfo->result);
+            free_result(pinfo->result, false);
             SRF_RETURN_DONE(funcctx);
         }
     } else {
@@ -112,7 +112,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     if (fcinfo->flinfo->fn_retset) {
         SRF_RETURN_NEXT(funcctx, result);
     } else {
-        free_result(pinfo->result);
+        free_result(pinfo->result, false);
     }
 
     return result;
@@ -143,7 +143,7 @@ static plcontainer_result plcontainer_get_result(FunctionCallInfo  fcinfo,
 
     if (conn != NULL) {
         plcontainer_channel_send(conn, (message)req);
-        free_callreq(req, 1);
+        free_callreq(req, true, true);
 
         while (1) {
             int     res = 0;
@@ -222,8 +222,19 @@ static void plcontainer_process_log(log_message log) {
 static void plcontainer_process_sql(sql_msg msg, plcConn* conn) {
     message res;
     res = handle_sql_message(msg);
-    if (res != NULL)
-        plcontainer_channel_send(conn, (message)res);
+    if (res != NULL) {
+        plcontainer_channel_send(conn, res);
+        switch (res->msgtype) {
+            case MT_RESULT:
+                free_result((plcontainer_result)res, true);
+                break;
+            case MT_CALLREQ:
+                free_callreq((callreq)res, true, true);
+                break;
+            default:
+                elog(ERROR, "Returning message type '%c' from SPI call is not implemented", res->msgtype);
+        }
+    }
 }
 
 /*

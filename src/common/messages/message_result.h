@@ -12,6 +12,6 @@ typedef struct str_plcontainer_result {
     rawdata     **data;
 } str_plcontainer_result, *plcontainer_result;
 
-void free_result(plcontainer_result res);
+void free_result(plcontainer_result res, bool isSender);
 
 #endif /* PLC_MESSAGE_RESULT_H */

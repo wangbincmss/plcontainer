@@ -8,7 +8,7 @@ PLCONTAINER_DIR = ..
 PYTHON_CFLAGS = $(shell python -c "from distutils import sysconfig; import sys; sys.stdout.write('-I' + sysconfig.get_python_inc())")
 PYTHON_LDFLAGS = $(shell python -c "from distutils import sysconfig; import sys; sys.stdout.write('-lpython' + sysconfig.get_config_var('VERSION'))")
 
-override CFLAGS += $(DEBUG) -I$(PLCONTAINER_DIR)/ -DCOMM_STANDALONE -Wall -Wextra -Werror
+override CFLAGS += $(CUSTOMFLAGS) -I$(PLCONTAINER_DIR)/ -DCOMM_STANDALONE -Wall -Wextra -Werror
 
 common_src = $(shell find $(PLCONTAINER_DIR)/common -name "*.c")
 common_objs = $(foreach src,$(common_src),$(subst .c,.o,$(src)))
@@ -29,11 +29,12 @@ client: $(python_objs) $(common_objs)
 	LIBRARY_PATH=$(LD_LIBRARY_PATH) $(CC) -o $@ $^ $(PYTHON_LDFLAGS) $(LIBS)
 	cp client bin
 
-debug: DEBUG = -D_DEBUG_CLIENT -g
-
+.PHONY: debug
+debug: CUSTOMFLAGS = -D_DEBUG_CLIENT -g -O0
 debug: client
 
 .PHONY: all
+all: CUSTOMFLAGS = -O3
 all: client
 
 clean: clean_common

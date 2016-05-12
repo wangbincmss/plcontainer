@@ -19,6 +19,7 @@ static char *plc_datum_as_float8(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_float8_numeric(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_text(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_array(Datum input, plcTypeInfo *type);
+static void plc_backend_array_free(plcIterator *iter);
 static rawdata *plc_backend_array_next(plcIterator *self);
 
 static Datum plc_datum_from_int1(char *input, plcTypeInfo *type);
@@ -217,9 +218,20 @@ static char *plc_datum_as_array(Datum input, plcTypeInfo *type) {
     }
     iter->data = (char*)array;
     iter->next = plc_backend_array_next;
-    iter->cleanup =  NULL;
+    iter->cleanup = plc_backend_array_free;
 
     return (char*)iter;
+}
+
+static void plc_backend_array_free(plcIterator *iter) {
+    plcArrayMeta *meta;
+    meta = (plcArrayMeta*)iter->meta;
+    if (meta->ndims > 0) {
+        pfree(meta->dims);
+    }
+    pfree(iter->meta);
+    pfree(iter->position);
+    return;
 }
 
 static rawdata *plc_backend_array_next(plcIterator *self) {

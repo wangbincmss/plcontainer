@@ -262,7 +262,6 @@ static int send_raw_object(plcConn *conn, plcType *type, rawdata *obj) {
     return res;
 }
 
-
 static int send_raw_array_iter(plcConn *conn, plcType *type, plcIterator *iter) {
     int res = 0;
     int i = 0;
@@ -275,7 +274,9 @@ static int send_raw_array_iter(plcConn *conn, plcType *type, plcIterator *iter) 
     for (i = 0; i < meta->size && res == 0; i++) {
         rawdata* raw_object = iter->next(iter);
         res |= send_raw_object(conn, type, raw_object );
-        pfree(raw_object->value);
+        if (!raw_object->isnull) {
+            pfree(raw_object->value);
+        }
         pfree(raw_object);
     }
     if (iter->cleanup != NULL) {
