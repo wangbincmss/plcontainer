@@ -441,6 +441,24 @@ select runargs4(1,null,null,1);
         4
 (1 row)
 
+select rnested_call_three('foo');
+ rnested_call_three 
+--------------------
+ foo
+(1 row)
+
+select rnested_call_two('foobar');
+ rnested_call_two 
+------------------
+ foobar
+(1 row)
+
+select rnested_call_one('foo1');
+ rnested_call_one 
+------------------
+ foo1
+(1 row)
+
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
 -- This function is of "return setof record" type which is not supported yet

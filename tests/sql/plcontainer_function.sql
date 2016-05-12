@@ -164,15 +164,15 @@ CREATE OR REPLACE FUNCTION rnested_call_one(a text) RETURNS text AS $$
 q = "SELECT rnested_call_two('%s')"
 q = gsub("%s",a,q)
 r = pg.spi.exec(q)
-return (r[0])
+return (r[1,1])
 $$ LANGUAGE plcontainer ;
 
 CREATE OR REPLACE FUNCTION rnested_call_two(a text) RETURNS text AS $$
 # container: plc_r
-q = "SELECT rnested_call_three('%s')"
+q = "SELECT rnested_call_three('%s') "
 q = gsub("%s",a,q)
 r = pg.spi.exec(q)
-return (r[0])
+return (r[1,1])
 $$ LANGUAGE plcontainer ;
 
 CREATE OR REPLACE FUNCTION rnested_call_three(a text) RETURNS text AS $$
