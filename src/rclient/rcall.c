@@ -399,7 +399,7 @@ static int process_data_frame(plcConn *conn, SEXP retval) {
         res->data[i] = malloc(res->cols * sizeof(rawdata));
     }
     plc_r_copy_type(&res->types[0], &r_func->res);
-    res->names[0] = r_func->res.name;
+    res->names[0] = strdup(r_func->res.name);
         int i=0;
 
         /* allocate a result */
@@ -474,7 +474,7 @@ static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcontainer_res
         res->data[i] = malloc(cols * sizeof(rawdata));
     }
     plc_r_copy_type(&res->types[0], &r_func->res);
-    res->names[0] = r_func->res.name;
+    res->names[0] = strdup(r_func->res.name);
 
     start=0;
 
@@ -509,14 +509,13 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
         res->data = malloc(res->rows * sizeof(rawdata*));
 
         for (i=0; i<res->rows;i++){
-            res->data[i] = malloc(res->cols * sizeof(rawdata));
+            res->data[i] = NULL;
         }
         plc_r_copy_type(&res->types[0], &r_func->res);
-        res->names[0] = r_func->res.name;
+        res->names[0] = strdup(r_func->res.name);
 
         for (i=0; i < res->rows; i++) {
 
-            res->data[i][0].isnull = 0;
             if (r_func->res.conv.outputfunc == NULL) {
                     raise_execution_error(plcconn_global,
                                           "Type %d is not yet supported by R container",
@@ -567,7 +566,7 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
             res->data[i] = malloc(res->cols * sizeof(rawdata));
         }
         plc_r_copy_type(&res->types[0], &r_func->res);
-        res->names[0] = r_func->res.name;
+        res->names[0] = strdup(r_func->res.name);
 
         if (retval == R_NilValue) {
             res->data[0][0].isnull = 1;

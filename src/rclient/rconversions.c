@@ -705,11 +705,16 @@ static plcROutputFunc plc_get_output_function(plcDatatype dt) {
     return res;
 }
 
-static void plc_parse_type(plcRType *Rtype, plcType *type) {
+static void plc_parse_type(plcRType *Rtype, plcType *type, char *name) {
     int i = 0;
 
     //Rtype->name = strdup(type->name); TODO: implement type name to support UDTs
-    Rtype->name = strdup("results");
+    if (name != NULL){
+        Rtype->name = strdup(name);
+    }else{
+        Rtype->name = NULL;
+    }
+
     Rtype->type = type->type;
     Rtype->nSubTypes = type->nSubTypes;
     Rtype->conv.inputfunc  = plc_get_input_function(Rtype->type);
@@ -717,7 +722,7 @@ static void plc_parse_type(plcRType *Rtype, plcType *type) {
     if (Rtype->nSubTypes > 0) {
         Rtype->subTypes = (plcRType*)malloc(Rtype->nSubTypes * sizeof(plcRType));
         for (i = 0; i < type->nSubTypes; i++)
-            plc_parse_type(&Rtype->subTypes[i], &type->subTypes[i]);
+            plc_parse_type(&Rtype->subTypes[i], &type->subTypes[i], NULL);
     } else {
         Rtype->subTypes = NULL;
     }
@@ -736,9 +741,9 @@ plcRFunction *plc_R_init_function(callreq call) {
     res->args = (plcRType*)malloc(res->nargs * sizeof(plcRType));
 
     for (i = 0; i < res->nargs; i++)
-        plc_parse_type(&res->args[i], &call->args[i].type);
+        plc_parse_type( &res->args[i], &call->args[i].type, call->args[i].name );
 
-    plc_parse_type(&res->res, &call->retType);
+    plc_parse_type( &res->res, &call->retType, "results" );
 
     return res;
 }
@@ -789,6 +794,7 @@ static void plc_r_free_type(plcRType *type) {
         plc_r_free_type(&type->subTypes[i]);
     if (type->nSubTypes > 0)
         free(type->subTypes);
+    free(type->name);
     return;
 }
 
@@ -797,7 +803,10 @@ void plc_r_free_function(plcRFunction *func) {
     for (i = 0; i < func->nargs; i++)
         plc_r_free_type(&func->args[i]);
     plc_r_free_type(&func->res);
+
     free(func->args);
+    free(func->proc.name);
+    free(func->proc.src);
     free(func);
 }
 

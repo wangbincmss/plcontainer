@@ -78,18 +78,21 @@ void free_result(plcontainer_result res, bool isSender) {
     /* free the data array */
     if (res->data != NULL) {
         for (i = 0; i < res->rows; i++) {
-            for (j = 0; j < res->cols; j++) {
-                /* free the data if it is not null */
-                if (res->data[i][j].value != NULL) {
-                    if (!isSender && res->types[j].type == PLC_DATA_ARRAY) {
-                        plc_free_array((plcArray*)res->data[i][j].value);
-                    } else {
-                        pfree(res->data[i][j].value);
+            /* this can happen if for some reason we abort sending the result early */
+            if (res->data[i] != NULL){
+                for (j = 0; j < res->cols; j++) {
+                    /* free the data if it is not null */
+                    if (res->data[i][j].value != NULL) {
+                        if (!isSender && res->types[j].type == PLC_DATA_ARRAY) {
+                            plc_free_array((plcArray*)res->data[i][j].value);
+                        } else {
+                            pfree(res->data[i][j].value);
+                        }
                     }
                 }
+                /* free the row */
+                pfree(res->data[i]);
             }
-            /* free the row */
-            pfree(res->data[i]);
         }
         pfree(res->data);
     }
