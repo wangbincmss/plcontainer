@@ -1,6 +1,8 @@
 #ifndef PLC_MESSAGE_BASE_H
 #define PLC_MESSAGE_BASE_H
 
+#include "../comm_utils.h"
+
 #define base_message_content unsigned short msgtype;
 
 typedef struct str_message { base_message_content } str_message, *message;

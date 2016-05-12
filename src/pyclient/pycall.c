@@ -107,7 +107,7 @@ void handle_call(callreq req, plcConn *conn) {
      */
     plcconn_global = conn;
 
-    dict = PyModule_GetDict(PyMainModule);
+    dict = PyModule_GetDict(PyMainModule); // Returns borrowed reference
     if (dict == NULL) {
         raise_execution_error(conn, "Cannot get '__main__' module contents in Python");
         return;
@@ -126,7 +126,7 @@ void handle_call(callreq req, plcConn *conn) {
         func = create_python_func(req);
 
         /* The function will be in the dictionary because it was wrapped with "def proc_name:... " */
-        val = PyRun_String(func, Py_single_input, dict, dict);
+        val = PyRun_String(func, Py_single_input, dict, dict); // Returns new reference
         if (val == NULL) {
             raise_execution_error(conn, "Cannot compile function in Python");
             return;
@@ -155,7 +155,7 @@ void handle_call(callreq req, plcConn *conn) {
 
     /* call the function */
     plc_is_execution_terminated = 0;
-    retval = PyObject_Call(pyfunc->pyfunc, args, NULL);
+    retval = PyObject_Call(pyfunc->pyfunc, args, NULL); // returns new reference
     if (retval == NULL) {
         Py_XDECREF(args);
         raise_execution_error(conn, "Function produced NULL output");
@@ -258,7 +258,7 @@ static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
     arglist = PyList_New(pyfunc->nargs);
 
     /* First element of the argument list is the full list of arguments */
-    PyTuple_SetItem(args, 0, arglist);
+    PyTuple_SetItem(args, 0, arglist); // steals the reference to arglist
     pos = 1;
     for (i = 0; i < pyfunc->nargs; i++) {
         PyObject *arg = NULL;
@@ -289,7 +289,7 @@ static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
 
         /* Only named arguments are passed to the function input tuple */
         if (pyfunc->args[i].name != NULL) {
-            if (PyTuple_SetItem(args, pos, arg) != 0) {
+            if (PyTuple_SetItem(args, pos, arg) != 0) { // steals the reference to arg
                 raise_execution_error(conn,
                                       "Appending Python list element %d for argument '%s' has failed",
                                       i, pyfunc->args[i].name);
@@ -301,7 +301,7 @@ static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
         }
 
         /* All the arguments, including unnamed, are passed to the arguments array */
-        if (PyList_SetItem(arglist, i, arg) != 0) {
+        if (PyList_SetItem(arglist, i, arg) != 0) { // steals the reference to arg
             raise_execution_error(conn,
                                   "Appending Python list element %d for argument '%s' has failed",
                                   i, pyfunc->args[i].name);
@@ -341,7 +341,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
             if (retobj == NULL) {
                 raise_execution_error(conn,
                                       "Cannot get iterator out of the returned object");
-                free_result(res);
+                free_result(res, true);
                 return -1;
             }
 
@@ -355,7 +355,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
 
             if (retcode < 0) {
                 raise_execution_error(conn, "Error receiving result data from Python iterator");
-                free_result(res);
+                free_result(res, true);
                 return -1;
             }
         }
@@ -378,7 +378,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
         plcontainer_channel_send(conn, (message)res);
     }
 
-    free_result(res);
+    free_result(res, true);
 
     return retcode;
 }

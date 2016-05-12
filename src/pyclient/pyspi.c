@@ -22,7 +22,7 @@ static plcontainer_result receive_from_backend() {
     switch (resp->msgtype) {
        case MT_CALLREQ:
           handle_call((callreq)resp, conn);
-          free_callreq((callreq)resp, 0);
+          free_callreq((callreq)resp, false, false);
           return receive_from_backend();
        case MT_RESULT:
            break;
@@ -76,7 +76,7 @@ PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
     pyresult = PyList_New(result->res->rows);
     if (pyresult == NULL) {
         raise_execution_error(conn, "Cannot allocate new list object in Python");
-        free_result(resp);
+        free_result(resp, false);
         plc_free_result_conversions(result);
         return NULL;
     }
@@ -85,7 +85,7 @@ PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
         if (result->inconv[j].inputfunc == NULL) {
             raise_execution_error(conn, "Type %d is not yet supported by Python container",
                                   (int)result->res->types[j].type);
-            free_result(resp);
+            free_result(resp, false);
             plc_free_result_conversions(result);
             return NULL;
         }
@@ -100,7 +100,7 @@ PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
             if (PyDict_SetItemString(pydict, result->res->names[j], pyval) != 0) {
                 raise_execution_error(conn, "Error setting result dictionary element",
                                       (int)result->res->types[j].type);
-                free_result(resp);
+                free_result(resp, false);
                 plc_free_result_conversions(result);
                 return NULL;
             }
@@ -109,13 +109,13 @@ PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
         if (PyList_SetItem(pyresult, i, pydict) != 0) {
             raise_execution_error(conn, "Error setting result list element",
                                   (int)result->res->types[j].type);
-            free_result(resp);
+            free_result(resp, false);
             plc_free_result_conversions(result);
             return NULL;
         }
     }
 
-    free_result(resp);
+    free_result(resp, false);
     plc_free_result_conversions(result);
 
     return pyresult;

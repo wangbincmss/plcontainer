@@ -480,8 +480,8 @@ static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcontainer_res
 
     for ( i=0; i < res->rows; i++ ){
         res->data[i][0].isnull=0;
-        if ( plc_r_matrix_as_setof(retval,start, cols, &res->data[i][0].value, &r_func->res)  != 0){
-            free_result(res);
+        if (plc_r_matrix_as_setof(retval,start, cols, &res->data[i][0].value, &r_func->res) != 0) {
+            free_result(res, true);
             return -1;
         }
         start = start + cols;
@@ -521,7 +521,7 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
                     raise_execution_error(plcconn_global,
                                           "Type %d is not yet supported by R container",
                                           (int)res->types[0].type);
-                    free_result(res);
+                    free_result(res, true);
                     return -1;
             }
             raw = plc_r_vector_element_rawdata(retval, i, r_func->res.type);
@@ -545,7 +545,7 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
 
     if ( r_func->retset != 0 ){
         if (handle_retset( retval, r_func, res ) != 0 ){
-            free_result(res);
+            free_result(res, true);
             return -1;
         }
     }else{
@@ -581,7 +581,7 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
                         raise_execution_error(plcconn_global,
                                               "Type %d is not yet supported by R container",
                                               (int)res->types[0].type);
-                        free_result(res);
+                        free_result(res, true);
                         return -1;
                 }
 
@@ -591,7 +591,7 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
                     raise_execution_error(plcconn_global,
                                           "Exception raised converting function output to function output type %d",
                                           (int)res->types[0].type);
-                    free_result(res);
+                    free_result(res, true);
                     return -1;
                 }
             }
@@ -600,7 +600,7 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
     /* send the result back */
     plcontainer_channel_send(conn, (message)res);
 
-    free_result(res);
+    free_result(res, true);
 
     return 0;
 }
@@ -763,7 +763,7 @@ SEXP plr_SPI_exec(SEXP rsql) {
     switch (resp->msgtype) {
         case MT_CALLREQ:
             handle_call((callreq)resp, plcconn_global);
-            free_callreq((callreq)resp, 0);
+            free_callreq((callreq)resp, false, false);
             goto receive;
         case MT_RESULT:
             break;
@@ -835,7 +835,7 @@ SEXP plr_SPI_exec(SEXP rsql) {
      * an attribute names which is a vector of names
      * a vector of vectors num columns long by num rows
      */
-    free_result(result);
+    free_result(result, false);
     UNPROTECT(3);
     return r_result;
 }

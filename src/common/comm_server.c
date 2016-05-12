@@ -126,7 +126,7 @@ void receive_loop( void (*handle_call)(callreq, plcConn*), plcConn* conn) {
         switch (msg->msgtype) {
             case MT_CALLREQ:
                 handle_call((callreq)msg, conn);
-                free_callreq((callreq)msg, 0);
+                free_callreq((callreq)msg, false, false);
                 break;
             default:
                 lprintf(ERROR, "received unknown message: %c", msg->msgtype);
