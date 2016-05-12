@@ -22,7 +22,7 @@ PLCONTAINER_DIR = ..
 R_CFLAGS = -I${R_HOME}/include
 R_LDLAGS = -Wl,--export-dynamic -fopenmp -Wl,-z,relro -L${R_HOME}/lib -lR
 
-override CFLAGS += $(DEBUG) -I$(PLCONTAINER_DIR)/ -DCOMM_STANDALONE -Wall -Wextra -Werror
+override CFLAGS += $(CUSTOMFLAGS) -I$(PLCONTAINER_DIR)/ -DCOMM_STANDALONE -Wall -Wextra -Werror
 
 common_src = $(shell find $(PLCONTAINER_DIR)/common -name "*.c")
 common_objs = $(foreach src,$(common_src),$(subst .c,.o,$(src)))
@@ -49,11 +49,12 @@ client: client.o librcall.so $(common_objs)
 	$(CC) -o $@ $^ $(R_LDLAGS)
 	cp client bin
 
-debug: DEBUG = -D_DEBUG_CLIENT -g
-
+.PHONY: debug
+debug: CUSTOMFLAGS = -D_DEBUG_CLIENT -g -O0
 debug: client
 
 .PHONY: all
+all: CUSTOMFLAGS = -O3
 all: client
 
 clean: clean_common

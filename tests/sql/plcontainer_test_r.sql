@@ -70,6 +70,10 @@ select runargs2(123, 'foo');
 select runargs3(123, 'foo', 'bar');
 select runargs4(1,null,null,1);
 
+select rnested_call_three('foo');
+select rnested_call_two('foobar');
+select rnested_call_one('foo1');
+
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
 -- This function is of "return setof record" type which is not supported yet
