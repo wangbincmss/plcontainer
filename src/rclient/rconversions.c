@@ -26,6 +26,12 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter);
 static plcRInputFunc plc_get_input_function(plcDatatype dt);
 static plcROutputFunc plc_get_output_function(plcDatatype dt);
 
+/*
+ *
+ * NOTE all input functions will return a protected
+ * value
+ *
+ */
 static SEXP plc_r_object_from_int1(char *input) {
     SEXP arg;
     PROTECT( arg = ScalarLogical( (int) *input ) );
@@ -175,7 +181,11 @@ static SEXP plc_r_object_from_array (char *input) {
             }
             /* move position to next element in the source array */
             pos += vallen;
-            UNPROTECT(1);
+
+            /* if it isn't a null we have protected it above */
+            if (arr->nulls[i]==0){
+                UNPROTECT(1);
+            }
         }
         if (arr->meta->ndims > 0) {
             SEXP    matrix_dims;
@@ -190,7 +200,7 @@ static SEXP plc_r_object_from_array (char *input) {
         }
 
     }
-    UNPROTECT(1);
+
     return res;
 }
 

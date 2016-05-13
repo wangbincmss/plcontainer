@@ -260,7 +260,7 @@ void handle_call(callreq req, plcConn* conn) {
 
     plc_r_free_function(r_func);
 
-    UNPROTECT(1);
+    UNPROTECT(1); //r
 
     return;
 }
@@ -322,6 +322,7 @@ static SEXP parse_r_code(const char *code,  plcConn* conn, int *errorOccurred) {
     return fun;
 
 error:
+    UNPROTECT(3);
     /*
      * set the global error flag
      */
@@ -626,7 +627,7 @@ static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
     for (i = 0; i < r_func->nargs; i++) {
 
         if (r_func->call->args[i].data.isnull) {
-            element = R_NilValue;
+            PROTECT( element = R_NilValue );
         } else {
 
             if (r_func->args[i].conv.inputfunc == NULL) {
@@ -634,6 +635,7 @@ static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
                                       "Parameter '%s' type %d is not supported",
                                       r_func->args[i].name,
                                       r_func->args[i].type);
+                UNPROTECT(2);
                 return NULL;
             }
 
@@ -645,6 +647,9 @@ static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
             raise_execution_error(conn,
                                   "Converting parameter '%s' to R type failed",
                                   r_func->args[i].name);
+
+            /* we've made it to the i'th argument */
+            UNPROTECT( 2 + i - 1 );
             return NULL;
         }
 
@@ -657,6 +662,8 @@ static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
         SETCAR(allargs, element);
         allargs = CDR(allargs);
     }
+    /* the input function above returns args protected */
+    UNPROTECT( r_func->nargs + 2 );
     return r_args;
 }
 
@@ -752,7 +759,7 @@ SEXP plr_SPI_exec(SEXP rsql) {
     /* we don't need it anymore */
     pfree(msg);
 
-    receive:
+receive:
     res = plcontainer_channel_receive(plcconn_global, &resp);
     if (res < 0) {
         lprintf (ERROR, "Error receiving data from the backend, %d", res);
@@ -835,6 +842,7 @@ SEXP plr_SPI_exec(SEXP rsql) {
      * a vector of vectors num columns long by num rows
      */
     free_result(result, false);
+
     UNPROTECT(3);
     return r_result;
 }
@@ -883,3 +891,22 @@ void throw_r_error(const char **msg) {
     else
         last_R_error_msg = strdup("caught error calling R function");
 }
+
+#ifdef DEBUGPROTECT
+int balance=0;
+SEXP
+pg_protect(SEXP s, char *fn, int ln)
+{
+    balance++;
+    lprintf(NOTICE, "%d\tPROTECT\t1\t%s\t%d", balance, fn, ln);
+    return protect(s);
+}
+
+void
+pg_unprotect(int n, char *fn, int ln)
+{
+    balance=balance-n;
+    lprintf(NOTICE, "%d\tUNPROTECT\t%d\t%s\t%d", balance, n, fn, ln);
+    unprotect(n);
+}
+#endif /* DEBUGPROTECT */

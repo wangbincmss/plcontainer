@@ -64,4 +64,17 @@ SEXP get_r_vector(plcDatatype type_id, int numels);
 rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type);
 int plc_r_matrix_as_setof(SEXP input, int start, int dim1, char **output, plcRType *type);
 
+//#define DEBUGPROTECT
+
+#ifdef DEBUGPROTECT
+#undef PROTECT
+extern SEXP pg_protect(SEXP s, char *fn, int ln);
+#define PROTECT(s)      pg_protect(s, __FILE__, __LINE__)
+
+#undef UNPROTECT
+extern void pg_unprotect(int n, char *fn, int ln);
+#define UNPROTECT(n)    pg_unprotect(n, __FILE__, __LINE__)
+#endif /* DEBUGPROTECT */
+
+
 #endif /* PLC_RCONVERSIONS_H */
