@@ -23,36 +23,44 @@ select rintarr('{1,2,3,4}'::int2[]);
 select rintarr('{1,2,3,null}'::int2[]);
 select rintarr('{null}'::int2[]);
 select rintarr('{{1,2,3,4},{5,6,7,8}}'::int2[]);
+select rdimarr('{{1,2,3,4},{5,6,7,8}}'::int2[]);
 
 select rintarr('{1,2,3,4,5}'::int4[]);
 select rintarr('{1,2,3,4,null}'::int4[]);
 select rintarr('{null}'::int4[]);
 select rintarr('{{1,2,3,4},{5,6,7,8}}'::int4[]);
+select rdimarr('{{1,2,3,4},{5,6,7,8}}'::int4[]);
 
 select rintarr('{1,2,3,4,6}'::int8[]);
 select rintarr('{1,2,3,6,null}'::int8[]);
 select rintarr('{null}'::int8[]);
 select rintarr('{{1,2,3,4},{5,6,7,8}}'::int8[]);
+select rdimarr('{{1,2,3,4},{5,6,7,8}}'::int8[]);
 
 select rfloatarr('{1.2,2.3,3.4,5.6}'::float8[]);
 select rfloatarr('{1.2,2.3,3.4,null}'::float8[]);
 select rfloatarr('{null}'::float8[]);
 select rfloatarr('{{1.2,2.3,3.4,5.6,6.7},{1.2,2.3,3.4,5.6,6.7}}'::float8[]);
+select rdimarr('{{1.2,2.3,3.4,5.6,6.7},{1.2,2.3,3.4,5.6,6.7}}'::float8[]);
 
 select rfloatarr('{1.2,2.3,3.4,5.6,6.7}'::float4[]);
 select rfloatarr('{1.2,2.3,3.4,5.6,null}'::float4[]);
 select rfloatarr('{null}'::float4[]);
 select rfloatarr('{{1.2,2.3,3.4,5.6,6.7},{1.2,2.3,3.4,5.6,6.7}}'::float4[]);
+select rdimarr('{{1.2,2.3,3.4,5.6,6.7},{1.2,2.3,3.4,5.6,6.7}}'::float4[]);
 
 select rfloatarr('{1.2,2.3,3.4,5.6,6.7}'::numeric[]);
 select rfloatarr('{1.2,2.3,3.4,5.6,null}'::numeric[]);
 select rfloatarr('{null}'::numeric[]);
 select rfloatarr('{{1.2,2.3,3.4,5.6,6.7},{1.2,2.3,3.4,5.6,6.7}}'::numeric[]);
+select rdimarr('{{1.2,2.3,3.4,5.6,6.7},{1.2,2.3,3.4,5.6,6.7}}'::numeric[]);
+
 
 select rboolarr('{1,1,0}'::bool[]);
 select rboolarr('{1,1,0,NULL}'::bool[]);
 select rboolarr('{NULL}'::bool[]);
 select rboolarr('{{1,1,0},{1,0,0}}'::bool[]);
+select rdimarr('{{1,1,0},{1,0,0}}'::bool[]);
 
 select rtimestamparr($${'2012-01-02 12:34:56.789012','2012-01-03 12:34:56.789012'}$$::timestamp[]);
 
