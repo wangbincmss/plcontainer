@@ -109,6 +109,34 @@ tmp <- strptime(arr,'%Y-%m-%d %H:%M:%OS')
 return (as.character(tmp+3600))
 $$
 language plcontainer;
+CREATE OR REPLACE FUNCTION rdimarr(arr int2[]) RETURNS int[] AS $$
+# container: plc_r
+return (dim(arr))
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rdimarr(arr int4[]) RETURNS int[] AS $$
+# container: plc_r
+return (dim(arr))
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rdimarr(arr int8[]) RETURNS int[] AS $$
+# container: plc_r
+return (dim(arr))
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rdimarr(arr float4[]) RETURNS int[] AS $$
+# container: plc_r
+return (dim(arr))
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rdimarr(arr float8[]) RETURNS int[] AS $$
+# container: plc_r
+return (dim(arr))
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rdimarr(arr numeric[]) RETURNS int[] AS $$
+# container: plc_r
+return (dim(arr))
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rdimarr(arr boolean[]) RETURNS int[] AS $$
+# container: plc_r
+return (dim(arr))
+$$ LANGUAGE plcontainer;
 create or replace function paster(arg1 _text,arg2 _text,arg3 text) returns text[] as
 $$
 #container: plc_r
