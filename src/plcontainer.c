@@ -195,6 +195,10 @@ static Datum plcontainer_process_result(FunctionCallInfo  fcinfo,
         return result;
     }
 
+    if (resmsg->rows == 0) {
+        return result;
+    }
+
     if (pinfo->resrow >= resmsg->rows) {
         elog(ERROR, "Trying to access result row %d of the %d-rows result set",
                     pinfo->resrow, resmsg->rows);
