@@ -653,6 +653,8 @@ $$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION pysdset(key varchar, value varchar) RETURNS text AS $$
 # container: plc_python
 SD[key] = value
+for k in sorted(SD.keys()):
+    plpy.info("SD %s -> %s" % (k, SD[k]))
 return 'ok'
 $$ LANGUAGE plcontainer;
 

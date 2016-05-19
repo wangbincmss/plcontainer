@@ -54,6 +54,7 @@ typedef struct plcPyFunction {
     int           retset;
     unsigned int  objectid;
     PyObject     *pyfunc;
+    PyObject     *pySD;
 } plcPyFunction;
 
 void plc_py_copy_type(plcType *type, plcPyType *pytype);

@@ -23,7 +23,7 @@ select pybool('t');
 (1 row)
 
 select pyint(NULL::int2);
-ERROR:  exception occurred: (plcontainer.c:233)
+ERROR:  exception occurred: (plcontainer.c:249)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
@@ -287,6 +287,11 @@ select pyreturnsetofint8yield(9);
                       8
 (9 rows)
 
+select pyreturnsetofint8yield(0);
+ pyreturnsetofint8yield 
+------------------------
+(0 rows)
+
 -- Test that container cannot access filesystem of the host
 select pywriteFile();
        pywritefile        
@@ -339,7 +344,7 @@ select pylogging();
 INFO:  this is the info message
 NOTICE:  this is the notice message
 WARNING:  this is the warning message
-ERROR:  this is the error message (plcontainer.c:216)
+ERROR:  this is the error message (plcontainer.c:221)
 select pylogging2();
 INFO:  this is the info message
 CONTEXT:  SQL statement "select pylogging()"
@@ -347,7 +352,7 @@ NOTICE:  this is the notice message
 CONTEXT:  SQL statement "select pylogging()"
 WARNING:  this is the warning message
 CONTEXT:  SQL statement "select pylogging()"
-ERROR:  this is the error message (plcontainer.c:216)
+ERROR:  this is the error message (plcontainer.c:221)
 CONTEXT:  SQL statement "select pylogging()"
 select pygdset('1','a');
  pygdset 
@@ -390,18 +395,24 @@ select pygdgetall();
 (3 rows)
 
 select pysdset('a','000');
+INFO:  SD a -> 000
  pysdset 
 ---------
  ok
 (1 row)
 
 select pysdset('b','111');
+INFO:  SD a -> 000
+INFO:  SD b -> 111
  pysdset 
 ---------
  ok
 (1 row)
 
 select pysdset('c','222');
+INFO:  SD a -> 000
+INFO:  SD b -> 111
+INFO:  SD c -> 222
  pysdset 
 ---------
  ok
@@ -410,12 +421,13 @@ select pysdset('c','222');
 select pysdgetall();
  pysdgetall 
 ------------
- a:000
- b:111
- c:222
-(3 rows)
+(0 rows)
 
 select pysdset('d','333');
+INFO:  SD a -> 000
+INFO:  SD b -> 111
+INFO:  SD c -> 222
+INFO:  SD d -> 333
  pysdset 
 ---------
  ok
@@ -424,11 +436,7 @@ select pysdset('d','333');
 select pysdgetall();
  pysdgetall 
 ------------
- a:000
- b:111
- c:222
- d:333
-(4 rows)
+(0 rows)
 
 select pyunargs1('foo');
  pyunargs1 
@@ -479,14 +487,14 @@ select length(pylargetextout(100000));
 (1 row)
 
 select pyinvalid_function();
-ERROR:  exception occurred: (plcontainer.c:233)
+ERROR:  exception occurred: (plcontainer.c:249)
 DETAIL:  
  Function produced NULL output 
  Traceback (most recent call last):
   File "<string>", line 5, in pyinvalid_function
 AttributeError: 'module' object has no attribute 'foobar'
 select pyinvalid_syntax();
-ERROR:  exception occurred: (plcontainer.c:233)
+ERROR:  exception occurred: (plcontainer.c:249)
 DETAIL:  
  Cannot compile function in Python 
  SyntaxError: ('invalid syntax', ('<string>', 7, 1, '\n'))

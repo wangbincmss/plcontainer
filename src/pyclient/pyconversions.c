@@ -472,6 +472,7 @@ plcPyFunction *plc_py_init_function(callreq call) {
     res->retset = call->retset;
     res->args = (plcPyType*)malloc(res->nargs * sizeof(plcPyType));
     res->objectid = call->objectid;
+    res->pySD = PyDict_New();
 
     for (i = 0; i < res->nargs; i++)
         plc_parse_type(&res->args[i], &call->args[i].type, call->args[i].name);
@@ -509,6 +510,7 @@ void plc_py_free_function(plcPyFunction *func) {
     for (i = 0; i < func->nargs; i++)
         plc_py_free_type(&func->args[i]);
     plc_py_free_type(&func->res);
+    Py_DECREF(func->pySD);
     free(func->args);
     free(func->proc.src);
     free(func->proc.name);
