@@ -48,7 +48,6 @@ int python_init() {
     PyObject *plpymod = NULL;
     PyObject *dict = NULL;
     PyObject *gd = NULL;
-    PyObject *sd = NULL;
 
     Py_SetProgramName("PythonContainer");
     Py_Initialize();
@@ -80,18 +79,6 @@ int python_init() {
         return -1;
     }
     Py_DECREF(gd);
-
-    sd = PyDict_New();
-    if (sd == NULL) {
-        lprintf(ERROR, "Cannot allocate dictionary object for SD");
-        return -1;
-    }
-
-    if (PyDict_SetItemString(dict, "SD", sd) < 0) {
-        lprintf(ERROR, "Cannot set SD dictionary to main module");
-        return -1;
-    }
-    Py_DECREF(sd);
 
     return 0;
 }
@@ -148,8 +135,14 @@ void handle_call(callreq req, plcConn *conn) {
         pyfunc->call = req;
     }
 
+    if (PyDict_SetItemString(dict, "SD", pyfunc->pySD) < 0) {
+        raise_execution_error(conn, "Cannot set SD dictionary to main module");
+        return;
+    }
+
     args = arguments_to_pytuple(conn, pyfunc);
     if (args == NULL) {
+        raise_execution_error(conn, "Cannot convert input arguments to Python tuple");
         return;
     }
 

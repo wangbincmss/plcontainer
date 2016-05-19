@@ -41,6 +41,7 @@ select pyreturnsetofint4arr(6);
 select pyreturnsetoftextarr(7);
 select pyreturnsetofdate(8);
 select pyreturnsetofint8yield(9);
+select pyreturnsetofint8yield(0);
 -- Test that container cannot access filesystem of the host
 select pywriteFile();
 \! ls -l /tmp/foo
