@@ -88,12 +88,6 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
         /* SRF initializes special context shared between function calls */
         oldcontext = MemoryContextSwitchTo(funcctx->multi_call_memory_ctx);
-
-        /* If we processed all the rows we can return immediately */
-        if (!bFirstTimeCall && pinfo->resrow >= pinfo->result->rows) {
-            free_result(pinfo->result, false);
-            SRF_RETURN_DONE(funcctx);
-        }
     } else {
         oldcontext = MemoryContextSwitchTo(pl_container_caller_context);
     }
@@ -104,8 +98,15 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
         pinfo->result = plcontainer_get_result(fcinfo, pinfo);
     }
 
+    /* If we processed all the rows or the function returned 0 rows we can return immediately */
+    if (pinfo->resrow >= pinfo->result->rows) {
+        free_result(pinfo->result, false);
+        SRF_RETURN_DONE(funcctx);
+    }
+
     /* Process the result message from client */
     result = plcontainer_process_result(fcinfo, pinfo);
+
     pinfo->resrow += 1;
     MemoryContextSwitchTo(oldcontext);
 
