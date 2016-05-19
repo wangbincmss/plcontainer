@@ -11,6 +11,7 @@ printf 'export GPHOME=/usr/local/greenplum-db\n'             >> ~/.bashrc
 printf 'export GPDATA=/data\n'                               >> ~/.bashrc
 printf 'if [ -e $GPHOME/greenplum_path.sh ]; then\n\t'       >> ~/.bashrc
 printf 'source $GPHOME/greenplum_path.sh\nfi\n'              >> ~/.bashrc
+printf 'export R_HOME=/usr/lib64/R\n'                        >> ~/.bashrc
 source ~/.bashrc
 
 killall postgres
