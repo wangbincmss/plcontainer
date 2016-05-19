@@ -19,28 +19,28 @@
     -->
     <container>
         <name>plc_python</name>
-        <container_id>pivotaldata/plcontainer_python:0.1.0-1</container_id>
+        <container_id>pivotaldata/plcontainer_python:0.1.1-1</container_id>
         <command>./client</command>
         <memory_mb>128</memory_mb>
     </container>
 
     <container>
         <name>plc_anaconda</name>
-        <container_id>pivotaldata/plcontainer_anaconda:0.1.0-1</container_id>
+        <container_id>pivotaldata/plcontainer_anaconda:0.1.1-1</container_id>
         <command>./client</command>
         <memory_mb>256</memory_mb>
     </container>
     
     <container>
         <name>plc_r</name>
-        <container_id>pivotaldata/plcontainer_r:0.1.0-1</container_id>
+        <container_id>pivotaldata/plcontainer_r:0.1.1-1</container_id>
         <command>./client</command>
         <memory_mb>256</memory_mb>
     </container>
 
     <container>
         <name>plc_python_shared</name>
-        <container_id>pivotaldata/plcontainer_python_shared:0.1.0-1</container_id>
+        <container_id>pivotaldata/plcontainer_python_shared:0.1.1-1</container_id>
         <command>./client.sh</command>
         <memory_mb>128</memory_mb>
         <shared_directory host="/usr/local" container="/usr/local" access="ro"/>
@@ -48,7 +48,7 @@
 
     <container>
         <name>plc_r_shared</name>
-        <container_id>pivotaldata/plcontainer_r_shared:0.1.0-1</container_id>
+        <container_id>pivotaldata/plcontainer_r_shared:0.1.1-1</container_id>
         <command>./client.sh</command>
         <memory_mb>256</memory_mb>
         <shared_directory host="/usr/local" container="/usr/local" access="ro"/>
