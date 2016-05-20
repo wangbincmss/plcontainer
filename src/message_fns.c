@@ -42,6 +42,7 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "plc_typeio.h"
 
 static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup);
+static bool plc_type_valid(plcTypeInfo *type);
 static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req);
 
 plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
@@ -91,7 +92,7 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
         pinfo->hasChanged = 1;
 
         procTup = (Form_pg_proc)GETSTRUCT(procHeapTup);
-        fill_type_info(procTup->prorettype, &pinfo->rettype, 0);
+        fill_type_info(procTup->prorettype, &pinfo->rettype, false);
 
         pinfo->nargs = procTup->pronargs;
         if (pinfo->nargs > 0) {
@@ -100,7 +101,7 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
 
             pinfo->argtypes = plc_top_alloc(pinfo->nargs * sizeof(plcTypeInfo));
             for (j = 0; j < pinfo->nargs; j++) {
-                fill_type_info(procTup->proargtypes.values[j], &pinfo->argtypes[j], 0);
+                fill_type_info(procTup->proargtypes.values[j], &pinfo->argtypes[j], false);
             }
 
             argnamesArray = SysCacheGetAttr(PROCOID, procHeapTup,
@@ -162,11 +163,16 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
 void free_proc_info(plcProcInfo *proc) {
     int i;
     for (i = 0; i < proc->nargs; i++) {
-        if (proc->argnames[i] != NULL)
+        if (proc->argnames[i] != NULL) {
             pfree(proc->argnames[i]);
-        if (proc->argtypes[i].nSubTypes > 0)
+        }
+        if (proc->argtypes[i].is_rowtype) {
+            ReleaseTupleDesc(proc->argtypes[i].tupleDesc);
+        }
+        if (proc->argtypes[i].nSubTypes > 0) {
             free_type_info(proc->argtypes[i].subTypes,
                            proc->argtypes[i].nSubTypes);
+        }
     }
     if (proc->nargs > 0) {
         pfree(proc->argnames);
@@ -191,6 +197,31 @@ callreq plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
     return req;
 }
 
+static bool plc_type_valid(plcTypeInfo *type) {
+    HeapTuple relTup;
+    bool valid = true;
+
+    Assert(OidIsValid(type->typ_relid));
+    Assert(TransactionIdIsValid(type->typrel_xmin));
+    Assert(ItemPointerIsValid(type->typrel_tid));
+
+    // Get the pg_class tuple for the argument type
+    relTup = SearchSysCache1(RELOID, ObjectIdGetDatum(type->typ_relid));
+    if (!HeapTupleIsValid(relTup))
+        elog(ERROR, "PL/Container cache lookup failed for relation %u", type->typ_relid);
+
+    // If commit transaction ID has changed or relation was moved within table
+    // our type information is no longer valid
+    if (type->typrel_xmin != HeapTupleHeaderGetXmin(relTup->t_data) ||
+            !ItemPointerEquals(&type->typrel_tid, &relTup->t_self)) {
+        valid = false;
+    }
+
+    ReleaseSysCache(relTup);
+
+    return valid;
+}
+
 /*
  * Decide whether a cached PLyProcedure struct is still valid
  */
@@ -201,43 +232,27 @@ static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup) {
         /* If the pg_proc tuple has changed, it's not valid */
         if (proc->fn_xmin == HeapTupleHeaderGetXmin(procTup->t_data) &&
             ItemPointerEquals(&proc->fn_tid, &procTup->t_self)) {
+            int  i;
 
             valid = true;
 
-            /* TODO: Implementing UDT we would need this part of code */
-            /*
-            int  i;
             // If there are composite input arguments, they might have changed
             for (i = 0; i < proc->nargs; i++) {
-                Oid       relid;
-                HeapTuple relTup;
-
-                // Short-circuit on first changed argument
-                if (!valid)
-                    break;
-
                 // Only check input arguments that are composite
-                if (proc->args[i].is_rowtype != 1)
+                if (!proc->argtypes[i].is_rowtype)
                     continue;
 
-                Assert(OidIsValid(proc->args[i].typ_relid));
-                Assert(TransactionIdIsValid(proc->args[i].typrel_xmin));
-                Assert(ItemPointerIsValid(&proc->args[i].typrel_tid));
+                valid = plc_type_valid(&proc->argtypes[i]);
 
-                // Get the pg_class tuple for the argument type
-                relid = proc->args[i].typ_relid;
-                relTup = SearchSysCache1(RELOID, ObjectIdGetDatum(relid));
-                if (!HeapTupleIsValid(relTup))
-                    elog(ERROR, "cache lookup failed for relation %u", relid);
-
-                // If it has changed, the function is not valid
-                if (!(proc->args[i].typrel_xmin == HeapTupleHeaderGetXmin(relTup->t_data) &&
-                        ItemPointerEquals(&proc->args[i].typrel_tid, &relTup->t_self)))
-                    valid = false;
-
-                ReleaseSysCache(relTup);
+                if (!valid) {
+                    break;
+                }
             }
-            */
+
+            // Also check for composite output type
+            if (valid && proc->rettype.is_rowtype) {
+                valid = plc_type_valid(&proc->rettype);
+            }
         }
     }
     return valid;
