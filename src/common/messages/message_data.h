@@ -34,6 +34,13 @@ struct plcIterator {
     void (*cleanup)(plcIterator *self);
 };
 
+typedef struct plcUDT {
+    int       nargs;
+    plcType  *types;
+    bool     *nulls;
+    char    **data;
+} plcUDT;
+
 plcArray *plc_alloc_array(int ndims);
 void plc_free_array(plcArray *arr);
 

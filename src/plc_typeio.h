@@ -2,6 +2,7 @@
 #define PLC_TYPEIO_H
 
 #include "postgres.h"
+#include "funcapi.h"
 
 #include "common/messages/messages.h"
 #include "plcontainer.h"
@@ -24,9 +25,21 @@ struct plcTypeInfo {
     int32           typmod;
     int             nSubTypes;
     plcTypeInfo    *subTypes;
+
+    /* UDT-specific information */
+
+    /* used to check if the composite type has been modified */
+    bool            is_rowtype;
+    bool            attisdropped;
+    Oid             typ_relid;
+    TransactionId   typrel_xmin;
+    ItemPointerData typrel_tid;
+
+    /* used in UDT as additional information for tuple input and output */
+    TupleDesc       tupleDesc;
 };
 
-void fill_type_info(Oid typeOid, plcTypeInfo *type, int issubtype);
+void fill_type_info(Oid typeOid, plcTypeInfo *pgtype, bool issubtype);
 void copy_type_info(plcType *type, plcTypeInfo *ptype);
 void free_type_info(plcTypeInfo *types, int ntypes);
 char *fill_type_value(Datum funcArg, plcTypeInfo *argType);
