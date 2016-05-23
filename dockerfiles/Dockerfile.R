@@ -1,8 +1,4 @@
-FROM centos:7.2.1511
-
-# Installing R module
-RUN yum -y install epel-release
-RUN yum -y install R R-devel R-core
+FROM pivotaldata/plcontainer_r_base:0.1
 
 # Running R client inside of container
 ADD ./src/rclient/bin /clientdir

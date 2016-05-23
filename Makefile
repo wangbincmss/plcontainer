@@ -1,6 +1,6 @@
 MODULE_big = plcontainer
 PLC_VER=0.1
-PLC_REL=1
+PLC_REL=2
 PLC_CONTAINER_VERSION=1
 IMAGE_TAG=$(PLC_VER).$(PLC_REL)-$(PLC_CONTAINER_VERSION)
 
@@ -43,11 +43,13 @@ install-extra:
 	$(INSTALL_DATA)    '$(MGMTDIR)/config/plcontainer_configuration.xml' '$(PLCONTAINERDIR)'
 	$(INSTALL_DATA)    '$(MGMTDIR)/sql/plcontainer_install.sql'          '$(PLCONTAINERDIR)'
 	# Dockerfiles
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.R'               '$(PLCONTAINERDIR)/dockerfiles'
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.python'          '$(PLCONTAINERDIR)/dockerfiles'
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.R.shared'        '$(PLCONTAINERDIR)/dockerfiles'
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.python.shared'   '$(PLCONTAINERDIR)/dockerfiles'
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.python.anaconda' '$(PLCONTAINERDIR)/dockerfiles'
+	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.R'                    '$(PLCONTAINERDIR)/dockerfiles'
+	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.python'               '$(PLCONTAINERDIR)/dockerfiles'
+	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.R.shared'             '$(PLCONTAINERDIR)/dockerfiles'
+	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.R.base'               '$(PLCONTAINERDIR)/dockerfiles'
+	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.python.shared'        '$(PLCONTAINERDIR)/dockerfiles'
+	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.python.anaconda'      '$(PLCONTAINERDIR)/dockerfiles'
+	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.python.anaconda.base' '$(PLCONTAINERDIR)/dockerfiles'
 	# Clients
 	$(INSTALL_PROGRAM) '$(PYCLIENTDIR)/client'     '$(PLCONTAINERDIR)/$(PYCLIENTDIR)'
 	$(INSTALL_PROGRAM) '$(PYCLIENTDIR)/client.sh'  '$(PLCONTAINERDIR)/$(PYCLIENTDIR)'
@@ -74,9 +76,16 @@ containers: clients
 
 .PHONY: cleancontainers
 cleancontainers:
-	docker rmi -f pivotaldata/plcontainer_python:$(IMAGE_TAG)
-	docker rmi -f pivotaldata/plcontainer_r:$(IMAGE_TAG)
-	docker rmi -f pivotaldata/plcontainer_r_shared:$(IMAGE_TAG)
-	docker rmi -f pivotaldata/plcontainer_python_shared:$(IMAGE_TAG)
-	docker rmi -f pivotaldata/plcontainer_anaconda:$(IMAGE_TAG)
-	docker ps -a | grep -v CONTAINER | awk '{ print $$1}' | xargs -i docker rm {}
+	-docker rmi -f pivotaldata/plcontainer_python:$(IMAGE_TAG)
+	-docker rmi -f pivotaldata/plcontainer_r:$(IMAGE_TAG)
+	-docker rmi -f pivotaldata/plcontainer_r_shared:$(IMAGE_TAG)
+	-docker rmi -f pivotaldata/plcontainer_python_shared:$(IMAGE_TAG)
+	-docker rmi -f pivotaldata/plcontainer_anaconda:$(IMAGE_TAG)
+	-docker ps -a | grep -v CONTAINER | awk '{ print $$1}' | xargs -i docker rm {}
+
+.PHONY: basecontainers
+basecontainers:
+	-docker rmi -f pivotaldata/plcontainer_r_base:0.1
+	-docker rmi -f pivotaldata/plcontainer_anaconda_base:0.1
+	docker pull pivotaldata/plcontainer_r_base:0.1
+	docker pull pivotaldata/plcontainer_anaconda_base:0.1

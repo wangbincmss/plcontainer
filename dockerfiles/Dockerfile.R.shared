@@ -1,4 +1,4 @@
-FROM centos:7.2.1511
+FROM pivotaldata/plcontainer_r_base:0.1
 
 # Installing R module
 RUN yum -y install epel-release

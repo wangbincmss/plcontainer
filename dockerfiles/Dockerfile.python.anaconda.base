@@ -1,0 +1,10 @@
+FROM centos:7.2.1511
+
+# Anaconda binary to download and install
+ENV ANACONDA Anaconda2-4.0.0-Linux-x86_64.sh
+
+# Installation of Anaconda
+RUN yum -y install wget bzip2
+RUN wget -nv https://repo.continuum.io/archive/$ANACONDA && chmod +x $ANACONDA && ./$ANACONDA -b -p ~/anaconda
+ENV LD_LIBRARY_PATH /root/anaconda/lib
+ENV PYTHONHOME=/root/anaconda
