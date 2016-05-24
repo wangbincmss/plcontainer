@@ -207,12 +207,12 @@ static int send_cstring(plcConn *conn, char *s) {
 
     debug_print(WARNING, "    ===> sending cstring '%s'", s);
     if (s == NULL) {
-        res = send_int32(conn, 0);
+        res = send_int32(conn, -1);
     } else {
         int cnt = strlen(s);
 
         res |= send_int32(conn, cnt);
-        if (res == 0) {
+        if (res == 0 && cnt > 0) {
             res = plcBufferAppend(conn, s, cnt);
         }
     }
@@ -387,11 +387,13 @@ static int receive_cstring(plcConn *conn, char **s) {
         return -1;
     }
 
-    if (cnt == 0) {
+    if (cnt == -1) {
         *s = NULL;
     } else {
         *s   = pmalloc(cnt + 1);
-        res = plcBufferRead(conn, *s, cnt);
+        if (cnt > 0) {
+            res = plcBufferRead(conn, *s, cnt);
+        }
         (*s)[cnt] = 0;
     }
 

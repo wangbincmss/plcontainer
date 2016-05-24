@@ -128,6 +128,10 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
                         plc_top_strdup(DatumGetCString(
                                 DirectFunctionCall1(textout, argnames[i])
                             ));
+                    if (strlen(pinfo->argnames[i]) == 0) {
+                        pfree(pinfo->argnames[i]);
+                        pinfo->argnames[i] = NULL;
+                    }
                 } else {
                     pinfo->argnames[i] = NULL;
                 }
