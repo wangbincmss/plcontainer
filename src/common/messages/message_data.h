@@ -35,13 +35,12 @@ struct plcIterator {
 };
 
 typedef struct plcUDT {
-    int       nargs;
-    plcType  *types;
-    bool     *nulls;
-    char    **data;
+    rawdata  *data;
 } plcUDT;
 
 plcArray *plc_alloc_array(int ndims);
-void plc_free_array(plcArray *arr);
+void plc_free_array(plcArray *arr, plcType *type);
+plcUDT *plc_alloc_udt(int nargs);
+void plc_free_udt(plcUDT *udt, plcType *type, bool isSender);
 
 #endif /* PLC_MESSAGE_DATA_H */

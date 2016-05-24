@@ -12,6 +12,8 @@
 #include "message_fns.h"
 #include "common/comm_utils.h"
 
+static void fill_type_info_inner(Oid typeOid, plcTypeInfo *type, bool isArrayElement, bool isUDTElement);
+
 static char *plc_datum_as_int1(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_int2(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_int4(Datum input, plcTypeInfo *type);
@@ -37,7 +39,7 @@ static Datum plc_datum_from_text_ptr(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_array(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_udt(char *input, plcTypeInfo *type);
 
-void fill_type_info(Oid typeOid, plcTypeInfo *type, bool issubtype) {
+static void fill_type_info_inner(Oid typeOid, plcTypeInfo *type, bool isArrayElement, bool isUDTElement) {
     HeapTuple     typeTup;
     Form_pg_type  typeStruct;
     char          dummy_delim;
@@ -66,6 +68,7 @@ void fill_type_info(Oid typeOid, plcTypeInfo *type, bool issubtype) {
     type->typ_relid = InvalidOid;
     type->typrel_xmin = InvalidTransactionId;
     ItemPointerSetInvalid(&type->typrel_tid);
+    type->typeName = NULL;
 
     switch(typeOid) {
         case BOOLOID:
@@ -108,7 +111,7 @@ void fill_type_info(Oid typeOid, plcTypeInfo *type, bool issubtype) {
         default:
             type->type = PLC_DATA_TEXT;
             type->outfunc = plc_datum_as_text;
-            if (!issubtype) {
+            if (!isArrayElement) {
                 type->infunc = plc_datum_from_text;
             } else {
                 type->infunc = plc_datum_from_text_ptr;
@@ -117,25 +120,27 @@ void fill_type_info(Oid typeOid, plcTypeInfo *type, bool issubtype) {
     }
 
     /* Processing arrays here */
-    if (typeStruct->typelem != 0 && typeStruct->typoutput == ARRAY_OUT_OID) {
+    if (!isArrayElement && typeStruct->typelem != 0 && typeStruct->typoutput == ARRAY_OUT_OID) {
         type->type = PLC_DATA_ARRAY;
         type->outfunc = plc_datum_as_array;
         type->infunc = plc_datum_from_array;
         type->nSubTypes = 1;
         type->subTypes = (plcTypeInfo*)plc_top_alloc(sizeof(plcTypeInfo));
-        fill_type_info(typeStruct->typelem, &type->subTypes[0], true);
+        fill_type_info_inner(typeStruct->typelem, &type->subTypes[0], true, isUDTElement);
     }
 
     /* Processing composite types - only first level is supported */
-    if (!issubtype && typeStruct->typtype == TYPTYPE_COMPOSITE) {
+    if (!isUDTElement && typeStruct->typtype == TYPTYPE_COMPOSITE) {
         int i;
 
+        elog(WARNING, "Received UDT, processing it");
         type->is_rowtype = true;
         type->type = PLC_DATA_UDT;
         type->outfunc = plc_datum_as_udt;
         type->infunc  = plc_datum_from_udt;
         type->tupleDesc = lookup_rowtype_tupdesc(type->typeOid, type->typmod);
         type->nSubTypes = type->tupleDesc->natts;
+        elog(WARNING, "    UDT has %d fields", type->nSubTypes);
 
         // Allocate memory for this number of arguments
         type->subTypes = (plcTypeInfo*)plc_top_alloc(type->nSubTypes * sizeof(plcTypeInfo));
@@ -145,15 +150,28 @@ void fill_type_info(Oid typeOid, plcTypeInfo *type, bool issubtype) {
         for (i = 0; i < type->tupleDesc->natts; i++) {
             type->subTypes[i].attisdropped = type->tupleDesc->attrs[i]->attisdropped;
             if (!type->subTypes[i].attisdropped) {
-                fill_type_info(type->tupleDesc->attrs[i]->atttypid, &type->subTypes[i], true);
+                elog(WARNING, "    Processing field %d", i);
+                /* We support the case with array of UDTs, each of which contains another array */
+                fill_type_info_inner(type->tupleDesc->attrs[i]->atttypid, &type->subTypes[i], false, true);
             }
+            type->subTypes[i].typeName = plc_top_strdup(NameStr(type->tupleDesc->attrs[i]->attname));
         }
+        elog(WARNING, "    Finished processing");
     }
+}
+
+void fill_type_info(Oid typeOid, plcTypeInfo *type) {
+    fill_type_info_inner(typeOid, type, false, false);
 }
 
 void copy_type_info(plcType *type, plcTypeInfo *ptype) {
     type->type = ptype->type;
     type->nSubTypes = 0;
+    if (ptype->typeName != NULL) {
+        type->typeName = pstrdup(ptype->typeName);
+    } else {
+        type->typeName = NULL;
+    }
     if (ptype->nSubTypes > 0) {
         int i, j;
 
@@ -175,14 +193,24 @@ void copy_type_info(plcType *type, plcTypeInfo *ptype) {
     }
 }
 
-void free_type_info(plcTypeInfo *types, int ntypes) {
+void free_type_info(plcTypeInfo *type) {
     int i = 0;
-    // typleDesc is already freed at this moment in calling function
-    for (i = 0; i < ntypes; i++) {
-        if (types->nSubTypes > 0)
-            free_type_info(types->subTypes, types->nSubTypes);
+
+    if (type->is_rowtype) {
+        ReleaseTupleDesc(type->tupleDesc);
     }
-    pfree(types);
+
+    if (type->typeName != NULL) {
+        pfree(type->typeName);
+    }
+
+    for (i = 0; i < type->nSubTypes; i++) {
+        free_type_info(&type->subTypes[i]);
+    }
+
+    if (type->nSubTypes > 0) {
+        pfree(type->subTypes);
+    }
 }
 
 static char *plc_datum_as_int1(Datum input, plcTypeInfo *type UNUSED) {
@@ -335,32 +363,27 @@ static char *plc_datum_as_udt(Datum input, plcTypeInfo *type) {
     int             i, j;
     int             nNonDropped = 0;
 
-    res = pmalloc(sizeof(plcUDT));
-    rec_header = DatumGetHeapTupleHeader(input);
     for (i = 0; i < type->nSubTypes; i++) {
         if (!type->subTypes[i].attisdropped) {
             nNonDropped += 1;
         }
     }
 
-    res->nargs = nNonDropped;
-    res->types = pmalloc(res->nargs * sizeof(plcType));
-    res->nulls = pmalloc(res->nargs * sizeof(char));
-    res->data  = pmalloc(res->nargs * sizeof(char*));
+    res = plc_alloc_udt(nNonDropped);
 
+    rec_header = DatumGetHeapTupleHeader(input);
     for (i = 0, j = 0; i < type->nSubTypes; i++) {
         Datum  vattr;
         bool   is_null;
 
         if (!type->subTypes[i].attisdropped) {
-            copy_type_info(&res->types[j], type);
             vattr = GetAttributeByNum(rec_header, (i + 1), &is_null);
             if (is_null) {
-                res->nulls[j] = true;
-                res->data[j] = NULL;
+                res->data[j].isnull = true;
+                res->data[j].value = NULL;
             } else {
-                res->nulls[j] = false;
-                res->data[j] = type->subTypes[i].outfunc(vattr, &type->subTypes[i]);
+                res->data[j].isnull = false;
+                res->data[j].value = type->subTypes[i].outfunc(vattr, &type->subTypes[i]);
             }
             j += 1;
         }
@@ -475,12 +498,12 @@ static Datum plc_datum_from_udt(char *input, plcTypeInfo *type) {
     nulls = palloc(sizeof(bool) * type->nSubTypes);
     for (i = 0, j = 0; i < type->nSubTypes; ++i) {
         if (!type->subTypes[i].attisdropped) {
-            if (udt->nulls[j]) {
+            if (udt->data[j].isnull) {
                 nulls[i] = true;
                 values[i] = (Datum) 0;
             } else {
                 nulls[i] = false;
-                values[i] = type->subTypes[j].infunc(udt->data[j], &type->subTypes[j]);
+                values[i] = type->subTypes[j].infunc(udt->data[j].value, &type->subTypes[j]);
             }
             j += 1;
         }
