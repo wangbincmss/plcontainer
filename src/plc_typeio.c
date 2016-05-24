@@ -1,10 +1,11 @@
 /* Greenplum headers */
 #include "postgres.h"
-#include "utils/array.h"
 #include "fmgr.h"
-#include "executor/spi.h"
-#include "utils/lsyscache.h"
 #include "access/transam.h"
+#include "executor/spi.h"
+#include "parser/parse_type.h"
+#include "utils/array.h"
+#include "utils/lsyscache.h"
 #include "utils/typcache.h"
 
 #include "plcontainer.h"
@@ -43,6 +44,7 @@ static void fill_type_info_inner(Oid typeOid, plcTypeInfo *type, bool isArrayEle
     HeapTuple     typeTup;
     Form_pg_type  typeStruct;
     char          dummy_delim;
+    Oid           typioparam;
 
     typeTup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
     if (!HeapTupleIsValid(typeTup))
@@ -57,7 +59,7 @@ static void fill_type_info_inner(Oid typeOid, plcTypeInfo *type, bool isArrayEle
     get_type_io_data(typeOid, IOFunc_input,
                      &type->typlen, &type->typbyval, &type->typalign,
                      &dummy_delim,
-                     &type->typioparam, &type->input);
+                     &typioparam, &type->input);
     type->typmod = typeStruct->typtypmod;
     type->nSubTypes = 0;
     type->subTypes = NULL;
@@ -132,31 +134,51 @@ static void fill_type_info_inner(Oid typeOid, plcTypeInfo *type, bool isArrayEle
     /* Processing composite types - only first level is supported */
     if (!isUDTElement && typeStruct->typtype == TYPTYPE_COMPOSITE) {
         int i;
+        TupleDesc desc;
 
-        elog(WARNING, "Received UDT, processing it");
         type->is_rowtype = true;
         type->type = PLC_DATA_UDT;
         type->outfunc = plc_datum_as_udt;
         type->infunc  = plc_datum_from_udt;
-        type->tupleDesc = lookup_rowtype_tupdesc(type->typeOid, type->typmod);
-        type->nSubTypes = type->tupleDesc->natts;
-        elog(WARNING, "    UDT has %d fields", type->nSubTypes);
+        desc = lookup_rowtype_tupdesc(type->typeOid, type->typmod);
+        type->nSubTypes = desc->natts;
+
+        if (desc->tdtypeid == RECORDOID) {
+            elog(ERROR, "Anonymous record type is not supported");
+        }
+
+        if (desc->tdtypeid != RECORDOID && !TransactionIdIsValid(type->typrel_xmin)) {
+            HeapTuple relTup;
+
+            /* Get the pg_class tuple corresponding to the type of the input */
+            type->typ_relid = typeidTypeRelid(desc->tdtypeid);
+            relTup = SearchSysCache1(RELOID, ObjectIdGetDatum(type->typ_relid));
+            if (!HeapTupleIsValid(relTup)) {
+                elog(ERROR, "cache lookup failed for relation %u", type->typ_relid);
+            }
+
+            /* Extract the XMIN value to later use it in PLy_procedure_valid */
+            type->typrel_xmin = HeapTupleHeaderGetXmin(relTup->t_data);
+            type->typrel_tid = relTup->t_self;
+
+            ReleaseSysCache(relTup);
+        }
 
         // Allocate memory for this number of arguments
         type->subTypes = (plcTypeInfo*)plc_top_alloc(type->nSubTypes * sizeof(plcTypeInfo));
         memset(type->subTypes, 0, type->nSubTypes * sizeof(plcTypeInfo));
 
         // Fill all the subtypes
-        for (i = 0; i < type->tupleDesc->natts; i++) {
-            type->subTypes[i].attisdropped = type->tupleDesc->attrs[i]->attisdropped;
+        for (i = 0; i < desc->natts; i++) {
+            type->subTypes[i].attisdropped = desc->attrs[i]->attisdropped;
             if (!type->subTypes[i].attisdropped) {
-                elog(WARNING, "    Processing field %d", i);
                 /* We support the case with array of UDTs, each of which contains another array */
-                fill_type_info_inner(type->tupleDesc->attrs[i]->atttypid, &type->subTypes[i], false, true);
+                fill_type_info_inner(desc->attrs[i]->atttypid, &type->subTypes[i], false, true);
             }
-            type->subTypes[i].typeName = plc_top_strdup(NameStr(type->tupleDesc->attrs[i]->attname));
+            type->subTypes[i].typeName = plc_top_strdup(NameStr(desc->attrs[i]->attname));
         }
-        elog(WARNING, "    Finished processing");
+
+        ReleaseTupleDesc(desc);
     }
 }
 
@@ -195,10 +217,6 @@ void copy_type_info(plcType *type, plcTypeInfo *ptype) {
 
 void free_type_info(plcTypeInfo *type) {
     int i = 0;
-
-    if (type->is_rowtype) {
-        ReleaseTupleDesc(type->tupleDesc);
-    }
 
     if (type->typeName != NULL) {
         pfree(type->typeName);
@@ -486,6 +504,7 @@ static Datum plc_datum_from_array(char *input, plcTypeInfo *type) {
 }
 
 static Datum plc_datum_from_udt(char *input, plcTypeInfo *type) {
+    TupleDesc      desc;
     HeapTuple      tuple;
     Datum         *values;
     bool          *nulls;
@@ -510,7 +529,9 @@ static Datum plc_datum_from_udt(char *input, plcTypeInfo *type) {
     }
 
     oldContext = MemoryContextSwitchTo(pl_container_caller_context);
-    tuple = heap_form_tuple(type->tupleDesc, values, nulls);
+    desc = lookup_rowtype_tupdesc(type->typeOid, type->typmod);
+    tuple = heap_form_tuple(desc, values, nulls);
+    ReleaseTupleDesc(desc);
     MemoryContextSwitchTo(oldContext);
 
     pfree(values);

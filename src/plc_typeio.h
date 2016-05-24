@@ -12,32 +12,34 @@ typedef char *(*plcDatumOutput)(Datum, plcTypeInfo*);
 typedef Datum (*plcDatumInput)(char*, plcTypeInfo*);
 
 struct plcTypeInfo {
+    /* PL/Container-specific information */
     plcDatatype     type;
-    Oid             typeOid;
-    RegProcedure    output, input; /* used to convert a given value from/to "...." */
+    int             nSubTypes;
+    plcTypeInfo    *subTypes;
+
+    /* Custom input and output functions used for most common data types that
+     * allow binary data transfer */
     plcDatumOutput  outfunc;
     plcDatumInput   infunc;
-    Oid             typioparam;
+
+    /* GPDB in- and out- functions to transform custom types to text and back */
+    RegProcedure    output, input;
+
+    /* Information used for type input/output operations */
+    Oid             typeOid;
     Oid             typelem;
     bool            typbyval;
     int16           typlen;
     char            typalign;
     int32           typmod;
-    int             nSubTypes;
-    plcTypeInfo    *subTypes;
 
     /* UDT-specific information */
-
-    /* used to check if the composite type has been modified */
     bool            is_rowtype;
     bool            attisdropped;
     Oid             typ_relid;
     TransactionId   typrel_xmin;
     ItemPointerData typrel_tid;
     char           *typeName;
-
-    /* used in UDT as additional information for tuple input and output */
-    TupleDesc       tupleDesc;
 };
 
 void fill_type_info(Oid typeOid, plcTypeInfo *type);
