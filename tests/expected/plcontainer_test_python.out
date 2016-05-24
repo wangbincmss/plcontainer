@@ -83,6 +83,12 @@ select pytext('text');
  textbar
 (1 row)
 
+select pytext('');
+ pytext 
+--------
+ bar
+(1 row)
+
 select pyintarr(null::int8[]);
  pyintarr 
 ----------
@@ -129,6 +135,12 @@ select pytextarr(array['aaa','bbb','ccc']::varchar[]);
   pytextarr   
 --------------
  |aaa|bbb|ccc
+(1 row)
+
+select pytextarr(array['aaa','','ccc']::varchar[]);
+ pytextarr 
+-----------
+ |aaa||ccc
 (1 row)
 
 select pytsarr(array['2010-01-01 00:00:00', '2010-02-02 01:01:01', '2010-03-03 03:03:03', '2012-01-01 00:00:00']::timestamp[]);
