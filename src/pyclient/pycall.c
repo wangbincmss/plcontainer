@@ -241,7 +241,7 @@ static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
 
     /* Amount of elements that have names and should make it to the input tuple */
     for (i = 0; i < pyfunc->nargs; i++) {
-        if (pyfunc->args[i].name != NULL) {
+        if (pyfunc->args[i].argName != NULL) {
             notnull += 1;
         }
     }
@@ -264,28 +264,29 @@ static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
             if (pyfunc->args[i].conv.inputfunc == NULL) {
                 raise_execution_error(conn,
                                       "Parameter '%s' (#%d) type %d is not supported",
-                                      pyfunc->args[i].name,
+                                      pyfunc->args[i].argName,
                                       i,
                                       pyfunc->args[i].type);
                 return NULL;
             }
-            arg = pyfunc->args[i].conv.inputfunc(pyfunc->call->args[i].data.value);
+            arg = pyfunc->args[i].conv.inputfunc(pyfunc->call->args[i].data.value,
+                                                 &pyfunc->args[i]);
         }
 
         /* Argument cannot be NULL unless some error has happened as Py_None != NULL */
         if (arg == NULL) {
             raise_execution_error(conn,
                                   "Converting parameter '%s' (#%d) to Python type failed",
-                                  pyfunc->args[i].name, i);
+                                  pyfunc->args[i].argName, i);
             return NULL;
         }
 
         /* Only named arguments are passed to the function input tuple */
-        if (pyfunc->args[i].name != NULL) {
+        if (pyfunc->args[i].argName != NULL) {
             if (PyTuple_SetItem(args, pos, arg) != 0) { // steals the reference to arg
                 raise_execution_error(conn,
                                       "Appending Python list element %d for argument '%s' has failed",
-                                      i, pyfunc->args[i].name);
+                                      i, pyfunc->args[i].argName);
                 return NULL;
             }
             /* As the object reference was stolen by setitem we need to incref */
@@ -297,7 +298,7 @@ static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
         if (PyList_SetItem(arglist, i, arg) != 0) { // steals the reference to arg
             raise_execution_error(conn,
                                   "Appending Python list element %d for argument '%s' has failed",
-                                  i, pyfunc->args[i].name);
+                                  i, pyfunc->args[i].argName);
             return NULL;
         }
     }
@@ -312,7 +313,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
     res           = malloc(sizeof(str_plcontainer_result));
     res->msgtype  = MT_RESULT;
     res->names    = malloc(1 * sizeof(char*));
-    res->names[0] = strdup(pyfunc->res.name);
+    res->names[0] = (pyfunc->res.argName == NULL) ? NULL : strdup(pyfunc->res.argName);
     res->types    = malloc(1 * sizeof(plcType));
     res->data     = NULL;
     plc_py_copy_type(&res->types[0], &pyfunc->res);

@@ -82,9 +82,9 @@ PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
     }
 
     for (j = 0; j < result->res->cols; j++) {
-        if (result->inconv[j].inputfunc == NULL) {
+        if (result->args[j].conv.inputfunc == NULL) {
             raise_execution_error(conn, "Type %d is not yet supported by Python container",
-                                  (int)result->res->types[j].type);
+                                  (int)result->args[j].type);
             free_result(resp, false);
             plc_free_result_conversions(result);
             return NULL;
@@ -95,7 +95,8 @@ PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
         pydict = PyDict_New();
 
         for (j = 0; j < result->res->cols; j++) {
-            pyval = result->inconv[j].inputfunc(result->res->data[i][j].value);
+            pyval = result->args[j].conv.inputfunc(result->res->data[i][j].value,
+                                                   &result->args[j]);
 
             if (PyDict_SetItemString(pydict, result->res->names[j], pyval) != 0) {
                 raise_execution_error(conn, "Error setting result dictionary element",

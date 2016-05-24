@@ -70,7 +70,7 @@ static plcontainer_result create_sql_result() {
     result->names   = palloc(result->cols * sizeof(*result->names));
     resTypes        = palloc(result->cols * sizeof(plcTypeInfo));
     for (j = 0; j < result->cols; j++) {
-        fill_type_info(res_tuptable->tupdesc->attrs[j]->atttypid, &resTypes[j], 0);
+        fill_type_info(res_tuptable->tupdesc->attrs[j]->atttypid, &resTypes[j]);
         copy_type_info(&result->types[j], &resTypes[j]);
         result->names[j] = SPI_fname(res_tuptable->tupdesc, j + 1);
     }
@@ -100,7 +100,10 @@ static plcontainer_result create_sql_result() {
         }
     }
 
-    free_type_info(resTypes, result->cols);
+    for (i = 0; i < result->cols; i++) {
+        free_type_info(&resTypes[i]);
+    }
+    pfree(resTypes);
 
     return result;
 }

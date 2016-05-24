@@ -92,7 +92,7 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
         pinfo->hasChanged = 1;
 
         procTup = (Form_pg_proc)GETSTRUCT(procHeapTup);
-        fill_type_info(procTup->prorettype, &pinfo->rettype, false);
+        fill_type_info(procTup->prorettype, &pinfo->rettype);
 
         pinfo->nargs = procTup->pronargs;
         if (pinfo->nargs > 0) {
@@ -101,7 +101,7 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
 
             pinfo->argtypes = plc_top_alloc(pinfo->nargs * sizeof(plcTypeInfo));
             for (j = 0; j < pinfo->nargs; j++) {
-                fill_type_info(procTup->proargtypes.values[j], &pinfo->argtypes[j], false);
+                fill_type_info(procTup->proargtypes.values[j], &pinfo->argtypes[j]);
             }
 
             argnamesArray = SysCacheGetAttr(PROCOID, procHeapTup,
@@ -166,13 +166,7 @@ void free_proc_info(plcProcInfo *proc) {
         if (proc->argnames[i] != NULL) {
             pfree(proc->argnames[i]);
         }
-        if (proc->argtypes[i].is_rowtype) {
-            ReleaseTupleDesc(proc->argtypes[i].tupleDesc);
-        }
-        if (proc->argtypes[i].nSubTypes > 0) {
-            free_type_info(proc->argtypes[i].subTypes,
-                           proc->argtypes[i].nSubTypes);
-        }
+        free_type_info(&proc->argtypes[i]);
     }
     if (proc->nargs > 0) {
         pfree(proc->argnames);

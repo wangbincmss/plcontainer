@@ -33,6 +33,7 @@ typedef struct plcType plcType;
 struct plcType {
     plcDatatype  type;
     short        nSubTypes;
+    char        *typeName;
     plcType     *subTypes;
 };
 

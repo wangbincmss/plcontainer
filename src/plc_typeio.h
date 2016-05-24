@@ -34,14 +34,15 @@ struct plcTypeInfo {
     Oid             typ_relid;
     TransactionId   typrel_xmin;
     ItemPointerData typrel_tid;
+    char           *typeName;
 
     /* used in UDT as additional information for tuple input and output */
     TupleDesc       tupleDesc;
 };
 
-void fill_type_info(Oid typeOid, plcTypeInfo *pgtype, bool issubtype);
+void fill_type_info(Oid typeOid, plcTypeInfo *type);
 void copy_type_info(plcType *type, plcTypeInfo *ptype);
-void free_type_info(plcTypeInfo *types, int ntypes);
+void free_type_info(plcTypeInfo *type);
 char *fill_type_value(Datum funcArg, plcTypeInfo *argType);
 
 #endif /* PLC_TYPEIO_H */
