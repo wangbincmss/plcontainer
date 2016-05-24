@@ -168,7 +168,7 @@ static int message_end(plcConn *conn) {
 }
 
 static int send_char(plcConn *conn, char c) {
-    debug_print(WARNING, "    <=== sending int8/char '%d/%c'", (int)c, c);
+    debug_print(WARNING, "    ===> sending int8/char '%d/%c'", (int)c, c);
     return plcBufferAppend(conn, &c, 1);
 }
 
