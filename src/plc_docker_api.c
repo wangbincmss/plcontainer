@@ -11,8 +11,8 @@
 /* Templates for Docker API communication */
 
 // Docker API version used in all the API calls
-// v1.23 is available in Docker v1.11.x+
-static char *plc_docker_api_version = "v1.22";
+// v1.21 is available in Docker v1.9.x+
+static char *plc_docker_api_version = "v1.21";
 
 // Default location of the Docker API unix socket
 static char *plc_docker_socket = "/var/run/docker.sock";
@@ -153,13 +153,13 @@ static int docker_parse_container_id(char* response, char **name) {
                      pmatch,
                      0);
     pfree(data);
-    if(res == REG_NOMATCH) {
-        elog(ERROR, "Docker API response does not match regular expression");
+    if (res == REG_NOMATCH) {
+        elog(ERROR, "Docker API response does not match regular expression: '%s'", response);
         return -1;
     }
 
     if (pmatch[1].rm_so == -1) {
-        elog(ERROR, "Postgres regex failed to extract created container name from Docker API response");
+        elog(ERROR, "Postgres regex failed to extract created container name from Docker API response: '%s'", response);
         return -1;
     }
 
