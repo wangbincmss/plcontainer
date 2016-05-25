@@ -227,7 +227,7 @@ static int send_raw_object(plcConn *conn, plcType *type, rawdata *obj) {
         debug_print(WARNING, "Object is null");
     } else {
         res |= send_char(conn, 'D');
-        debug_print(WARNING, "Object type is %d and value is:", (int)type->type);
+        debug_print(WARNING, "Object type is '%s' and value is:", plc_get_type_name(type->type));
         switch (type->type) {
             case PLC_DATA_INT1:
                 res |= send_char(conn, *((char*)obj->value));
@@ -298,6 +298,7 @@ static int send_type(plcConn *conn, plcType *type) {
     int i = 0;
 
     debug_print(WARNING, "VVVVVVVVVVVVVVV");
+    debug_print(WARNING, "    Type '%s' with name '%s'", plc_get_type_name(type->type), type->typeName);
     res |= send_char(conn, (char)type->type);
     res |= send_cstring(conn, type->typeName);
     if (type->type == PLC_DATA_ARRAY || type->type == PLC_DATA_UDT) {
@@ -541,7 +542,7 @@ static int receive_array(plcConn *conn, plcType *type, rawdata *obj) {
                         arr->nulls[i] = 1;
                     } else {
                         arr->nulls[i] = 0;
-                        receive_udt(conn, &type->subTypes[0], &((char**)arr->data)[i]);
+                        receive_udt(conn, type, &((char**)arr->data)[i]);
                     }
                 }
                 break;
@@ -558,9 +559,11 @@ static int receive_type(plcConn *conn, plcType *type) {
     int i = 0;
     char typ;
 
+    debug_print(WARNING, "VVVVVVVVVVVVVVV");
     res |= receive_char(conn, &typ);
     res |= receive_cstring(conn, &type->typeName);
     type->type = (int)typ;
+    debug_print(WARNING, "    Type '%s' with name '%s'", plc_get_type_name(type->type), type->typeName);
 
     if (type->type == PLC_DATA_ARRAY || type->type == PLC_DATA_UDT) {
         res |= receive_int16(conn, &type->nSubTypes);
@@ -573,6 +576,7 @@ static int receive_type(plcConn *conn, plcType *type) {
         type->nSubTypes = 0;
         type->subTypes = NULL;
     }
+    debug_print(WARNING, "///////////////");
 
     return res;
 }
@@ -599,7 +603,7 @@ static int send_argument(plcConn *conn, plcArgument *arg) {
     int res = 0;
     debug_print(WARNING, "Sending argument '%s'", arg->name);
     res |= send_cstring(conn, arg->name);
-    debug_print(WARNING, "Argument type is '%d'", (int)arg->type.type);
+    debug_print(WARNING, "Argument type is '%s'", plc_get_type_name(arg->type.type));
     res |= send_type(conn, &arg->type);
     res |= send_raw_object(conn, &arg->type, &arg->data);
     return res;
@@ -632,7 +636,7 @@ static int send_call(plcConn *conn, callreq call) {
     res |= send_uint32(conn, call->objectid);
     debug_print(WARNING, "Function has changed is '%d'", call->hasChanged);
     res |= send_int32(conn, call->hasChanged);
-    debug_print(WARNING, "Function return type is '%d'", (int)call->retType.type);
+    debug_print(WARNING, "Function return type is '%s'", plc_get_type_name(call->retType.type));
     res |= send_type(conn, &call->retType);
     debug_print(WARNING, "Function is set-returning: %d", (int)call->retset);
     res |= send_int32(conn, call->retset);
@@ -923,7 +927,7 @@ static int receive_argument(plcConn *conn, plcArgument *arg) {
     res |= receive_cstring(conn, &arg->name);
     debug_print(WARNING, "Receiving argument '%s'", arg->name);
     res |= receive_type(conn, &arg->type);
-    debug_print(WARNING, "Argument type is '%d'", (int)arg->type.type);
+    debug_print(WARNING, "Argument type is '%s'", plc_get_type_name(arg->type.type));
     res |= receive_raw_object(conn, &arg->type, &arg->data);
     return res;
 }
@@ -967,7 +971,7 @@ static int receive_call(plcConn *conn, message *mCall) {
     res |= receive_int32(conn, &req->hasChanged);
     debug_print(WARNING, "Function has changed is '%d'", req->hasChanged);
     res |= receive_type(conn, &req->retType);
-    debug_print(WARNING, "Function return type is '%d'", (int)req->retType.type);
+    debug_print(WARNING, "Function return type is '%s'", plc_get_type_name(req->retType.type));
     res |= receive_int32(conn, &req->retset);
     debug_print(WARNING, "Function is set-returning: %d", (int)req->retset);
     res |= receive_int32(conn, &req->nargs);

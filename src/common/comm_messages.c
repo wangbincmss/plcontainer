@@ -210,16 +210,27 @@ int plc_get_type_length(plcDatatype dt) {
             res = 8;
             break;
         case PLC_DATA_TEXT:
+        case PLC_DATA_UDT:
             /* 8 = the size of pointer */
             res = 8;
             break;
         case PLC_DATA_ARRAY:
         case PLC_DATA_RECORD:
-        case PLC_DATA_UDT:
         default:
             lprintf(ERROR, "Type %d cannot be passed plc_get_type_length function",
                     (int)dt);
             break;
     }
     return res;
+}
+
+const char *plc_get_type_name(plcDatatype dt) {
+    const char * types[] = {"PLC_DATA_INT1", "PLC_DATA_INT2", "PLC_DATA_INT4", "PLC_DATA_INT8",
+                            "PLC_DATA_FLOAT4", "PLC_DATA_FLOAT8",
+                            "PLC_DATA_TEXT",
+                            "PLC_DATA_ARRAY",
+                            "PLC_DATA_RECORD", "PLC_DATA_UDT",
+                            "PLC_DATA_BYTEA",
+                            "PLC_DATA_INVALID"};
+    return types[dt];
 }

@@ -75,5 +75,21 @@ select pylargeint8in(array_agg(id)) from generate_series(1,100000) id;
 select avg(x) from (select unnest(pylargeint8out(100000)) as x) as q;
 select pylargetextin(string_agg(x,',')) from (select x::varchar from generate_series(1,100000) x) as q;
 select length(pylargetextout(100000));
+select pytestudt1( ('t', 1, 2, 3, 4, 5, 6, 'foobar')::py_test_type );
+select pytestudt2( (
+        array['t','f','t']::bool[],
+        array[1,2,3]::smallint[],
+        array[2,3,4]::int[],
+        array[3,4,5]::int8[],
+        array[4.5,5.5,6.5]::float4[],
+        array[5.5,6.5,7.5]::float8[],
+        array[6.5,7.5,8.5]::numeric[],
+        array['a','b','c']::varchar[])::py_test_type2 );
+select pytestudt3( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::py_test_type3[] );
+select pytestudt4( array[
+                (1,array[1,2,3],array['a','b','c']),
+                (2,array[2,3,4],array['b','c','d']),
+                (3,array[3,4,5],array['c','d','e'])
+            ]::py_test_type4[] );
 select pyinvalid_function();
 select pyinvalid_syntax();

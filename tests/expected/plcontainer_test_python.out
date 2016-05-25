@@ -498,6 +498,42 @@ select length(pylargetextout(100000));
  588894
 (1 row)
 
+select pytestudt1( ('t', 1, 2, 3, 4, 5, 6, 'foobar')::py_test_type );
+ pytestudt1 
+------------
+         10
+(1 row)
+
+select pytestudt2( (
+        array['t','f','t']::bool[],
+        array[1,2,3]::smallint[],
+        array[2,3,4]::int[],
+        array[3,4,5]::int8[],
+        array[4.5,5.5,6.5]::float4[],
+        array[5.5,6.5,7.5]::float8[],
+        array[6.5,7.5,8.5]::numeric[],
+        array['a','b','c']::varchar[])::py_test_type2 );
+ pytestudt2 
+------------
+         10
+(1 row)
+
+select pytestudt3( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::py_test_type3[] );
+        pytestudt3        
+--------------------------
+ #1|1.0|a#2|2.0|b#3|3.0|c
+(1 row)
+
+select pytestudt4( array[
+                (1,array[1,2,3],array['a','b','c']),
+                (2,array[2,3,4],array['b','c','d']),
+                (3,array[3,4,5],array['c','d','e'])
+            ]::py_test_type4[] );
+              pytestudt4               
+---------------------------------------
+ #1|6.0|a,b,c#2|9.0|b,c,d#3|12.0|c,d,e
+(1 row)
+
 select pyinvalid_function();
 ERROR:  exception occurred: (plcontainer.c:249)
 DETAIL:  

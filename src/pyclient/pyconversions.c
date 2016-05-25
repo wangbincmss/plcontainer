@@ -16,6 +16,7 @@ static PyObject *plc_pyobject_from_array_dim(plcArray *arr, plcPyType *type,
                     int *idx, int *ipos, char **pos, int vallen, int dim);
 static PyObject *plc_pyobject_from_array(char *input, plcPyType *type);
 static PyObject *plc_pyobject_from_udt(char *input, plcPyType *type);
+static PyObject *plc_pyobject_from_udt_ptr(char *input, plcPyType *type);
 
 static int plc_pyobject_as_int1(PyObject *input, char **output, plcPyType *type);
 static int plc_pyobject_as_int2(PyObject *input, char **output, plcPyType *type);
@@ -146,6 +147,10 @@ static PyObject *plc_pyobject_from_udt(char *input, plcPyType *type) {
     }
 
     return res;
+}
+
+static PyObject *plc_pyobject_from_udt_ptr(char *input, plcPyType *type) {
+    return plc_pyobject_from_udt(*((char**)input), type);
 }
 
 static int plc_pyobject_as_int1(PyObject *input, char **output, plcPyType *type UNUSED) {
@@ -455,7 +460,11 @@ static plcPyInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement
             res = plc_pyobject_from_array;
             break;
         case PLC_DATA_UDT:
-            res = plc_pyobject_from_udt;
+            if (isArrayElement) {
+                res = plc_pyobject_from_udt_ptr;
+            } else {
+                res = plc_pyobject_from_udt;
+            }
             break;
         case PLC_DATA_RECORD:
         default:
@@ -515,7 +524,7 @@ static void plc_parse_type(plcPyType *pytype, plcType *type, char* argName, bool
     pytype->conv.inputfunc  = plc_get_input_function(pytype->type, isArrayElement);
     pytype->conv.outputfunc = plc_get_output_function(pytype->type);
     if (pytype->nSubTypes > 0) {
-        bool isArray = (type->type == PLC_DATA_ARRAY) ? true : isArrayElement;
+        bool isArray = (type->type == PLC_DATA_ARRAY) ? true : false;
         pytype->subTypes = (plcPyType*)malloc(pytype->nSubTypes * sizeof(plcPyType));
         for (i = 0; i < type->nSubTypes; i++) {
             plc_parse_type(&pytype->subTypes[i], &type->subTypes[i], NULL, isArray);
