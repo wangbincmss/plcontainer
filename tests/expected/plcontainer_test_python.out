@@ -534,6 +534,18 @@ select pytestudt4( array[
  #1|6.0|a,b,c#2|9.0|b,c,d#3|12.0|c,d,e
 (1 row)
 
+select pytestudt5(null::py_test_type4[]);
+ pytestudt5 
+------------
+          1
+(1 row)
+
+select pytestudt5(array[null]::py_test_type4[]);
+ pytestudt5 
+------------
+          2
+(1 row)
+
 select pyinvalid_function();
 ERROR:  exception occurred: (plcontainer.c:249)
 DETAIL:  

@@ -780,6 +780,16 @@ for row in r:
 return res
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pytestudt5(r py_test_type4[]) RETURNS int AS $$
+# container: plc_python
+if r is None:
+    return 1
+for el in r:
+    if el is None:
+        return 2
+return 3
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pyinvalid_function() RETURNS double precision AS $$
 # container: plc_python
 import math
