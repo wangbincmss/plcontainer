@@ -572,6 +572,29 @@ select pytestudt9();
  {"(5,6,buz)","(7,8,zzz)"}
 (2 rows)
 
+select * from unnest(pytestudt10());
+ a |   b    |     c      
+---+--------+------------
+ 1 | {2,22} | {foo,foo2}
+ 3 | {4,44} | {bar,bar2}
+(2 rows)
+
+select * from pytestudt11();
+ a |   b    |     c      
+---+--------+------------
+ 1 | {2,22} | {foo,foo2}
+ 3 | {4,44} | {bar,bar2}
+(2 rows)
+
+select unnest(a) from (select pytestudt12() as a) as q;
+          unnest           
+---------------------------
+ (1,"{2,22}","{foo,foo2}")
+ (3,"{4,44}","{bar,bar2}")
+ (5,"{6,66}","{buz,buz2}")
+ (7,"{8,88}","{zzz,zzz2}")
+(4 rows)
+
 select pyinvalid_function();
 ERROR:  exception occurred: (plcontainer.c:249)
 DETAIL:  

@@ -811,6 +811,22 @@ return [ [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}],
          [{'a': 5, 'b': 6, 'c': 'buz'}, {'a': 7, 'b': 8, 'c': 'zzz'}] ]
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pytestudt10() RETURNS py_test_type4[] AS $$
+# container: plc_python
+return [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}]
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pytestudt11() RETURNS SETOF py_test_type4 AS $$
+# container: plc_python
+return [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}]
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pytestudt12() RETURNS SETOF py_test_type4[] AS $$
+# container: plc_python
+return [ [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}],
+         [{'a': 5, 'b': [6,66], 'c': ['buz','buz2']}, {'a': 7, 'b': [8,88], 'c': ['zzz','zzz2']}] ]
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pyinvalid_function() RETURNS double precision AS $$
 # container: plc_python
 import math
