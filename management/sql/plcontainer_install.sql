@@ -1,7 +1,5 @@
 -- Creating PL/Container trusted language
 
-DROP LANGUAGE IF EXISTS plcontainer CASCADE;
-
 CREATE OR REPLACE FUNCTION plcontainer_call_handler()
 RETURNS LANGUAGE_HANDLER
 AS '$libdir/plcontainer' LANGUAGE C;
@@ -9,8 +7,6 @@ AS '$libdir/plcontainer' LANGUAGE C;
 CREATE TRUSTED LANGUAGE plcontainer HANDLER plcontainer_call_handler;
 
 -- Defining container configuration management functions
-
-DROP TYPE IF EXISTS plcontainer_status CASCADE;
 
 CREATE TYPE plcontainer_status AS (
     segment_id int,
