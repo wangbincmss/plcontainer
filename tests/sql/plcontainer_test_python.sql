@@ -97,5 +97,8 @@ select pytestudt6();
 select pytestudt7();
 select pytestudt8();
 select pytestudt9();
+select * from unnest(pytestudt10());
+select * from pytestudt11();
+select unnest(a) from (select pytestudt12() as a) as q;
 select pyinvalid_function();
 select pyinvalid_syntax();
