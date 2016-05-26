@@ -1,15 +1,17 @@
 #include "rconversions.h"
 #include "rcall.h"
 
-static SEXP plc_r_object_from_int1(char *input);
-static SEXP plc_r_object_from_int2(char *input);
-static SEXP plc_r_object_from_int4(char *input);
-static SEXP plc_r_object_from_int8(char *input);
-static SEXP plc_r_object_from_float4(char *input);
-static SEXP plc_r_object_from_float8(char *input);
-static SEXP plc_r_object_from_text(char *input);
-static SEXP plc_r_object_from_text_ptr(char *input);
-static SEXP plc_r_object_from_array (char *input);
+static SEXP plc_r_object_from_int1(char *input, plcRType *type);
+static SEXP plc_r_object_from_int2(char *input, plcRType *type);
+static SEXP plc_r_object_from_int4(char *input, plcRType *type);
+static SEXP plc_r_object_from_int8(char *input, plcRType *type);
+static SEXP plc_r_object_from_float4(char *input, plcRType *type);
+static SEXP plc_r_object_from_float8(char *input, plcRType *type);
+static SEXP plc_r_object_from_text(char *input, plcRType *type);
+static SEXP plc_r_object_from_text_ptr(char *input, plcRType *type);
+static SEXP plc_r_object_from_array (char *input, plcRType *type);
+static SEXP plc_r_object_from_udt(char *input, plcRType *type);
+static SEXP plc_r_object_from_udt_ptr(char *input, plcRType *type);
 
 static int plc_r_object_as_int1(SEXP input, char **output, plcRType *type);
 static int plc_r_object_as_int2(SEXP input, char **output, plcRType *type);
@@ -23,8 +25,10 @@ static int plc_r_object_as_array(SEXP input, char **output, plcRType *type);
 static void plc_r_object_iter_free (plcIterator *iter);
 static rawdata *plc_r_object_as_array_next (plcIterator *iter);
 
-static plcRInputFunc plc_get_input_function(plcDatatype dt);
+static plcRInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement);
 static plcROutputFunc plc_get_output_function(plcDatatype dt);
+
+static void plc_parse_type(plcRType *Rtype, plcType *type, char* argName, bool isArrayElement);
 
 /*
  *
@@ -32,98 +36,96 @@ static plcROutputFunc plc_get_output_function(plcDatatype dt);
  * value
  *
  */
-static SEXP plc_r_object_from_int1(char *input) {
+static SEXP plc_r_object_from_int1(char *input, plcRType *type UNUSED) {
     SEXP arg;
     PROTECT( arg = ScalarLogical( (int) *input ) );
     return arg;
 }
 
-static SEXP plc_r_object_from_int2(char *input) {
+static SEXP plc_r_object_from_int2(char *input, plcRType *type UNUSED) {
     SEXP arg;
     PROTECT(arg = ScalarInteger( *((short*)input)) );
     return arg;
 }
 
-static SEXP plc_r_object_from_int4(char *input) {
+static SEXP plc_r_object_from_int4(char *input, plcRType *type UNUSED) {
     SEXP arg;
     PROTECT(arg = ScalarInteger( *((int*)input)) );
     return arg;
 }
 
-static SEXP plc_r_object_from_int8(char *input) {
+static SEXP plc_r_object_from_int8(char *input, plcRType *type UNUSED) {
     SEXP arg;
     PROTECT(arg = ScalarReal( (double)*((int64*)input)) );
     return arg;
 }
 
-static SEXP plc_r_object_from_float4(char *input) {
+static SEXP plc_r_object_from_float4(char *input, plcRType *type UNUSED) {
     SEXP arg;
     PROTECT(arg = ScalarReal( (double) *((float*)input)) );
     return arg;
 }
 
-static SEXP plc_r_object_from_float8(char *input) {
+static SEXP plc_r_object_from_float8(char *input, plcRType *type UNUSED) {
     SEXP arg;
     PROTECT(arg = ScalarReal( *((double*)input)) );
     return arg;
 }
 
-static SEXP plc_r_object_from_text(char *input) {
+static SEXP plc_r_object_from_text(char *input, plcRType *type UNUSED) {
     SEXP arg;
     PROTECT( arg = mkString( input ) );
     return arg;
 }
 
-static SEXP plc_r_object_from_text_ptr(char *input) {
+static SEXP plc_r_object_from_text_ptr(char *input, plcRType *type UNUSED) {
     SEXP arg;
     PROTECT( arg = mkString( *((char**)input)) );
     return arg;
 }
 
-
-static SEXP plc_r_object_from_array (char *input) {
+static SEXP plc_r_object_from_array (char *input, plcRType *type) {
     plcArray *arr = (plcArray*)input;
-    SEXP res = R_NilValue,obj=NULL;
+    SEXP res = R_NilValue;
 
     if (arr->meta->ndims == 0) {
-        PROTECT( res = get_r_vector(arr->meta->type,  0) );
+        PROTECT( res = get_r_vector(type->type, 0) );
     } else {
         char *pos;
         int   vallen = 0;
-        int   arr_length=1, i;
-
+        int   arr_length = 1;
+        int   i;
         plcRInputFunc infunc;
-
-        pos = arr->data;
+        plcRType *elmtype;
 
         /* calculate the length of the array */
-        for (i=0; i <  arr->meta->ndims; i++) {
+        for (i = 0; i < arr->meta->ndims; i++) {
             arr_length *= arr->meta->dims[i];
         }
 
         /* allocate a vector */
-        PROTECT( res = get_r_vector(arr->meta->type,  arr_length) );
-        vallen = plc_get_type_length(arr->meta->type);
-        infunc = plc_get_input_function(arr->meta->type);
+        elmtype = &type->subTypes[0];
+        PROTECT( res = get_r_vector(elmtype->type, arr_length) );
+        vallen = plc_get_type_length(elmtype->type);
+        infunc = plc_get_input_function(elmtype->type, true);
 
-        if (arr->meta->type == PLC_DATA_TEXT) {
-            infunc = plc_r_object_from_text_ptr;
-        }
+        pos = arr->data;
+        for(i = 0; i < arr_length; i++) {
+            SEXP obj = NULL;
 
-        for( i=0; i<arr_length;i++) {
             if (arr->nulls[i] == 0) {
                 /*
                  * call the input function for the element in the array
                  */
-                obj = infunc(pos);
+                obj = infunc(pos, elmtype);
             }
             switch(arr->meta->type) {
                  /* 2 and 4 byte integer pgsql datatype => use R INTEGER */
                  case PLC_DATA_INT2:
                  case PLC_DATA_INT4:
                      if (arr->nulls[i] != 0) {
-                         INTEGER_DATA(res)[i] = NA_INTEGER ;
-                     }else{
+                         INTEGER_DATA(res)[i] = NA_INTEGER;
+                     } else {
                          INTEGER_DATA(res)[i] = asInteger(obj) ;
                      }
                      break;
@@ -135,36 +137,41 @@ static SEXP plc_r_object_from_array (char *input) {
                       */
                  case PLC_DATA_INT8:
                      if (arr->nulls[i] != 0) {
-                         NUMERIC_DATA(res)[i] = NA_REAL ;
-                     }else{
+                         NUMERIC_DATA(res)[i] = NA_REAL;
+                     } else {
                          NUMERIC_DATA(res)[i] = (float8)asReal(obj);
                      }
                      break;
 
                  case PLC_DATA_FLOAT4:
                      if (arr->nulls[i] != 0) {
-                         NUMERIC_DATA(res)[i] = NA_REAL ;
-                     }else{
-                         NUMERIC_DATA(res)[i] = (float4 )asReal(obj);
+                         NUMERIC_DATA(res)[i] = NA_REAL;
+                     } else {
+                         NUMERIC_DATA(res)[i] = (float4)asReal(obj);
                      }
                      break;
 
                  case PLC_DATA_FLOAT8:
                      if (arr->nulls[i] != 0) {
                          NUMERIC_DATA(res)[i] = NA_REAL ;
-                     }else{
-                         NUMERIC_DATA(res)[i] = (float8 )asReal(obj);
+                     } else {
+                         NUMERIC_DATA(res)[i] = (float8)asReal(obj);
                      }
                      break;
                  case PLC_DATA_INT1:
                      if (arr->nulls[i] != 0) {
                          LOGICAL_DATA(res)[i] = NA_LOGICAL;
-                     }else{
+                     } else {
                          LOGICAL_DATA(res)[i] = asLogical(obj);
                      }
                      break;
-                 case PLC_DATA_RECORD:
                  case PLC_DATA_UDT:
+                    if (arr->nulls[i] != 0) {
+                        SET_VECTOR_ELT(res, i, R_NilValue);
+                    } else {
+                        SET_VECTOR_ELT(res, i, obj);
+                    }
+                 case PLC_DATA_RECORD:
                  case PLC_DATA_INVALID:
                  case PLC_DATA_ARRAY:
                     lprintf(ERROR, "unhandled type %d", arr->meta->type);
@@ -173,17 +180,17 @@ static SEXP plc_r_object_from_array (char *input) {
                  default:
                      /* Everything else is defaulted to string */
                      if (arr->nulls[i] != 0) {
-                         SET_STRING_ELT(res, i,NA_STRING);
+                         SET_STRING_ELT(res, i, NA_STRING);
                      }else{
-                         obj =  STRING_ELT(obj,0);
-                         SET_STRING_ELT(res, i,obj);
+                         obj = STRING_ELT(obj, 0);
+                         SET_STRING_ELT(res, i, obj);
                      }
             }
             /* move position to next element in the source array */
             pos += vallen;
 
             /* if it isn't a null we have protected it above */
-            if (arr->nulls[i]==0){
+            if (arr->nulls[i] == 0) {
                 UNPROTECT(1);
             }
         }
@@ -192,16 +199,52 @@ static SEXP plc_r_object_from_array (char *input) {
 
             /* attach dimensions */
             PROTECT(matrix_dims = allocVector(INTSXP, arr->meta->ndims));
-            for (i = 0; i < arr->meta->ndims; i++)
+            for (i = 0; i < arr->meta->ndims; i++) {
                 INTEGER_DATA(matrix_dims)[i] = arr->meta->dims[i];
+            }
 
             setAttrib(res, R_DimSymbol, matrix_dims);
             UNPROTECT(1);
         }
-
     }
 
     return res;
+}
+
+static SEXP plc_r_object_from_udt(char *input, plcRType *type) {
+    plcUDT *udt;
+    int i;
+    SEXP res = R_NilValue;
+    SEXP ptr = R_NilValue;
+    SEXP element = R_NilValue;
+
+    udt = (plcUDT*)input;
+
+    PROTECT( res = allocList(type->nSubTypes) );
+    ptr = CDR(res);
+
+    for (i = 0; i < type->nSubTypes; i++) {
+        if (type->subTypes[i].typeName != NULL) {
+            if (udt->data[i].isnull) {
+                PROTECT( element = R_NilValue );
+            } else {
+                element = type->subTypes[i].conv.inputfunc(udt->data[i].value,
+                                                           &type->subTypes[i]);
+            }
+            SETCAR(ptr, element);
+            SET_TAG(ptr, mkChar(type->subTypes[i].typeName));
+            ptr = CDR(ptr);
+        } else {
+            res = R_NilValue;
+            break;
+        }
+    }
+
+    return res;
+}
+
+static SEXP plc_r_object_from_udt_ptr(char *input, plcRType *type) {
+    return plc_r_object_from_udt(*((char**)input), type);
 }
 
 static int plc_r_object_as_int1(SEXP input, char **output, plcRType *type UNUSED) {
@@ -367,6 +410,15 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
     } else {
         res->isnull = 0;
         switch (type) {
+            case PLC_DATA_INT1:
+                res->value = pmalloc(1);
+                if (LOGICAL_DATA(vector)[idx] == NA_LOGICAL) {
+                    res->isnull = 1;
+                    *((int *)res->value) = (int)0;
+                } else {
+                    *((int *)res->value) = LOGICAL_DATA(vector)[idx];
+                }
+                break;
             case PLC_DATA_INT2:
             case PLC_DATA_INT4:
                 /* 2 and 4 byte integer pgsql datatype => use R INTEGER */
@@ -402,7 +454,6 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
                         *((int64 *)res->value) = (int64)(NUMERIC_DATA(vector)[idx]);
                     }
                 }
-
                 break;
 
             case PLC_DATA_FLOAT4:
@@ -423,23 +474,14 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
                     *((float8 *)res->value) = (float8)(NUMERIC_DATA(vector)[idx]);
                 }
                 break;
-            case PLC_DATA_INT1:
-                res->value = pmalloc(1);
-                if (LOGICAL_DATA(vector)[idx] == NA_LOGICAL) {
-                    res->isnull = 1;
-                    *((int *)res->value) = (int)0;
-                } else {
-                    *((int *)res->value) = LOGICAL_DATA(vector)[idx];
-                }
-                break;
-            case PLC_DATA_RECORD:
+
             case PLC_DATA_UDT:
+            case PLC_DATA_RECORD:
             case PLC_DATA_INVALID:
             case PLC_DATA_ARRAY:
                 lprintf(ERROR, "un-handled type %d", type);
                 break;
             case PLC_DATA_TEXT:
-
                 if (vector == NA_STRING || STRING_ELT(vector, idx) == NA_STRING) {
                     res->isnull = TRUE;
                     res->value  = NULL;
@@ -469,7 +511,7 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
     ptrs = (plcRArrPointer*)iter->position;
 
     ptr = meta->ndims - 1;
-    idx  =  ptrs[ptr].pos;
+    idx = ptrs[ptr].pos;
     mtx = ptrs[ptr].obj;
 
     res = plc_r_vector_element_rawdata(mtx, idx, meta->type->type);
@@ -641,7 +683,7 @@ static int plc_r_object_as_array(SEXP input, char **output, plcRType *type) {
 
 
 
-static plcRInputFunc plc_get_input_function(plcDatatype dt) {
+static plcRInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement) {
     plcRInputFunc res = NULL;
     switch (dt) {
         case PLC_DATA_INT1:
@@ -663,13 +705,23 @@ static plcRInputFunc plc_get_input_function(plcDatatype dt) {
             res = plc_r_object_from_float8;
             break;
         case PLC_DATA_TEXT:
-            res = plc_r_object_from_text;
+            if (isArrayElement) {
+                res = plc_r_object_from_text_ptr;
+            } else {
+                res = plc_r_object_from_text;
+            }
+            break;
+        case PLC_DATA_UDT:
+            if (isArrayElement) {
+                res = plc_r_object_from_udt_ptr;
+            } else {
+                res = plc_r_object_from_udt;
+            }
             break;
         case PLC_DATA_ARRAY:
             res = plc_r_object_from_array;
             break;
         case PLC_DATA_RECORD:
-        case PLC_DATA_UDT:
         default:
             lprintf(ERROR, "Type %d cannot be passed plc_get_input_function function",
                     (int)dt);
@@ -715,24 +767,21 @@ static plcROutputFunc plc_get_output_function(plcDatatype dt) {
     return res;
 }
 
-static void plc_parse_type(plcRType *Rtype, plcType *type, char *name) {
+static void plc_parse_type(plcRType *Rtype, plcType *type, char* argName, bool isArrayElement) {
     int i = 0;
 
-    //Rtype->name = strdup(type->name); TODO: implement type name to support UDTs
-    if (name != NULL){
-        Rtype->name = strdup(name);
-    }else{
-        Rtype->name = NULL;
-    }
-
+    Rtype->typeName = (type->typeName == NULL) ? NULL : strdup(type->typeName);
+    Rtype->argName = (argName == NULL) ? NULL : strdup(argName);
     Rtype->type = type->type;
     Rtype->nSubTypes = type->nSubTypes;
-    Rtype->conv.inputfunc  = plc_get_input_function(Rtype->type);
+    Rtype->conv.inputfunc  = plc_get_input_function(Rtype->type, isArrayElement);
     Rtype->conv.outputfunc = plc_get_output_function(Rtype->type);
     if (Rtype->nSubTypes > 0) {
+        isArrayElement = (type->type == PLC_DATA_ARRAY) ? true : false;
         Rtype->subTypes = (plcRType*)malloc(Rtype->nSubTypes * sizeof(plcRType));
-        for (i = 0; i < type->nSubTypes; i++)
-            plc_parse_type(&Rtype->subTypes[i], &type->subTypes[i], NULL);
+        for (i = 0; i < type->nSubTypes; i++) {
+            plc_parse_type(&Rtype->subTypes[i], &type->subTypes[i], NULL, isArrayElement);
+        }
     } else {
         Rtype->subTypes = NULL;
     }
@@ -751,9 +800,9 @@ plcRFunction *plc_R_init_function(callreq call) {
     res->args = (plcRType*)malloc(res->nargs * sizeof(plcRType));
 
     for (i = 0; i < res->nargs; i++)
-        plc_parse_type( &res->args[i], &call->args[i].type, call->args[i].name );
+        plc_parse_type( &res->args[i], &call->args[i].type, call->args[i].name, false);
 
-    plc_parse_type( &res->res, &call->retType, "results" );
+    plc_parse_type( &res->res, &call->retType, "results", false);
 
     return res;
 }
@@ -766,8 +815,9 @@ plcRResult *plc_init_result_conversions(plcontainer_result res) {
     Rres->res = res;
     Rres->inconv = (plcRTypeConv*)malloc(res->cols * sizeof(plcRTypeConv));
 
-    for (i = 0; i < res->cols; i++)
-        Rres->inconv[i].inputfunc = plc_get_input_function(res->types[i].type);
+    for (i = 0; i < res->cols; i++) {
+        Rres->inconv[i].inputfunc = plc_get_input_function(res->types[i].type, false);
+    }
 
     return Rres;
 }
@@ -804,7 +854,12 @@ static void plc_r_free_type(plcRType *type) {
         plc_r_free_type(&type->subTypes[i]);
     if (type->nSubTypes > 0)
         free(type->subTypes);
-    free(type->name);
+    if (type->argName != NULL) {
+        free(type->argName);
+    }
+    if (type->typeName != NULL) {
+        free(type->typeName);
+    }
     return;
 }
 
@@ -841,11 +896,13 @@ void plc_r_copy_type(plcType *type, plcRType *pytype) {
 /*
  * create an R vector of a given type and size based on pg output function oid
  */
-SEXP get_r_vector(plcDatatype type_id, int numels)
-{
-    SEXP result;
+SEXP get_r_vector(plcDatatype type_id, int numels) {
+    SEXP result = R_NilValue;
 
     switch (type_id) {
+        case PLC_DATA_INT1:
+            PROTECT( result = NEW_LOGICAL(numels) );
+            break;
         case PLC_DATA_INT2:
         case PLC_DATA_INT4:
             PROTECT( result = NEW_INTEGER(numels) );
@@ -855,8 +912,8 @@ SEXP get_r_vector(plcDatatype type_id, int numels)
         case PLC_DATA_FLOAT8:
             PROTECT( result = NEW_NUMERIC(numels) );
             break;
-        case PLC_DATA_INT1:
-            PROTECT( result = NEW_LOGICAL(numels) );
+        case PLC_DATA_UDT:
+            PROTECT( result = NEW_LIST(numels) );
             break;
         case PLC_DATA_TEXT:
         default:

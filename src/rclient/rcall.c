@@ -475,7 +475,7 @@ static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcontainer_res
         res->data[i] = malloc(cols * sizeof(rawdata));
     }
     plc_r_copy_type(&res->types[0], &r_func->res);
-    res->names[0] = strdup(r_func->res.name);
+    res->names[0] = strdup(r_func->res.argName);
 
     start=0;
 
@@ -513,7 +513,7 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
             res->data[i] = NULL;
         }
         plc_r_copy_type(&res->types[0], &r_func->res);
-        res->names[0] = strdup(r_func->res.name);
+        res->names[0] = strdup(r_func->res.argName);
 
         for (i=0; i < res->rows; i++) {
 
@@ -567,7 +567,7 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
             res->data[i] = malloc(res->cols * sizeof(rawdata));
         }
         plc_r_copy_type(&res->types[0], &r_func->res);
-        res->names[0] = strdup(r_func->res.name);
+        res->names[0] = strdup(r_func->res.argName);
 
         if (retval == R_NilValue) {
             res->data[0][0].isnull = 1;
@@ -633,20 +633,20 @@ static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func) {
             if (r_func->args[i].conv.inputfunc == NULL) {
                 raise_execution_error(conn,
                                       "Parameter '%s' type %d is not supported",
-                                      r_func->args[i].name,
+                                      r_func->args[i].argName,
                                       r_func->args[i].type);
                 UNPROTECT(2);
                 return NULL;
             }
 
             //  this is returned protected by the input function
-            element = r_func->args[i].conv.inputfunc(r_func->call->args[i].data.value);
+            element = r_func->args[i].conv.inputfunc(r_func->call->args[i].data.value, &r_func->args[i]);
         }
 
         if (element == NULL) {
             raise_execution_error(conn,
                                   "Converting parameter '%s' to R type failed",
-                                  r_func->args[i].name);
+                                  r_func->args[i].argName);
 
             /* we've made it to the i'th argument */
             UNPROTECT( 2 + i - 1 );

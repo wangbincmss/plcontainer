@@ -12,7 +12,7 @@
 #define PLC_MAX_ARRAY_DIMS 2
 
 typedef struct plcRType plcRType;
-typedef SEXP (*plcRInputFunc)(char*);
+typedef SEXP (*plcRInputFunc)(char*, plcRType*);
 typedef int (*plcROutputFunc)(SEXP , char**, plcRType*);
 
 typedef struct plcRArrPointer {
@@ -39,7 +39,8 @@ typedef struct plcRResult {
 
 struct plcRType {
     plcDatatype    type;
-    char          *name;
+    char          *argName;
+    char          *typeName;
     int            nSubTypes;
     plcRType      *subTypes;
     plcRTypeConv   conv;
