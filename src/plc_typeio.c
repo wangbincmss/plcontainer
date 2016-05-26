@@ -39,6 +39,7 @@ static Datum plc_datum_from_text(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_text_ptr(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_array(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_udt(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_udt_ptr(char *input, plcTypeInfo *type);
 
 static void fill_type_info_inner(Oid typeOid, plcTypeInfo *type, bool isArrayElement, bool isUDTElement) {
     HeapTuple     typeTup;
@@ -139,7 +140,11 @@ static void fill_type_info_inner(Oid typeOid, plcTypeInfo *type, bool isArrayEle
         type->is_rowtype = true;
         type->type = PLC_DATA_UDT;
         type->outfunc = plc_datum_as_udt;
-        type->infunc  = plc_datum_from_udt;
+        if (!isArrayElement) {
+            type->infunc = plc_datum_from_udt;
+        } else {
+            type->infunc = plc_datum_from_udt_ptr;
+        }
         desc = lookup_rowtype_tupdesc(type->typeOid, type->typmod);
         type->nSubTypes = desc->natts;
 
@@ -510,7 +515,7 @@ static Datum plc_datum_from_udt(char *input, plcTypeInfo *type) {
     bool          *nulls;
     volatile int   i, j;
     MemoryContext  oldContext;
-    plcUDT        *udt  = (plcUDT*)input;
+    plcUDT        *udt = (plcUDT*)input;
 
     /* Build tuple */
     values = palloc(sizeof(Datum) * type->nSubTypes);
@@ -540,90 +545,6 @@ static Datum plc_datum_from_udt(char *input, plcTypeInfo *type) {
     return HeapTupleGetDatum(tuple);
 }
 
-/*
-void plc_datum_from_tuple( MemoryContext oldContext, MemoryContext messageContext,
-        ReturnSetInfo *rsinfo, plcontainer_result res, int *isNull )
-{
-    AttInMetadata      *attinmeta;
-    Tuplestorestate    *tupstore = tuplestore_begin_heap(true, false, work_mem);
-    TupleDesc          tupdesc;
-    HeapTuple    typetup,
-                 tuple;
-    Form_pg_type type;
-    Oid          typeOid;
-    int32        typeMod;
-
-    char **values;
-    int i,j;
-
-     * TODO: Returning tuple, you will not have any tuple description for the
-     * function returning setof record. This needs to be fixed *
-     * get the requested return tuple description *
-    if (rsinfo->expectedDesc != NULL)
-        tupdesc = CreateTupleDescCopy(rsinfo->expectedDesc);
-    else {
-        elog(ERROR, "Functions returning 'record' type are not supported yet");
-        *isNull = TRUE;
-        return;
-    }
-
-    for (j = 0; j < res->cols; j++) {
-        parseTypeString(res->types[j], &typeOid, &typeMod);
-        typetup = SearchSysCache(TYPEOID, typeOid, 0, 0, 0);
-
-        if (!HeapTupleIsValid(typetup)) {
-            MemoryContextSwitchTo(oldContext);
-            MemoryContextDelete(messageContext);
-            elog(FATAL, "[plcontainer] Invalid heaptuple at result return");
-            // This won`t run
-            *isNull=TRUE;
-        }
-
-        type = (Form_pg_type)GETSTRUCT(typetup);
-
-        strcpy(tupdesc->attrs[j]->attname.data, res->names[j]);
-        tupdesc->attrs[j]->atttypid = typeOid;
-        ReleaseSysCache(typetup);
-    }
-
-    attinmeta = TupleDescGetAttInMetadata(tupdesc);
-
-    * OK, go to work *
-    rsinfo->returnMode = SFRM_Materialize;
-    MemoryContextSwitchTo(oldContext);
-
-     *
-     * SFRM_Materialize mode expects us to return a NULL Datum. The actual
-     * tuples are in our tuplestore and passed back through
-     * rsinfo->setResult. rsinfo->setDesc is set to the tuple description
-     * that we actually used to build our tuples with, so the caller can
-     * verify we did what it was expecting.
-     *
-    rsinfo->setDesc = tupdesc;
-
-    for (i=0; i<res->rows;i++){
-
-        values = palloc(sizeof(char *)* res->cols);
-        for (j=0; j< res->cols;j++){
-            values[j] = res->data[i][j].value;
-        }
-
-        * construct the tuple *
-        tuple = BuildTupleFromCStrings(attinmeta, values);
-        pfree(values);
-
-        * switch to appropriate context while storing the tuple *
-        oldContext = MemoryContextSwitchTo(messageContext);
-
-        * now store it *
-        tuplestore_puttuple(tupstore, tuple);
-
-        MemoryContextSwitchTo(oldContext);
-    }
-    rsinfo->setResult = tupstore;
-    MemoryContextSwitchTo(oldContext);
-    MemoryContextDelete(messageContext);
-
-    *isNull = TRUE;
+static Datum plc_datum_from_udt_ptr(char *input, plcTypeInfo *type) {
+    return plc_datum_from_udt(*((char**)input), type);
 }
-*/

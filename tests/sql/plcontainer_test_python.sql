@@ -93,5 +93,9 @@ select pytestudt4( array[
             ]::py_test_type4[] );
 select pytestudt5(null::py_test_type4[]);
 select pytestudt5(array[null]::py_test_type4[]);
+select pytestudt6();
+select pytestudt7();
+select pytestudt8();
+select pytestudt9();
 select pyinvalid_function();
 select pyinvalid_syntax();

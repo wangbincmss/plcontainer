@@ -546,6 +546,32 @@ select pytestudt5(array[null]::py_test_type4[]);
           2
 (1 row)
 
+select pytestudt6();
+     pytestudt6      
+---------------------
+ (t,1,2,3,4,5,6,foo)
+(1 row)
+
+select pytestudt7();
+        pytestudt7         
+---------------------------
+ {"(1,2,foo)","(3,4,bar)"}
+(1 row)
+
+select pytestudt8();
+ pytestudt8 
+------------
+ (1,2,foo)
+ (3,4,bar)
+(2 rows)
+
+select pytestudt9();
+        pytestudt9         
+---------------------------
+ {"(1,2,foo)","(3,4,bar)"}
+ {"(5,6,buz)","(7,8,zzz)"}
+(2 rows)
+
 select pyinvalid_function();
 ERROR:  exception occurred: (plcontainer.c:249)
 DETAIL:  
