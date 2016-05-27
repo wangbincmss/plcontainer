@@ -3,7 +3,7 @@
 ifeq (,${R_HOME})
 #R_HOME is not defined
 
-all:
+default: 
 	@echo ""; \
 	 echo "*** Cannot build PL/Container R client because R_HOME cannot be found." ; \
 	 echo "*** Refer to the documentation for details."; \
