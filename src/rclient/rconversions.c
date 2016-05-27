@@ -171,10 +171,11 @@ static SEXP plc_r_object_from_array (char *input, plcRType *type) {
                     } else {
                         SET_VECTOR_ELT(res, i, obj);
                     }
-                 case PLC_DATA_RECORD:
                  case PLC_DATA_INVALID:
                  case PLC_DATA_ARRAY:
-                    lprintf(ERROR, "unhandled type %d", arr->meta->type);
+                    lprintf(ERROR, "unhandled type %s [%d]",
+                                   plc_get_type_name(arr->meta->type),
+                                   arr->meta->type);
                     break;
                  case PLC_DATA_TEXT:
                  default:
@@ -476,10 +477,9 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
                 break;
 
             case PLC_DATA_UDT:
-            case PLC_DATA_RECORD:
             case PLC_DATA_INVALID:
             case PLC_DATA_ARRAY:
-                lprintf(ERROR, "un-handled type %d", type);
+                lprintf(ERROR, "un-handled type %s [%d]", plc_get_type_name(type), type);
                 break;
             case PLC_DATA_TEXT:
                 if (vector == NA_STRING || STRING_ELT(vector, idx) == NA_STRING) {
@@ -721,10 +721,9 @@ static plcRInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement)
         case PLC_DATA_ARRAY:
             res = plc_r_object_from_array;
             break;
-        case PLC_DATA_RECORD:
         default:
-            lprintf(ERROR, "Type %d cannot be passed plc_get_input_function function",
-                    (int)dt);
+            lprintf(ERROR, "Type %s [%d] cannot be passed plc_get_input_function function",
+                           plc_get_type_name(dt), (int)dt);
             break;
     }
     return res;
@@ -757,11 +756,10 @@ static plcROutputFunc plc_get_output_function(plcDatatype dt) {
         case PLC_DATA_ARRAY:
             res = plc_r_object_as_array;
             break;
-        case PLC_DATA_RECORD:
         case PLC_DATA_UDT:
         default:
-            lprintf(ERROR, "Type %d cannot be passed plc_get_output_function function",
-                    (int)dt);
+            lprintf(ERROR, "Type %s [%d] cannot be passed plc_get_output_function function",
+                           plc_get_type_name(dt), (int)dt);
             break;
     }
     return res;
@@ -834,9 +832,6 @@ int get_entry_length(plcDatatype type) {
         case PLC_DATA_ARRAY:
             lprintf(ERROR, "Array cannot be part of the array. "
                     "Multi-dimensional arrays should be passed in a single entry");
-            break;
-        case PLC_DATA_RECORD:
-            lprintf(ERROR, "Record data type not implemented yet");
             break;
         case PLC_DATA_UDT:
             lprintf(ERROR, "User-defined data types are not implemented yet");

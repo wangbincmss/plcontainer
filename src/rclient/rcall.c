@@ -701,11 +701,11 @@ static void pg_get_one_r(char *value,  plcDatatype column_type, SEXP *obj, int e
             LOGICAL_DATA(*obj)[elnum] = *((int8 *)value);
             break;
 
-        case PLC_DATA_RECORD:
         case PLC_DATA_UDT:
         case PLC_DATA_INVALID:
         case PLC_DATA_ARRAY:
-            lprintf(ERROR, "unhandled type %d", column_type);
+            lprintf(ERROR, "unhandled type %s [%d]",
+                           plc_get_type_name(column_type), column_type);
             break;
 
         case PLC_DATA_TEXT:

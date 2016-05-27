@@ -253,14 +253,12 @@ static int send_raw_object(plcConn *conn, plcType *type, rawdata *obj) {
             case PLC_DATA_ARRAY:
                 res |= send_raw_array_iter(conn, &type->subTypes[0], (plcIterator*)obj->value);
                 break;
-            case PLC_DATA_RECORD:
-                lprintf(ERROR, "Record data type not implemented yet");
-                break;
             case PLC_DATA_UDT:
                 res |= send_udt(conn, type, (plcUDT*)obj->value);
                 break;
             default:
-                lprintf(ERROR, "Received unsupported argument type: %d", type->type);
+                lprintf(ERROR, "Received unsupported argument type: %s [%d]",
+                               plc_get_type_name(type->type), type->type);
                 break;
         }
     }
@@ -450,11 +448,9 @@ static int receive_raw_object(plcConn *conn, plcType *type, rawdata *obj)  {
             case PLC_DATA_UDT:
                 res |= receive_udt(conn, type, &obj->value);
                 break;
-            case PLC_DATA_RECORD:
-                lprintf(ERROR, "Record data type not implemented yet");
-                break;
             default:
-                lprintf(ERROR, "Received unsupported argument type: %d", type->type);
+                lprintf(ERROR, "Received unsupported argument type: %s [%d]",
+                               plc_get_type_name(type->type), type->type);
                 break;
         }
     }
@@ -492,11 +488,9 @@ static int receive_array(plcConn *conn, plcType *type, rawdata *obj) {
                 lprintf(ERROR, "Array cannot be part of the array. "
                         "Multi-dimensional arrays should be passed in a single entry");
                 break;
-            case PLC_DATA_RECORD:
-                lprintf(ERROR, "Record data type not implemented yet");
-                break;
             default:
-                lprintf(ERROR, "Received unsupported argument type: %d", arr->meta->type);
+                lprintf(ERROR, "Received unsupported argument type: %s [%d]",
+                                plc_get_type_name(arr->meta->type), arr->meta->type);
                 break;
         }
 

@@ -92,7 +92,7 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
         pinfo->hasChanged = 1;
 
         procTup = (Form_pg_proc)GETSTRUCT(procHeapTup);
-        fill_type_info(procTup->prorettype, &pinfo->rettype);
+        fill_type_info(fcinfo, procTup->prorettype, &pinfo->rettype);
 
         pinfo->nargs = procTup->pronargs;
         if (pinfo->nargs > 0) {
@@ -101,7 +101,7 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
 
             pinfo->argtypes = plc_top_alloc(pinfo->nargs * sizeof(plcTypeInfo));
             for (j = 0; j < pinfo->nargs; j++) {
-                fill_type_info(procTup->proargtypes.values[j], &pinfo->argtypes[j]);
+                fill_type_info(fcinfo, procTup->proargtypes.values[j], &pinfo->argtypes[j]);
             }
 
             argnamesArray = SysCacheGetAttr(PROCOID, procHeapTup,
@@ -196,26 +196,36 @@ callreq plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
 }
 
 static bool plc_type_valid(plcTypeInfo *type) {
-    HeapTuple relTup;
     bool valid = true;
+    int  i;
 
-    Assert(OidIsValid(type->typ_relid));
-    Assert(TransactionIdIsValid(type->typrel_xmin));
-    Assert(ItemPointerIsValid(type->typrel_tid));
-
-    // Get the pg_class tuple for the argument type
-    relTup = SearchSysCache1(RELOID, ObjectIdGetDatum(type->typ_relid));
-    if (!HeapTupleIsValid(relTup))
-        elog(ERROR, "PL/Container cache lookup failed for relation %u", type->typ_relid);
-
-    // If commit transaction ID has changed or relation was moved within table
-    // our type information is no longer valid
-    if (type->typrel_xmin != HeapTupleHeaderGetXmin(relTup->t_data) ||
-            !ItemPointerEquals(&type->typrel_tid, &relTup->t_self)) {
-        valid = false;
+    for (i = 0; i < type->nSubTypes && valid; i++) {
+        valid = plc_type_valid(&type->subTypes[i]);
     }
 
-    ReleaseSysCache(relTup);
+    /* We exclude record from testing here, as it would change only if the function
+     * changes itself, which would be caugth by checking function creation xid */
+    if (valid && type->is_rowtype && !type->is_record) {
+        HeapTuple relTup;
+
+        Assert(OidIsValid(type->typ_relid));
+        Assert(TransactionIdIsValid(type->typrel_xmin));
+        Assert(ItemPointerIsValid(type->typrel_tid));
+
+        // Get the pg_class tuple for the argument type
+        relTup = SearchSysCache1(RELOID, ObjectIdGetDatum(type->typ_relid));
+        if (!HeapTupleIsValid(relTup))
+            elog(ERROR, "PL/Container cache lookup failed for relation %u", type->typ_relid);
+
+        // If commit transaction ID has changed or relation was moved within table
+        // our type information is no longer valid
+        if (type->typrel_xmin != HeapTupleHeaderGetXmin(relTup->t_data) ||
+                !ItemPointerEquals(&type->typrel_tid, &relTup->t_self)) {
+            valid = false;
+        }
+
+        ReleaseSysCache(relTup);
+    }
 
     return valid;
 }
@@ -235,20 +245,12 @@ static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup) {
             valid = true;
 
             // If there are composite input arguments, they might have changed
-            for (i = 0; i < proc->nargs; i++) {
-                // Only check input arguments that are composite
-                if (!proc->argtypes[i].is_rowtype)
-                    continue;
-
+            for (i = 0; i < proc->nargs && valid; i++) {
                 valid = plc_type_valid(&proc->argtypes[i]);
-
-                if (!valid) {
-                    break;
-                }
             }
 
             // Also check for composite output type
-            if (valid && proc->rettype.is_rowtype) {
+            if (valid) {
                 valid = plc_type_valid(&proc->rettype);
             }
         }

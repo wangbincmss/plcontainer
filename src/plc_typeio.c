@@ -13,7 +13,8 @@
 #include "message_fns.h"
 #include "common/comm_utils.h"
 
-static void fill_type_info_inner(Oid typeOid, plcTypeInfo *type, bool isArrayElement, bool isUDTElement);
+static void fill_type_info_inner(FunctionCallInfo fcinfo, Oid typeOid, plcTypeInfo *type,
+                                 bool isArrayElement, bool isUDTElement);
 
 static char *plc_datum_as_int1(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_int2(Datum input, plcTypeInfo *type);
@@ -41,7 +42,7 @@ static Datum plc_datum_from_array(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_udt(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_udt_ptr(char *input, plcTypeInfo *type);
 
-static void fill_type_info_inner(Oid typeOid, plcTypeInfo *type, bool isArrayElement, bool isUDTElement) {
+static void fill_type_info_inner(FunctionCallInfo fcinfo, Oid typeOid, plcTypeInfo *type, bool isArrayElement, bool isUDTElement) {
     HeapTuple     typeTup;
     Form_pg_type  typeStruct;
     char          dummy_delim;
@@ -67,6 +68,7 @@ static void fill_type_info_inner(Oid typeOid, plcTypeInfo *type, bool isArrayEle
     type->typelem = typeStruct->typelem;
 
     type->is_rowtype = false;
+    type->is_record = false;
     type->attisdropped = false;
     type->typ_relid = InvalidOid;
     type->typrel_xmin = InvalidTransactionId;
@@ -129,66 +131,87 @@ static void fill_type_info_inner(Oid typeOid, plcTypeInfo *type, bool isArrayEle
         type->infunc = plc_datum_from_array;
         type->nSubTypes = 1;
         type->subTypes = (plcTypeInfo*)plc_top_alloc(sizeof(plcTypeInfo));
-        fill_type_info_inner(typeStruct->typelem, &type->subTypes[0], true, isUDTElement);
+        fill_type_info_inner(fcinfo, typeStruct->typelem, &type->subTypes[0], true, isUDTElement);
     }
 
     /* Processing composite types - only first level is supported */
-    if (!isUDTElement && typeStruct->typtype == TYPTYPE_COMPOSITE) {
-        int i;
+    if (!isUDTElement) {
         TupleDesc desc;
 
-        type->is_rowtype = true;
-        type->type = PLC_DATA_UDT;
-        type->outfunc = plc_datum_as_udt;
-        if (!isArrayElement) {
-            type->infunc = plc_datum_from_udt;
-        } else {
-            type->infunc = plc_datum_from_udt_ptr;
+        if (typeOid == RECORDOID) {
+            if (fcinfo == NULL || get_call_result_type(fcinfo, NULL, &desc) != TYPEFUNC_COMPOSITE) {
+                ereport(ERROR,
+                        (errcode(ERRCODE_FEATURE_NOT_SUPPORTED),
+                         errmsg("function returning record called in context "
+                                "that cannot accept type record")));
+            }
+            type->is_rowtype = true;
+
+            /* bless the record to make it known to the typcache lookup code */
+            BlessTupleDesc(desc);
+
+            /* save the freshly generated typmod */
+            type->typmod = desc->tdtypmod;
+
+            /* Indicate that this type is a record */
+            type->is_record = true;
         }
-        desc = lookup_rowtype_tupdesc(type->typeOid, type->typmod);
-        type->nSubTypes = desc->natts;
 
-        if (desc->tdtypeid == RECORDOID) {
-            elog(ERROR, "Anonymous record type is not supported");
+        if (typeStruct->typtype == TYPTYPE_COMPOSITE) {
+            desc = lookup_rowtype_tupdesc(type->typeOid, type->typmod);
+            type->is_rowtype = true;
         }
 
-        if (desc->tdtypeid != RECORDOID && !TransactionIdIsValid(type->typrel_xmin)) {
-            HeapTuple relTup;
+        if (type->is_rowtype) {
+            int i;
 
-            /* Get the pg_class tuple corresponding to the type of the input */
-            type->typ_relid = typeidTypeRelid(desc->tdtypeid);
-            relTup = SearchSysCache1(RELOID, ObjectIdGetDatum(type->typ_relid));
-            if (!HeapTupleIsValid(relTup)) {
-                elog(ERROR, "cache lookup failed for relation %u", type->typ_relid);
+            type->type = PLC_DATA_UDT;
+            type->outfunc = plc_datum_as_udt;
+            if (!isArrayElement) {
+                type->infunc = plc_datum_from_udt;
+            } else {
+                type->infunc = plc_datum_from_udt_ptr;
+            }
+            type->nSubTypes = desc->natts;
+
+            if (desc->tdtypeid != RECORDOID && !TransactionIdIsValid(type->typrel_xmin)) {
+                HeapTuple relTup;
+
+                /* Get the pg_class tuple corresponding to the type of the input */
+                type->typ_relid = typeidTypeRelid(desc->tdtypeid);
+                relTup = SearchSysCache1(RELOID, ObjectIdGetDatum(type->typ_relid));
+                if (!HeapTupleIsValid(relTup)) {
+                    elog(ERROR, "cache lookup failed for relation %u", type->typ_relid);
+                }
+
+                /* Extract the XMIN value to later use it in PLy_procedure_valid */
+                type->typrel_xmin = HeapTupleHeaderGetXmin(relTup->t_data);
+                type->typrel_tid = relTup->t_self;
+
+                ReleaseSysCache(relTup);
             }
 
-            /* Extract the XMIN value to later use it in PLy_procedure_valid */
-            type->typrel_xmin = HeapTupleHeaderGetXmin(relTup->t_data);
-            type->typrel_tid = relTup->t_self;
+            // Allocate memory for this number of arguments
+            type->subTypes = (plcTypeInfo*)plc_top_alloc(type->nSubTypes * sizeof(plcTypeInfo));
+            memset(type->subTypes, 0, type->nSubTypes * sizeof(plcTypeInfo));
 
-            ReleaseSysCache(relTup);
-        }
-
-        // Allocate memory for this number of arguments
-        type->subTypes = (plcTypeInfo*)plc_top_alloc(type->nSubTypes * sizeof(plcTypeInfo));
-        memset(type->subTypes, 0, type->nSubTypes * sizeof(plcTypeInfo));
-
-        // Fill all the subtypes
-        for (i = 0; i < desc->natts; i++) {
-            type->subTypes[i].attisdropped = desc->attrs[i]->attisdropped;
-            if (!type->subTypes[i].attisdropped) {
-                /* We support the case with array of UDTs, each of which contains another array */
-                fill_type_info_inner(desc->attrs[i]->atttypid, &type->subTypes[i], false, true);
+            // Fill all the subtypes
+            for (i = 0; i < desc->natts; i++) {
+                type->subTypes[i].attisdropped = desc->attrs[i]->attisdropped;
+                if (!type->subTypes[i].attisdropped) {
+                    /* We support the case with array of UDTs, each of which contains another array */
+                    fill_type_info_inner(fcinfo, desc->attrs[i]->atttypid, &type->subTypes[i], false, true);
+                }
+                type->subTypes[i].typeName = plc_top_strdup(NameStr(desc->attrs[i]->attname));
             }
-            type->subTypes[i].typeName = plc_top_strdup(NameStr(desc->attrs[i]->attname));
-        }
 
-        ReleaseTupleDesc(desc);
+            ReleaseTupleDesc(desc);
+        }
     }
 }
 
-void fill_type_info(Oid typeOid, plcTypeInfo *type) {
-    fill_type_info_inner(typeOid, type, false, false);
+void fill_type_info(FunctionCallInfo fcinfo, Oid typeOid, plcTypeInfo *type) {
+    fill_type_info_inner(fcinfo, typeOid, type, false, false);
 }
 
 void copy_type_info(plcType *type, plcTypeInfo *ptype) {

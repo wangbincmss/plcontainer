@@ -466,7 +466,6 @@ static plcPyInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement
                 res = plc_pyobject_from_udt;
             }
             break;
-        case PLC_DATA_RECORD:
         default:
             lprintf(ERROR, "Type %d cannot be passed plc_get_input_function function",
                     (int)dt);
@@ -505,7 +504,6 @@ static plcPyOutputFunc plc_get_output_function(plcDatatype dt) {
         case PLC_DATA_UDT:
             res = plc_pyobject_as_udt;
             break;
-        case PLC_DATA_RECORD:
         default:
             lprintf(ERROR, "Type %d cannot be passed plc_get_output_function function",
                     (int)dt);
