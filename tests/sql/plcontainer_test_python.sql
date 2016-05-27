@@ -100,5 +100,7 @@ select pytestudt9();
 select * from unnest(pytestudt10());
 select * from pytestudt11();
 select unnest(a) from (select pytestudt12() as a) as q;
+select * from pytestudtrecord1() as t(a int, b int, c varchar);
+select * from pytestudtrecord2() as t(a int, b int, c varchar);
 select pyinvalid_function();
 select pyinvalid_syntax();

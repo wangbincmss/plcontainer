@@ -22,10 +22,9 @@ typedef enum {
     PLC_DATA_TEXT    = 6,  // Text - transferred as a set of bytes of predefined length,
                            //        stored as cstring
     PLC_DATA_ARRAY   = 7,  // Array - array type specification should follow
-    PLC_DATA_RECORD  = 8,  // Anonymous record, supported only as return type
-    PLC_DATA_UDT     = 9,  // User-defined type, specification to follow
-    PLC_DATA_BYTEA   = 10, // Arbitrary set of bytes, stored and transferred as length + data
-    PLC_DATA_INVALID = 11  // Invalid data type
+    PLC_DATA_UDT     = 8,  // User-defined type, specification to follow
+    PLC_DATA_BYTEA   = 9,  // Arbitrary set of bytes, stored and transferred as length + data
+    PLC_DATA_INVALID = 10  // Invalid data type
 } plcDatatype;
 
 typedef struct plcType plcType;

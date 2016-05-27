@@ -35,6 +35,7 @@ struct plcTypeInfo {
 
     /* UDT-specific information */
     bool            is_rowtype;
+    bool            is_record;
     bool            attisdropped;
     Oid             typ_relid;
     TransactionId   typrel_xmin;
@@ -42,7 +43,7 @@ struct plcTypeInfo {
     char           *typeName;
 };
 
-void fill_type_info(Oid typeOid, plcTypeInfo *type);
+void fill_type_info(FunctionCallInfo fcinfo, Oid typeOid, plcTypeInfo *type);
 void copy_type_info(plcType *type, plcTypeInfo *ptype);
 void free_type_info(plcTypeInfo *type);
 char *fill_type_value(Datum funcArg, plcTypeInfo *argType);
