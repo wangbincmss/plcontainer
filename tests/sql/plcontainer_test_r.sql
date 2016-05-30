@@ -90,6 +90,7 @@ select runargs4(1,null,null,1);
 select rnested_call_three('foo');
 select rnested_call_two('foobar');
 select rnested_call_one('foo1');
+select rtestudt1( ('t', 1, 2, 3, 4, 5, 6, 'foobar')::test_type );
 
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');

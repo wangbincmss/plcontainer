@@ -1,3 +1,40 @@
+/* ========================== UDT's ================================ */
+
+CREATE TYPE test_type AS (
+    a bool,
+    b smallint,
+    c int,
+    d bigint,
+    e float4,
+    f float8,
+    g numeric,
+    h varchar
+);
+
+CREATE TYPE test_type2 AS (
+    a bool[],
+    b smallint[],
+    c int[],
+    d bigint[],
+    e float4[],
+    f float8[],
+    g numeric[],
+    h varchar[]
+);
+
+CREATE TYPE test_type3 AS (
+    a int8,
+    b float8,
+    c varchar
+);
+
+CREATE TYPE test_type4 AS (
+    a int8,
+    b float8[],
+    c varchar[]
+);
+
+
 /* ========================== R Functions ========================== */
 
 CREATE OR REPLACE FUNCTION rlog100() RETURNS text AS $$
@@ -168,9 +205,6 @@ CREATE OR REPLACE FUNCTION rdimarr(arr boolean[]) RETURNS int[] AS $$
 return (dim(arr))
 $$ LANGUAGE plcontainer;
 
-
-
-
 create or replace function paster(arg1 _text,arg2 _text,arg3 text) returns text[] as
 $$
 #container: plc_r
@@ -325,10 +359,25 @@ CREATE OR REPLACE FUNCTION runargs4(int, int, int, int) RETURNS int AS $$
 return(length(args))
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION rtestudt1(r test_type) RETURNS int AS $$
+# container: plc_r
+if ( (r$a != TRUE) || (typeof(r$a) != 'logical') ) return (2)
+if ( (r$b != 1) || (typeof(r$b) != 'integer') ) return (3)
+if ( (r$c != 2) || (typeof(r$c) != 'integer') ) return (4)
+if ( (r$d != 3) || (typeof(r$d) != 'double') ) return (5)
+if ( (r$e != 4.0) || (typeof(r$e) != 'double') ) return (6)
+if ( (r$f != 5.0) || (typeof(r$f) != 'double') ) return (7)
+if ( (r$g != 6.0) || (typeof(r$g) != 'double') ) return (8)
+if ( (r$h != 'foobar') || (typeof(r$h) != 'character') ) return (9)
+return (10)
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION rversion() RETURNS varchar AS $$
 # container : plc_r_shared
 return(paste("R", getRversion()))
 $$ LANGUAGE plcontainer;
+
+
 
 /* ========================== Python Functions ========================== */
 
@@ -704,18 +753,8 @@ CREATE OR REPLACE FUNCTION pylargetextout(n int) RETURNS text AS $$
 return ','.join([str(x) for x in xrange(1,n+1)])
 $$ LANGUAGE plcontainer;
 
-CREATE TYPE py_test_type AS (
-    a bool,
-    b smallint,
-    c int,
-    d bigint,
-    e float4,
-    f float8,
-    g numeric,
-    h varchar
-);
 
-CREATE OR REPLACE FUNCTION pytestudt1(r py_test_type) RETURNS int AS $$
+CREATE OR REPLACE FUNCTION pytestudt1(r test_type) RETURNS int AS $$
 # container: plc_python
 if r['a'] != 1 or str(type(r['a'])) != "<type 'int'>": return 2
 if r['b'] != 1 or str(type(r['b'])) != "<type 'int'>": return 3
@@ -728,18 +767,8 @@ if r['h'] != 'foobar' or str(type(r['h'])) != "<type 'str'>": return 9
 return 10
 $$ LANGUAGE plcontainer;
 
-CREATE TYPE py_test_type2 AS (
-    a bool[],
-    b smallint[],
-    c int[],
-    d bigint[],
-    e float4[],
-    f float8[],
-    g numeric[],
-    h varchar[]
-);
 
-CREATE OR REPLACE FUNCTION pytestudt2(r py_test_type2) RETURNS int AS $$
+CREATE OR REPLACE FUNCTION pytestudt2(r test_type2) RETURNS int AS $$
 # container: plc_python
 if len(r['a']) != 3 or r['a'] != [1,0,1] or str(type(r['a'][0])) != "<type 'int'>": return 2
 if len(r['b']) != 3 or r['b'] != [1,2,3] or str(type(r['b'][0])) != "<type 'int'>": return 3
@@ -752,13 +781,8 @@ if len(r['h']) != 3 or r['h'] != ['a','b','c'] or str(type(r['h'][0])) != "<type
 return 10
 $$ LANGUAGE plcontainer;
 
-CREATE TYPE py_test_type3 AS (
-    a int8,
-    b float8,
-    c varchar
-);
 
-CREATE OR REPLACE FUNCTION pytestudt3(r py_test_type3[]) RETURNS varchar AS $$
+CREATE OR REPLACE FUNCTION pytestudt3(r test_type3[]) RETURNS varchar AS $$
 # container: plc_python
 res = ''
 for row in r:
@@ -766,13 +790,7 @@ for row in r:
 return res
 $$ LANGUAGE plcontainer;
 
-CREATE TYPE py_test_type4 AS (
-    a int8,
-    b float8[],
-    c varchar[]
-);
-
-CREATE OR REPLACE FUNCTION pytestudt4(r py_test_type4[]) RETURNS varchar AS $$
+CREATE OR REPLACE FUNCTION pytestudt4(r test_type4[]) RETURNS varchar AS $$
 # container: plc_python
 res = ''
 for row in r:
@@ -780,7 +798,7 @@ for row in r:
 return res
 $$ LANGUAGE plcontainer;
 
-CREATE OR REPLACE FUNCTION pytestudt5(r py_test_type4[]) RETURNS int AS $$
+CREATE OR REPLACE FUNCTION pytestudt5(r test_type4[]) RETURNS int AS $$
 # container: plc_python
 if r is None:
     return 1
@@ -790,38 +808,38 @@ for el in r:
 return 3
 $$ LANGUAGE plcontainer;
 
-CREATE OR REPLACE FUNCTION pytestudt6() RETURNS py_test_type AS $$
+CREATE OR REPLACE FUNCTION pytestudt6() RETURNS test_type AS $$
 # container: plc_python
 return {'a': True, 'b': 1, 'c': 2, 'd': 3, 'e': 4, 'f': 5, 'g': 6, 'h': 'foo'}
 $$ LANGUAGE plcontainer;
 
-CREATE OR REPLACE FUNCTION pytestudt7() RETURNS py_test_type3[] AS $$
+CREATE OR REPLACE FUNCTION pytestudt7() RETURNS test_type3[] AS $$
 # container: plc_python
 return [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}]
 $$ LANGUAGE plcontainer;
 
-CREATE OR REPLACE FUNCTION pytestudt8() RETURNS SETOF py_test_type3 AS $$
+CREATE OR REPLACE FUNCTION pytestudt8() RETURNS SETOF test_type3 AS $$
 # container: plc_python
 return [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}]
 $$ LANGUAGE plcontainer;
 
-CREATE OR REPLACE FUNCTION pytestudt9() RETURNS SETOF py_test_type3[] AS $$
+CREATE OR REPLACE FUNCTION pytestudt9() RETURNS SETOF test_type3[] AS $$
 # container: plc_python
 return [ [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}],
          [{'a': 5, 'b': 6, 'c': 'buz'}, {'a': 7, 'b': 8, 'c': 'zzz'}] ]
 $$ LANGUAGE plcontainer;
 
-CREATE OR REPLACE FUNCTION pytestudt10() RETURNS py_test_type4[] AS $$
+CREATE OR REPLACE FUNCTION pytestudt10() RETURNS test_type4[] AS $$
 # container: plc_python
 return [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}]
 $$ LANGUAGE plcontainer;
 
-CREATE OR REPLACE FUNCTION pytestudt11() RETURNS SETOF py_test_type4 AS $$
+CREATE OR REPLACE FUNCTION pytestudt11() RETURNS SETOF test_type4 AS $$
 # container: plc_python
 return [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}]
 $$ LANGUAGE plcontainer;
 
-CREATE OR REPLACE FUNCTION pytestudt12() RETURNS SETOF py_test_type4[] AS $$
+CREATE OR REPLACE FUNCTION pytestudt12() RETURNS SETOF test_type4[] AS $$
 # container: plc_python
 return [ [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}],
          [{'a': 5, 'b': [6,66], 'c': ['buz','buz2']}, {'a': 7, 'b': [8,88], 'c': ['zzz','zzz2']}] ]
