@@ -172,6 +172,7 @@ static SEXP plc_r_object_from_array (char *input, plcRType *type) {
                     } else {
                         SET_VECTOR_ELT(res, i, obj);
                     }
+                    break;
                  case PLC_DATA_INVALID:
                  case PLC_DATA_ARRAY:
                     lprintf(ERROR, "unhandled type %s [%d]",
