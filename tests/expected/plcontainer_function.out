@@ -304,6 +304,47 @@ if ( (r$g != 6.0) || (typeof(r$g) != 'double') ) return (8)
 if ( (r$h != 'foobar') || (typeof(r$h) != 'character') ) return (9)
 return (10)
 $$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rtestudt2(r test_type2) RETURNS int AS $$
+# container: plc_r
+if ( (length(r$a) != 3) || (r$a != c(1,0,1)) || (typeof(r$a[0]) != 'logical') ) return(2)
+if ( (length(r$b) != 3) || (r$b != c(1,2,3)) || (typeof(r$b[0]) != 'integer') ) return(3)
+if ( (length(r$c) != 3) || (r$c != c(2,3,4)) || (typeof(r$c[0]) != 'integer') ) return(4)
+if ( (length(r$d) != 3) || (r$d != c(3,4,5)) || (typeof(r$d[0]) != 'double') ) return(5)
+if ( (length(r$e) != 3) || (r$e != c(4.5,5.5,6.5)) || (typeof(r$e[0]) != 'double') ) return(6)
+if ( (length(r$f) != 3) || (r$f != c(5.5,6.5,7.5)) || (typeof(r$f[0]) != 'double') ) return(7)
+if ( (length(r$g) != 3) || (r$g != c(6.5,7.5,8.5)) || (typeof(r$g[0]) != 'double') ) return(8)
+if ( (length(r$h) != 3) || (r$h != c('a','b','c')) || (typeof(r$h[0]) != 'character') ) return(9)
+return(10)
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rtestudt3(r test_type3[]) RETURNS varchar AS $$
+# container: plc_r
+x=''
+for (row in r){
+x=paste(x,'#', row$a,'|',row$b,'|', row$c)
+}
+return(x)
+
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rtestudt4(r test_type4[]) RETURNS varchar AS $$
+# container: plc_r
+res = ''
+for (row in r){
+    res =paste(res,'#' ,row$a,'|',sum(row$b),'|',',',paste(row$c))
+}
+return (res)
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rtestudt5(r test_type4[]) RETURNS int AS $$
+# container: plc_r
+if (is.null(r)){
+    return(1)
+}
+for (el in r){
+    if (is.null(el)){
+        return(2)
+    }
+}
+return(3)
+$$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION rversion() RETURNS varchar AS $$
 # container : plc_r_shared
 return(paste("R", getRversion()))
