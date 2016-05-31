@@ -12,6 +12,8 @@ select rnumeric(3.1415926535897932384626433832::numeric);
 select rtimestamp('2012-01-02 12:34:56.789012'::timestamp);
 select rtimestamptz('2012-01-02 12:34:56.789012 UTC+4'::timestamptz);
 select rtext('123');
+select rbyteain(rbyteaout(array[123,1,7]::int[]));
+select rbyteain(rbyteaout(array[123,null,7]::int[]));
 select rtest_mia();
 select vec('{1.23, 1.32}'::float8[]);
 select vec('{1, 5,10, 100, 7}'::int8[]);
