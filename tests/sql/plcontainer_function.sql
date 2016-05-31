@@ -94,6 +94,16 @@ CREATE OR REPLACE FUNCTION rtext(arg varchar) RETURNS varchar AS $$
 return(paste(arg,'foo',sep=''))
 $$ LANGUAGE plcontainer;
 
+create or replace function rbyteaout(arg int[]) returns bytea as $$
+# container: plc_r
+return (arg)
+$$ language plcontainer;
+
+create or replace function rbyteain(arg bytea) returns int[] as $$
+# container: plc_r
+return (arg)
+$$ language plcontainer;
+
 create or replace function rtest_mia() returns int[] as $$
 #container:plc_r
 as.matrix(array(1:10,c(2,5)))

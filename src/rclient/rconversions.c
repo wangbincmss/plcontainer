@@ -12,6 +12,8 @@ static SEXP plc_r_object_from_text_ptr(char *input, plcRType *type);
 static SEXP plc_r_object_from_array (char *input, plcRType *type);
 static SEXP plc_r_object_from_udt(char *input, plcRType *type);
 static SEXP plc_r_object_from_udt_ptr(char *input, plcRType *type);
+static SEXP plc_r_object_from_bytea(char *input, plcRType *type);
+static SEXP plc_r_object_from_bytea_ptr(char *input, plcRType *type);
 
 static int plc_r_object_as_int1(SEXP input, char **output, plcRType *type);
 static int plc_r_object_as_int2(SEXP input, char **output, plcRType *type);
@@ -22,6 +24,7 @@ static int plc_r_object_as_float8(SEXP input, char **output, plcRType *type);
 static int plc_r_object_as_text(SEXP input, char **output, plcRType *type);
 static int plc_r_object_as_array(SEXP input, char **output, plcRType *type);
 static int plc_r_object_as_udt(SEXP input, char **output, plcRType *type);
+static int plc_r_object_as_bytea(SEXP input, char **output, plcRType *type);
 
 static void plc_r_object_iter_free (plcIterator *iter);
 static rawdata *plc_r_object_as_array_next (plcIterator *iter);
@@ -30,6 +33,8 @@ static plcRInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement)
 static plcROutputFunc plc_get_output_function(plcDatatype dt);
 
 static void plc_parse_type(plcRType *Rtype, plcType *type, char* argName, bool isArrayElement);
+
+char *last_R_error_msg = NULL;
 
 /*
  *
@@ -249,6 +254,46 @@ static SEXP plc_r_object_from_udt(char *input, plcRType *type) {
 static SEXP plc_r_object_from_udt_ptr(char *input, plcRType *type) {
     return plc_r_object_from_udt(*((char**)input), type);
 }
+
+static SEXP plc_r_object_from_bytea(char *input, plcRType *type UNUSED) {
+    SEXP result;
+    SEXP s, t, obj;
+    int  status;
+    int  bsize;
+
+    bsize = *((int*)input);
+    PROTECT(obj = get_r_vector(PLC_DATA_BYTEA, bsize));
+    memcpy((char *) RAW(obj), input + 4, bsize);
+
+    /*
+     * Need to construct a call to
+     * unserialize(rval)
+     */
+    PROTECT(t = s = allocList(2));
+    SET_TYPEOF(s, LANGSXP);
+    SETCAR(t, install("unserialize"));
+    t = CDR(t);
+    SETCAR(t, obj);
+
+    PROTECT(result = R_tryEval(s, R_GlobalEnv, &status));
+    if (status != 0) {
+        if (last_R_error_msg) {
+            lprintf(ERROR, "R interpreter expression evaluation error: %s", last_R_error_msg);
+        } else {
+            lprintf(ERROR, "R interpreter expression evaluation error: "
+                           "R expression evaluation error caught in \"unserialize\".");
+        }
+    }
+
+    UNPROTECT(2);
+
+    return result;
+}
+
+static SEXP plc_r_object_from_bytea_ptr(char *input, plcRType *type) {
+    return plc_r_object_from_bytea(*((char**)input), type);
+}
+
 
 static int plc_r_object_as_int1(SEXP input, char **output, plcRType *type UNUSED) {
     int res = 0;
@@ -709,6 +754,46 @@ static int plc_r_object_as_udt(SEXP input, char **output, plcRType *type) {
     return res;
 }
 
+static int plc_r_object_as_bytea(SEXP input, char **output, plcRType *type UNUSED) {
+    SEXP  obj;
+    SEXP  s, t;
+    int   len, status;
+    char *result;
+
+    /*
+     * Need to construct a call to
+     * serialize(rval, NULL)
+     */
+    PROTECT(t = s = allocList(3));
+    SET_TYPEOF(s, LANGSXP);
+    SETCAR(t, install("serialize"));
+    t = CDR(t);
+    SETCAR(t, input);
+    t = CDR(t);
+    SETCAR(t, R_NilValue);
+
+    PROTECT(obj = R_tryEval(s, R_GlobalEnv, &status));
+    if (status != 0) {
+        if (last_R_error_msg) {
+            lprintf(ERROR, "R interpreter expression evaluation error: %s", last_R_error_msg);
+        } else {
+            lprintf(ERROR, "R interpreter expression evaluation error: "
+                           "R expression evaluation error caught in \"serialize\".");
+        }
+        return -1;
+    }
+
+    len = LENGTH(obj);
+    result = pmalloc(len + 4);
+    *((int*)result) = len;
+    memcpy(result + 4, (char *) RAW(obj), len);
+    *output = result;
+
+    UNPROTECT(2);
+
+    return 0;
+}
+
 static plcRInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement) {
     plcRInputFunc res = NULL;
     switch (dt) {
@@ -735,6 +820,13 @@ static plcRInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement)
                 res = plc_r_object_from_text_ptr;
             } else {
                 res = plc_r_object_from_text;
+            }
+            break;
+        case PLC_DATA_BYTEA:
+            if (isArrayElement) {
+                res = plc_r_object_from_bytea_ptr;
+            } else {
+                res = plc_r_object_from_bytea;
             }
             break;
         case PLC_DATA_UDT:
@@ -778,6 +870,9 @@ static plcROutputFunc plc_get_output_function(plcDatatype dt) {
             break;
         case PLC_DATA_TEXT:
             res = plc_r_object_as_text;
+            break;
+        case PLC_DATA_BYTEA:
+            res = plc_r_object_as_bytea;
             break;
         case PLC_DATA_ARRAY:
             res = plc_r_object_as_array;
@@ -937,6 +1032,9 @@ SEXP get_r_vector(plcDatatype type_id, int numels) {
             break;
         case PLC_DATA_UDT:
             PROTECT( result = NEW_LIST(numels) );
+            break;
+        case PLC_DATA_BYTEA:
+            PROTECT( result = NEW_RAW(numels) );
             break;
         case PLC_DATA_TEXT:
         default:

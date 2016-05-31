@@ -77,6 +77,18 @@ select rtext('123');
  123foo
 (1 row)
 
+select rbyteain(rbyteaout(array[123,1,7]::int[]));
+ rbyteain  
+-----------
+ {123,1,7}
+(1 row)
+
+select rbyteain(rbyteaout(array[123,null,7]::int[]));
+   rbyteain   
+--------------
+ {123,NULL,7}
+(1 row)
+
 select rtest_mia();
          rtest_mia          
 ----------------------------
