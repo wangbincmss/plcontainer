@@ -371,27 +371,41 @@ $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION rtestudt1(r test_type) RETURNS int AS $$
 # container: plc_r
-if ( (r$a != TRUE) || (typeof(r$a) != 'logical') ) return (2)
-if ( (r$b != 1) || (typeof(r$b) != 'integer') ) return (3)
-if ( (r$c != 2) || (typeof(r$c) != 'integer') ) return (4)
-if ( (r$d != 3) || (typeof(r$d) != 'double') ) return (5)
-if ( (r$e != 4.0) || (typeof(r$e) != 'double') ) return (6)
-if ( (r$f != 5.0) || (typeof(r$f) != 'double') ) return (7)
-if ( (r$g != 6.0) || (typeof(r$g) != 'double') ) return (8)
-if ( (r$h != 'foobar') || (typeof(r$h) != 'character') ) return (9)
+if ( (r[1,1] != TRUE) || (typeof(r[1,1]) != 'logical') ) return (2)
+if ( (r['1','a'] != TRUE) || (typeof(r['1','a']) != 'logical') ) return (2)
+
+if ( (r[1,2] != 1) || (typeof(r[1,2]) != 'integer') ) return (3)
+if ( (r['1','b'] != 1) || (typeof(r['1','b']) != 'integer') ) return (3)
+
+if ( (r[1,3] != 2) || (typeof(r[1,3]) != 'integer') ) return (4)
+if ( (r['1','c'] != 2) || (typeof(r['1','c']) != 'integer') ) return (4)
+
+if ( (r[1,4] != 3) || (typeof(r[1,4]) != 'double') ) return (5)
+if ( (r['1','d'] != 3) || (typeof(r['1','d']) != 'double') ) return (5)
+
+if ( (r[1,5] != 4.0) || (typeof(r[1,5]) != 'double') ) return (6)
+if ( (r['1','e'] != 4.0) || (typeof(r['1','e']) != 'double') ) return (6)
+
+if ( (r[1,6] != 5.0) || (typeof(r[1,6]) != 'double') ) return (7)
+if ( (r['1','f'] != 5.0) || (typeof(r['1','f']) != 'double') ) return (7)
+
+if ( (r[1,7] != 6.0) || (typeof(r[1,7]) != 'double') ) return (8)
+if ( (r['1','g'] != 6.0) || (typeof(r['1','g']) != 'double') ) return (8)
+if ( (r[1,8] != 'foobar') || (typeof(r[1,8]) != 'character') ) return (9)
+if ( (r['1','h'] != 'foobar') || (typeof(r['1','h']) != 'character') ) return (9)
 return (10)
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION rtestudt2(r test_type2) RETURNS int AS $$
 # container: plc_r
-if ( (length(r$a) != 3) || (r$a != c(1,0,1)) || (typeof(r$a[0]) != 'logical') ) return(2)
-if ( (length(r$b) != 3) || (r$b != c(1,2,3)) || (typeof(r$b[0]) != 'integer') ) return(3)
-if ( (length(r$c) != 3) || (r$c != c(2,3,4)) || (typeof(r$c[0]) != 'integer') ) return(4)
-if ( (length(r$d) != 3) || (r$d != c(3,4,5)) || (typeof(r$d[0]) != 'double') ) return(5)
-if ( (length(r$e) != 3) || (r$e != c(4.5,5.5,6.5)) || (typeof(r$e[0]) != 'double') ) return(6)
-if ( (length(r$f) != 3) || (r$f != c(5.5,6.5,7.5)) || (typeof(r$f[0]) != 'double') ) return(7)
-if ( (length(r$g) != 3) || (r$g != c(6.5,7.5,8.5)) || (typeof(r$g[0]) != 'double') ) return(8)
-if ( (length(r$h) != 3) || (r$h != c('a','b','c')) || (typeof(r$h[0]) != 'character') ) return(9)
+if ( (length(r[,1]) != 3) || (r[,1] != c(1,0,1)) || (typeof(r[1,1]) != 'logical') ) return(2) 
+if ( (length(r[,2]) != 3) || (r[,2] != c(1,2,3)) || (typeof(r[1,2]) != 'integer') ) return(3)
+if ( (length(r[,3]) != 3) || (r[,3] != c(2,3,4)) || (typeof(r[1,3]) != 'integer') ) return(4)
+if ( (length(r[,4]) != 3) || (r[,4] != c(3,4,5)) || (typeof(r[1,4]) != 'double') ) return(5)
+if ( (length(r[,5]) != 3) || (r[,5] != c(4.5,5.5,6.5)) || (typeof(r[1,5]) != 'double') ) return(6)
+if ( (length(r[,6]) != 3) || (r[,6] != c(5.5,6.5,7.5)) || (typeof(r[1,6]) != 'double') ) return(7)
+if ( (length(r[,7]) != 3) || (r[,7] != c(6.5,7.5,8.5)) || (typeof(r[1,7]) != 'double') ) return(8)
+if ( (length(r[,8]) != 3) || (r[,8] != c('a','b','c')) || (typeof(r[1,8]) != 'character') ) return(9)
 return(10)
 $$ LANGUAGE plcontainer;
 
@@ -400,7 +414,7 @@ CREATE OR REPLACE FUNCTION rtestudt3(r test_type3[]) RETURNS varchar AS $$
 # container: plc_r
 x=''
 for (row in r){
-x=paste(x,'#', row$a,'|',row$b,'|', row$c)
+x=paste(x,'#', row[1,1],'|',row[1,2],'|', row[1,3])
 }
 return(x)
 
@@ -410,7 +424,7 @@ CREATE OR REPLACE FUNCTION rtestudt4(r test_type4[]) RETURNS varchar AS $$
 # container: plc_r
 res = ''
 for (row in r){
-    res =paste(res,'#' ,row$a,'|',sum(row$b),'|',',',paste(row$c))
+    res =paste(res,'#' ,row[1,1],'|',sum(row[,2]),'|',',',paste(row[1,3]))
 }
 return (res)
 $$ LANGUAGE plcontainer;
@@ -427,6 +441,54 @@ for (el in r){
 }
 return(3)
 $$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rytestudt6() RETURNS test_type AS $$
+# container: plc_r
+data.frame(TRUE,1,2,3,4,5,6,'foo')
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtestudt7() RETURNS test_type3[] AS $$
+# container: plc_r
+return [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}]
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtestudt8() RETURNS SETOF test_type3 AS $$
+# container: plc_r
+return [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}]
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtestudt9() RETURNS SETOF test_type3[] AS $$
+# container: plc_r
+return [ [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}],
+         [{'a': 5, 'b': 6, 'c': 'buz'}, {'a': 7, 'b': 8, 'c': 'zzz'}] ]
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtestudt10() RETURNS test_type4[] AS $$
+# container: plc_r
+return [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}]
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtestudt11() RETURNS SETOF test_type4 AS $$
+# container: plc_r
+return [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}]
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtestudt12() RETURNS SETOF test_type4[] AS $$
+# container: plc_r
+return [ [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}],
+         [{'a': 5, 'b': [6,66], 'c': ['buz','buz2']}, {'a': 7, 'b': [8,88], 'c': ['zzz','zzz2']}] ]
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtestudtrecord1() RETURNS record AS $$
+# container: plc_r
+return {'a': 1, 'b': 2, 'c': 'foo'}
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtestudtrecord2() RETURNS SETOF record AS $$
+# container: plc_r
+return [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}]
+$$ LANGUAGE plcontainer;
+
 
 CREATE OR REPLACE FUNCTION rversion() RETURNS varchar AS $$
 # container : plc_r_shared

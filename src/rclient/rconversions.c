@@ -223,13 +223,14 @@ static SEXP plc_r_object_from_udt(char *input, plcRType *type) {
     plcUDT *udt;
     int i;
     SEXP res = R_NilValue;
-    SEXP ptr = R_NilValue;
     SEXP element = R_NilValue;
+    SEXP row_names = R_NilValue;
+    SEXP names = R_NilValue;
 
     udt = (plcUDT*)input;
 
-    PROTECT( res = allocList(type->nSubTypes+1) );
-    ptr = CDR(res);
+    PROTECT( res = NEW_LIST(type->nSubTypes) );
+    PROTECT( names = NEW_CHARACTER(type->nSubTypes) );
 
     for (i = 0; i < type->nSubTypes; i++) {
         if (type->subTypes[i].typeName != NULL) {
@@ -239,15 +240,29 @@ static SEXP plc_r_object_from_udt(char *input, plcRType *type) {
                 element = type->subTypes[i].conv.inputfunc(udt->data[i].value,
                                                            &type->subTypes[i]);
             }
-            SETCAR(ptr, element);
-            SET_TAG(ptr, mkChar(type->subTypes[i].typeName));
-            ptr = CDR(ptr);
+
+            SET_STRING_ELT(names,i, Rf_mkChar(type->subTypes[i].typeName));
+
+            SET_VECTOR_ELT(res,i,element);
+
         } else {
             res = R_NilValue;
             break;
         }
     }
+    /* attach the column names */
+    setAttrib(res, R_NamesSymbol, names);
 
+    /* attach row names - basically just the row number, zero based */
+    PROTECT(row_names = allocVector(STRSXP, 1));
+    SET_STRING_ELT(row_names, 0, Rf_mkChar("1"));
+
+    setAttrib(res, R_RowNamesSymbol, row_names);
+
+    /* finally, tell R we are a data.frame */
+    setAttrib(res, R_ClassSymbol, mkString("data.frame"));
+
+    UNPROTECT(3); /* res, names, row_names */
     return res;
 }
 
