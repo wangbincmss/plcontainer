@@ -489,6 +489,21 @@ CREATE OR REPLACE FUNCTION pytext(t text) RETURNS text AS $$
 return t+'bar'
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pybytea(r bytea) RETURNS bytea AS $$
+# container: plc_python
+return str(type(r))
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pybytea2() RETURNS bytea AS $$
+# container: plc_python
+return None
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pybytea3() RETURNS bytea AS $$
+# container: plc_python
+return ''
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pyintarr(arr int8[]) RETURNS int8 AS $$
 # container: plc_python
 def recsum(obj):
@@ -554,6 +569,11 @@ CREATE OR REPLACE FUNCTION pytsarr(t timestamp[]) RETURNS int AS $$
 return sum([1 if '2010' in x else 0 for x in t])
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pybyteaarr(b bytea[]) RETURNS bytea AS $$
+# container: plc_python
+return '|'.join([str(x) for x in b])
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pyreturnarrint1(num int) RETURNS bool[] AS $BODY$
 # container: plc_python
 return [x for x in range(num)]
@@ -592,6 +612,16 @@ $BODY$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION pyreturnarrtext(num int) RETURNS text[] AS $BODY$
 # container: plc_python
 return ['number' + str(x) for x in range(num)]
+$BODY$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyreturnarrbytea(a bytea[]) RETURNS bytea[] AS $BODY$
+# container: plc_python
+return a
+$BODY$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pyreturnarrbytea2(num int) RETURNS bytea[] AS $BODY$
+# container: plc_python
+return ['bytea' + str(x) for x in range(num)]
 $BODY$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION pyreturnarrdate(num int) RETURNS date[] AS $$
@@ -703,7 +733,8 @@ q = """SELECT 't'::bool as a,
               4::float4 as e,
               5::float8 as f,
               6::numeric as g,
-              'foobar'::varchar as h
+              'foobar'::varchar as h,
+              'test'::bytea as i
     """
 r = plpy.execute(q)
 if len(r) != 1: return 1
@@ -715,7 +746,8 @@ if r[0]['e'] != 4.0 or str(type(r[0]['e'])) != "<type 'float'>": return 6
 if r[0]['f'] != 5.0 or str(type(r[0]['f'])) != "<type 'float'>": return 7
 if r[0]['g'] != 6.0 or str(type(r[0]['g'])) != "<type 'float'>": return 8
 if r[0]['h'] != 'foobar' or str(type(r[0]['h'])) != "<type 'str'>": return 9
-return 10
+if r[0]['i'] != 'test' or str(type(r[0]['i'])) != "<type 'str'>": return 10
+return 11
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION pylogging() RETURNS void AS $$

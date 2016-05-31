@@ -17,6 +17,8 @@ static PyObject *plc_pyobject_from_array_dim(plcArray *arr, plcPyType *type,
 static PyObject *plc_pyobject_from_array(char *input, plcPyType *type);
 static PyObject *plc_pyobject_from_udt(char *input, plcPyType *type);
 static PyObject *plc_pyobject_from_udt_ptr(char *input, plcPyType *type);
+static PyObject *plc_pyobject_from_bytea(char *input, plcPyType *type);
+static PyObject *plc_pyobject_from_bytea_ptr(char *input, plcPyType *type);
 
 static int plc_pyobject_as_int1(PyObject *input, char **output, plcPyType *type);
 static int plc_pyobject_as_int2(PyObject *input, char **output, plcPyType *type);
@@ -27,6 +29,7 @@ static int plc_pyobject_as_float8(PyObject *input, char **output, plcPyType *typ
 static int plc_pyobject_as_text(PyObject *input, char **output, plcPyType *type);
 static int plc_pyobject_as_array(PyObject *input, char **output, plcPyType *type);
 static int plc_pyobject_as_udt(PyObject *input, char **output, plcPyType *type);
+static int plc_pyobject_as_bytea(PyObject *input, char **output, plcPyType *type);
 
 static void plc_pyobject_iter_free (plcIterator *iter);
 static rawdata *plc_pyobject_as_array_next (plcIterator *iter);
@@ -151,6 +154,14 @@ static PyObject *plc_pyobject_from_udt(char *input, plcPyType *type) {
 
 static PyObject *plc_pyobject_from_udt_ptr(char *input, plcPyType *type) {
     return plc_pyobject_from_udt(*((char**)input), type);
+}
+
+static PyObject *plc_pyobject_from_bytea(char *input, plcPyType *type UNUSED) {
+    return PyBytes_FromStringAndSize(input + 4, *((int*)input));
+}
+
+static PyObject *plc_pyobject_from_bytea_ptr(char *input, plcPyType *type) {
+    return plc_pyobject_from_bytea(*((char**)input), type);
 }
 
 static int plc_pyobject_as_int1(PyObject *input, char **output, plcPyType *type UNUSED) {
@@ -428,6 +439,34 @@ static int plc_pyobject_as_udt(PyObject *input, char **output, plcPyType *type) 
     return res;
 }
 
+static int plc_pyobject_as_bytea(PyObject *input, char **output, plcPyType *type UNUSED) {
+    PyObject *volatile plrv_so = NULL;
+    int   len;
+    char *res;
+
+    if (input == Py_None) {
+        lprintf(ERROR, "None object cannot be transformed to bytea");
+        return -1;
+    }
+
+    plrv_so = PyObject_Bytes(input);
+    if (!plrv_so) {
+        lprintf(ERROR, "Could not create bytes representation of Python object");
+        return -1;
+    }
+
+    len = PyBytes_Size(plrv_so);
+    res = pmalloc(len + 4);
+    *((int*)res) = len;
+    memcpy(res + 4, PyBytes_AsString(plrv_so), len);
+    Py_DECREF(plrv_so);
+    *output = res;
+
+    lprintf(WARNING, "~~~~ bytea length = %d", len);
+
+    return 0;
+}
+
 static plcPyInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement) {
     plcPyInputFunc res = NULL;
     switch (dt) {
@@ -454,6 +493,13 @@ static plcPyInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement
                 res = plc_pyobject_from_text_ptr;
             } else {
                 res = plc_pyobject_from_text;
+            }
+            break;
+        case PLC_DATA_BYTEA:
+            if (isArrayElement) {
+                res = plc_pyobject_from_bytea_ptr;
+            } else {
+                res = plc_pyobject_from_bytea;
             }
             break;
         case PLC_DATA_ARRAY:
@@ -497,6 +543,9 @@ static plcPyOutputFunc plc_get_output_function(plcDatatype dt) {
             break;
         case PLC_DATA_TEXT:
             res = plc_pyobject_as_text;
+            break;
+        case PLC_DATA_BYTEA:
+            res = plc_pyobject_as_bytea;
             break;
         case PLC_DATA_ARRAY:
             res = plc_pyobject_as_array;

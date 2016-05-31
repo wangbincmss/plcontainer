@@ -46,6 +46,7 @@ static int send_int64(plcConn *conn, long long i);
 static int send_float4(plcConn *conn, float f);
 static int send_float8(plcConn *conn, double f);
 static int send_cstring(plcConn *conn, char *s);
+static int send_bytea(plcConn *conn, char *s);
 static int send_raw_object(plcConn *conn, plcType *type, rawdata *obj);
 static int send_raw_array_iter(plcConn *conn, plcType *type, plcIterator *iter);
 static int send_type(plcConn *conn, plcType *type);
@@ -61,6 +62,7 @@ static int receive_float4(plcConn *conn, float *f);
 static int receive_float8(plcConn *conn, double *f);
 static int receive_raw(plcConn *conn, char *s, size_t len);
 static int receive_cstring(plcConn *conn, char **s);
+static int receive_bytea(plcConn *conn, char **s);
 static int receive_raw_object(plcConn *conn, plcType *type, rawdata *obj);
 static int receive_array(plcConn *conn, plcType *type, rawdata *obj);
 static int receive_type(plcConn *conn, plcType *type);
@@ -220,6 +222,15 @@ static int send_cstring(plcConn *conn, char *s) {
     return res;
 }
 
+static int send_bytea(plcConn *conn, char *s) {
+    int res = 0;
+
+    debug_print(WARNING, "    ===> sending bytea of size '%d'", *((int*)s));
+    res |= send_int32(conn, *((int*)s));
+    res |= plcBufferAppend(conn, s + 4, *((int*)s));
+    return res;
+}
+
 static int send_raw_object(plcConn *conn, plcType *type, rawdata *obj) {
     int res = 0;
     if (obj->isnull) {
@@ -249,6 +260,9 @@ static int send_raw_object(plcConn *conn, plcType *type, rawdata *obj) {
                 break;
             case PLC_DATA_TEXT:
                 res |= send_cstring(conn, obj->value);
+                break;
+            case PLC_DATA_BYTEA:
+                res |= send_bytea(conn, obj->value);
                 break;
             case PLC_DATA_ARRAY:
                 res |= send_raw_array_iter(conn, &type->subTypes[0], (plcIterator*)obj->value);
@@ -400,6 +414,26 @@ static int receive_cstring(plcConn *conn, char **s) {
     return res;
 }
 
+static int receive_bytea(plcConn *conn, char **s) {
+    int res = 0;
+    int len = 0;
+
+    if (receive_int32(conn, &len) < 0) {
+        return -1;
+    }
+
+    *s = pmalloc(len + 4);
+    debug_print(WARNING, "    ===> receiving bytea of size '%d' at %p for %p", len, *s, s);
+
+    *((int*)*s) = len;
+    if (len > 0) {
+        res = plcBufferRead(conn, *s + 4, len);
+    }
+    debug_print(WARNING, "    ===> receiving bytea '%s'", strndup(*s + 4, len));
+
+    return res;
+}
+
 static int receive_raw_object(plcConn *conn, plcType *type, rawdata *obj)  {
     int res = 0;
     char isn;
@@ -442,6 +476,9 @@ static int receive_raw_object(plcConn *conn, plcType *type, rawdata *obj)  {
             case PLC_DATA_TEXT:
                 res |= receive_cstring(conn, &obj->value);
                 break;
+            case PLC_DATA_BYTEA:
+                res |= receive_bytea(conn, &obj->value);
+                break;
             case PLC_DATA_ARRAY:
                 res |= receive_array(conn, &type->subTypes[0], obj);
                 break;
@@ -475,74 +512,40 @@ static int receive_array(plcConn *conn, plcType *type, rawdata *obj) {
         arr->meta->size *= arr->meta->dims[i];
     }
     if (arr->meta->size > 0) {
-        switch (arr->meta->type) {
-            case PLC_DATA_INT1:   entrylen = 1; break;
-            case PLC_DATA_INT2:   entrylen = 2; break;
-            case PLC_DATA_INT4:   entrylen = 4; break;
-            case PLC_DATA_INT8:   entrylen = 8; break;
-            case PLC_DATA_FLOAT4: entrylen = 4; break;
-            case PLC_DATA_FLOAT8: entrylen = 8; break;
-            case PLC_DATA_TEXT:   break;
-            case PLC_DATA_UDT:    break;
-            case PLC_DATA_ARRAY:
-                lprintf(ERROR, "Array cannot be part of the array. "
-                        "Multi-dimensional arrays should be passed in a single entry");
-                break;
-            default:
-                lprintf(ERROR, "Received unsupported argument type: %s [%d]",
-                                plc_get_type_name(arr->meta->type), arr->meta->type);
-                break;
-        }
-
+        entrylen = plc_get_type_length(arr->meta->type);
         arr->nulls = (char*)pmalloc(arr->meta->size * 1);
-        switch (arr->meta->type) {
-            case PLC_DATA_INT1:
-            case PLC_DATA_INT2:
-            case PLC_DATA_INT4:
-            case PLC_DATA_INT8:
-            case PLC_DATA_FLOAT4:
-            case PLC_DATA_FLOAT8:
-                arr->data = (char*)pmalloc(arr->meta->size * entrylen);
-                memset(arr->data, 0, arr->meta->size * entrylen);
-                for (i = 0; i < arr->meta->size && res == 0; i++) {
-                    res |= receive_char(conn, &isnull);
-                    if (isnull == 'N') {
-                        arr->nulls[i] = 1;
-                    } else {
-                        arr->nulls[i] = 0;
+        arr->data = (char*)pmalloc(arr->meta->size * entrylen);
+        memset(arr->data, 0, arr->meta->size * entrylen);
+
+        for (i = 0; i < arr->meta->size && res == 0; i++) {
+            res |= receive_char(conn, &isnull);
+            if (isnull == 'N') {
+                arr->nulls[i] = 1;
+            } else {
+                arr->nulls[i] = 0;
+                switch (arr->meta->type) {
+                    case PLC_DATA_INT1:
+                    case PLC_DATA_INT2:
+                    case PLC_DATA_INT4:
+                    case PLC_DATA_INT8:
+                    case PLC_DATA_FLOAT4:
+                    case PLC_DATA_FLOAT8:
                         res |= receive_raw(conn, arr->data + i*entrylen, entrylen);
-                    }
+                        break;
+                    case PLC_DATA_TEXT:
+                        res |= receive_cstring(conn, &((char**)arr->data)[i]);
+                        break;
+                    case PLC_DATA_BYTEA:
+                        res |= receive_bytea(conn, &((char**)arr->data)[i]);
+                        break;
+                    case PLC_DATA_UDT:
+                        res |= receive_udt(conn, type, &((char**)arr->data)[i]);
+                        break;
+                    default:
+                        lprintf(ERROR, "Should not get here");
+                        break;
                 }
-                break;
-            case PLC_DATA_TEXT:
-                arr->data = (char*)pmalloc(arr->meta->size * sizeof(char*));
-                memset(arr->data, 0, arr->meta->size * sizeof(char*));
-                for (i = 0; i < arr->meta->size && res == 0; i++) {
-                    res |= receive_char(conn, &isnull);
-                    if (isnull == 'N') {
-                        arr->nulls[i] = 1;
-                    } else {
-                        arr->nulls[i] = 0;
-                        receive_cstring(conn, &((char**)arr->data)[i]);
-                    }
-                }
-                break;
-            case PLC_DATA_UDT:
-                arr->data = (char*)pmalloc(arr->meta->size * sizeof(plcUDT*));
-                memset(arr->data, 0, arr->meta->size * sizeof(plcUDT*));
-                for (i = 0; i < arr->meta->size && res == 0; i++) {
-                    res |= receive_char(conn, &isnull);
-                    if (isnull == 'N') {
-                        arr->nulls[i] = 1;
-                    } else {
-                        arr->nulls[i] = 0;
-                        receive_udt(conn, type, &((char**)arr->data)[i]);
-                    }
-                }
-                break;
-            default:
-                lprintf(FATAL, "Should not get here");
-                break;
+            }
         }
     }
     return res;
