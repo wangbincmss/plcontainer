@@ -139,7 +139,7 @@ plcArray *plc_alloc_array(int ndims) {
 void plc_free_array(plcArray *arr, plcType *type) {
     int i;
     if (arr != NULL) {
-        if (arr->meta->type == PLC_DATA_TEXT) {
+        if (arr->meta->type == PLC_DATA_TEXT || arr->meta->type == PLC_DATA_BYTEA) {
             for (i = 0; i < arr->meta->size; i++) {
                 if ( ((char**)arr->data)[i] != NULL )
                     pfree(((char**)arr->data)[i]);
@@ -211,6 +211,7 @@ int plc_get_type_length(plcDatatype dt) {
             break;
         case PLC_DATA_TEXT:
         case PLC_DATA_UDT:
+        case PLC_DATA_BYTEA:
             /* 8 = the size of pointer */
             res = 8;
             break;

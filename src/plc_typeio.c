@@ -24,6 +24,7 @@ static char *plc_datum_as_float4(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_float8(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_float8_numeric(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_text(Datum input, plcTypeInfo *type);
+static char *plc_datum_as_bytea(Datum input, plcTypeInfo *type);
 static char *plc_datum_as_array(Datum input, plcTypeInfo *type);
 static void plc_backend_array_free(plcIterator *iter);
 static rawdata *plc_backend_array_next(plcIterator *self);
@@ -38,6 +39,8 @@ static Datum plc_datum_from_float8(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_float8_numeric(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_text(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_text_ptr(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_bytea(char *input, plcTypeInfo *type);
+static Datum plc_datum_from_bytea_ptr(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_array(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_udt(char *input, plcTypeInfo *type);
 static Datum plc_datum_from_udt_ptr(char *input, plcTypeInfo *type);
@@ -110,6 +113,15 @@ static void fill_type_info_inner(FunctionCallInfo fcinfo, Oid typeOid, plcTypeIn
             type->type = PLC_DATA_FLOAT8;
             type->outfunc = plc_datum_as_float8_numeric;
             type->infunc = plc_datum_from_float8_numeric;
+            break;
+        case BYTEAOID:
+            type->type = PLC_DATA_BYTEA;
+            type->outfunc = plc_datum_as_bytea;
+            if (!isArrayElement) {
+                type->infunc = plc_datum_from_bytea;
+            } else {
+                type->infunc = plc_datum_from_bytea_ptr;
+            }
             break;
         /* All the other types are passed through in-out functions to translate
          * them to text before sending and after receiving */
@@ -310,6 +322,15 @@ static char *plc_datum_as_text(Datum input, plcTypeInfo *type) {
                                             type->typmod));
 }
 
+static char *plc_datum_as_bytea(Datum input, plcTypeInfo *type) {
+    text *txt = DatumGetByteaP(input);
+    int len = VARSIZE(txt) - VARHDRSZ;
+    char *out = (char*)pmalloc(len + 4);
+    *((int*)out) = len;
+    memcpy(out + 4, VARDATA(txt), len);
+    return out;
+}
+
 static char *plc_datum_as_array(Datum input, plcTypeInfo *type) {
     ArrayType    *array = DatumGetArrayTypeP(input);
     plcIterator  *iter;
@@ -479,6 +500,19 @@ static Datum plc_datum_from_text_ptr(char *input, plcTypeInfo *type) {
                             CStringGetDatum( *((char**)input) ),
                             type->typelem,
                             type->typmod);
+}
+
+static Datum plc_datum_from_bytea(char *input, plcTypeInfo *type) {
+    int size = *((int*)input);
+    bytea *result = palloc(size + VARHDRSZ);
+
+    SET_VARSIZE(result, size + VARHDRSZ);
+    memcpy(VARDATA(result), input + 4, size);
+    return PointerGetDatum(result);
+}
+
+static Datum plc_datum_from_bytea_ptr(char *input, plcTypeInfo *type) {
+    return plc_datum_from_bytea( *((char**)input), type );
 }
 
 static Datum plc_datum_from_array(char *input, plcTypeInfo *type) {
