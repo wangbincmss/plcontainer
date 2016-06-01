@@ -13,7 +13,6 @@ static SEXP plc_r_object_from_array (char *input, plcRType *type);
 static SEXP plc_r_object_from_udt(char *input, plcRType *type);
 static SEXP plc_r_object_from_udt_ptr(char *input, plcRType *type);
 static SEXP plc_r_object_from_bytea(char *input, plcRType *type);
-static SEXP plc_r_object_from_bytea_ptr(char *input, plcRType *type);
 
 static int plc_r_object_as_int1(SEXP input, char **output, plcRType *type);
 static int plc_r_object_as_int2(SEXP input, char **output, plcRType *type);
@@ -180,7 +179,8 @@ static SEXP plc_r_object_from_array (char *input, plcRType *type) {
                     break;
                  case PLC_DATA_INVALID:
                  case PLC_DATA_ARRAY:
-                    lprintf(ERROR, "unhandled type %s [%d]",
+                 case PLC_DATA_BYTEA:
+                    lprintf(ERROR, "Arrays cannot handle elements of type %s [%d]",
                                    plc_get_type_name(arr->meta->type),
                                    arr->meta->type);
                     break;
@@ -304,11 +304,6 @@ static SEXP plc_r_object_from_bytea(char *input, plcRType *type UNUSED) {
 
     return result;
 }
-
-static SEXP plc_r_object_from_bytea_ptr(char *input, plcRType *type) {
-    return plc_r_object_from_bytea(*((char**)input), type);
-}
-
 
 static int plc_r_object_as_int1(SEXP input, char **output, plcRType *type UNUSED) {
     int res = 0;
@@ -541,7 +536,8 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
             case PLC_DATA_UDT:
             case PLC_DATA_INVALID:
             case PLC_DATA_ARRAY:
-                lprintf(ERROR, "un-handled type %s [%d]", plc_get_type_name(type), type);
+            case PLC_DATA_BYTEA:
+                lprintf(ERROR, "Arrays cannot handle element type %s [%d]", plc_get_type_name(type), type);
                 break;
             case PLC_DATA_TEXT:
                 if (vector == NA_STRING || STRING_ELT(vector, idx) == NA_STRING) {
@@ -839,10 +835,9 @@ static plcRInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement)
             break;
         case PLC_DATA_BYTEA:
             if (isArrayElement) {
-                res = plc_r_object_from_bytea_ptr;
-            } else {
-                res = plc_r_object_from_bytea;
+                lprintf(ERROR, "BYTEA data type is not supported as array element");
             }
+            res = plc_r_object_from_bytea;
             break;
         case PLC_DATA_UDT:
             if (isArrayElement) {
@@ -956,29 +951,6 @@ plcRResult *plc_init_result_conversions(plcontainer_result res) {
     }
 
     return Rres;
-}
-
-int get_entry_length(plcDatatype type) {
-    switch (type) {
-        case PLC_DATA_INT1:   return 1;
-        case PLC_DATA_INT2:   return 2;
-        case PLC_DATA_INT4:   return 4;
-        case PLC_DATA_INT8:   return 8;
-        case PLC_DATA_FLOAT4: return 4;
-        case PLC_DATA_FLOAT8: return 8;
-        case PLC_DATA_TEXT:   return 0;
-        case PLC_DATA_ARRAY:
-            lprintf(ERROR, "Array cannot be part of the array. "
-                    "Multi-dimensional arrays should be passed in a single entry");
-            break;
-        case PLC_DATA_UDT:
-            lprintf(ERROR, "User-defined data types are not implemented yet");
-            break;
-        default:
-            lprintf(ERROR, "Received unsupported argument type: %d", type);
-            break;
-    }
-    return -1;
 }
 
 static void plc_r_free_type(plcRType *type) {

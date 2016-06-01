@@ -57,7 +57,6 @@ typedef struct plcRFunction {
     plcRType   res;
 } plcRFunction;
 
-int get_entry_length(plcDatatype type);
 plcRFunction *plc_R_init_function(callreq call) ;
 void plc_r_copy_type(plcType *type, plcRType *pytype);
 void plc_r_free_function(plcRFunction *func);
