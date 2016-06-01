@@ -109,31 +109,31 @@ create or replace function rtest_mia() returns int[] as $$
 as.matrix(array(1:10,c(2,5)))
 $$ language plcontainer;
 
-create or replace function vec(arg1 _float8) returns _float8 as
+create or replace function vec(arg1 float8[]) returns float8[] as
 $$
 # container: plc_r
 arg1+1
 $$ language 'plcontainer';
 
-create or replace function vec(arg1 _float4) returns _float4 as
+create or replace function vec(arg1 float4[]) returns float4[] as
 $$
 # container: plc_r
 arg1+1
 $$ language 'plcontainer';
 
-create or replace function vec(arg1 _int8) returns _int8 as
+create or replace function vec(arg1 int8[]) returns int8[] as
 $$
 # container: plc_r
 arg1+1
 $$ language 'plcontainer';
 
-create or replace function vec(arg1 _int4) returns _int4 as
+create or replace function vec(arg1 int4[]) returns int4[] as
 $$
 # container: plc_r
 as.integer(arg1+1)
 $$ language 'plcontainer';
 
-create or replace function vec(arg1 _numeric) returns _numeric as
+create or replace function vec(arg1 numeric[]) returns numeric[] as
 $$
 # container: plc_r
 arg1+1
@@ -215,10 +215,10 @@ CREATE OR REPLACE FUNCTION rdimarr(arr boolean[]) RETURNS int[] AS $$
 return (dim(arr))
 $$ LANGUAGE plcontainer;
 
-create or replace function paster(arg1 _text,arg2 _text,arg3 text) returns text[] as
+create or replace function paster(arg1 text[], arg2 text[], arg3 text) returns text[] as
 $$
 #container: plc_r
-paste(arg1,arg2, sep = arg3)
+paste(arg1, arg2, sep = arg3)
 $$
 language plcontainer;
 
