@@ -367,30 +367,70 @@ for (el in r){
 }
 return(3)
 $$ LANGUAGE plcontainer;
-CREATE OR REPLACE FUNCTION rytestudt6() RETURNS test_type AS $$
+CREATE OR REPLACE FUNCTION rtestudt6() RETURNS test_type AS $$
 # container: plc_r
-data.frame(TRUE,1,2,3,4,5,6,'foo')
+x<-data.frame(TRUE,as.integer(1),as.integer(2),3,4,5,6,'foo')
 $$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION rtestudt7() RETURNS test_type3[] AS $$
 # container: plc_r
-return [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}]
+a=1
+b=2
+c='foo'
+a1=data.frame(a,b,c)
+a=3
+b=4
+c='bar'
+a2=data.frame(a,b,c)
+v=list()
+v[[1]]=a1
+v[[2]]=a2
+return (v)
 $$ LANGUAGE plcontainer;
-CREATE OR REPLACE FUNCTION rtestudt8() RETURNS SETOF test_type3 AS $$
+CREATE OR REPLACE FUNCTION rtestudt8() RETURNS setof test_type3 AS $$
 # container: plc_r
-return [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}]
+a=1
+b=2
+c='foo'
+a1=data.frame(a,b,c)
+a=3
+b=4
+c='bar'
+a2=data.frame(a,b,c)
+v=list()
+v[[1]]=a1
+v[[2]]=a2
+return (v)
 $$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION rtestudt9() RETURNS SETOF test_type3[] AS $$
 # container: plc_r
-return [ [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}],
-         [{'a': 5, 'b': 6, 'c': 'buz'}, {'a': 7, 'b': 8, 'c': 'zzz'}] ]
+l1=list()
+l2=list()
+l3=list()
+
+l1[[1]]=data.frame(1,2,'foo')
+l1[[2]]=data.frame(3,4,'bar')
+
+l2[[1]]=data.frame(5,6,'buz')
+l2[[2]]=data.frame(7,8,'zzz')
+
+
+l3[[1]]=l1
+l3[[2]]=l2
+return (l3)
 $$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION rtestudt10() RETURNS test_type4[] AS $$
 # container: plc_r
-return [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}]
+v=list()
+v[[1]] = data.frame(1,c(2,22),c('foo','foo2'))
+v[[2]] = data.frame(3,c(4,44),c('bar','bar2'))
+return(v)
 $$ LANGUAGE plcontainer;
-CREATE OR REPLACE FUNCTION rtestudt11() RETURNS SETOF test_type4 AS $$
+CREATE OR REPLACE FUNCTION rtestudt11() RETURNS setof test_type4 AS $$
 # container: plc_r
-return [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}]
+v=list()
+v[[1]] = data.frame(1,c(2,22),c('foo','foo2'))
+v[[2]] = data.frame(3,c(4,44),c('bar','bar2'))
+return(v)
 $$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION rtestudt12() RETURNS SETOF test_type4[] AS $$
 # container: plc_r
