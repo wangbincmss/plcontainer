@@ -454,22 +454,23 @@ static void plc_r_object_iter_free (plcIterator *iter) {
     return;
 }
 
-rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
+rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcRType *rtype)
 {
     rawdata *res  = (rawdata*)pmalloc(sizeof(rawdata));
 
     if ((vector == R_NilValue)
                 || ( (TYPEOF(vector) == LGLSXP) && (asLogical(vector) == NA_LOGICAL) )
                 || ( (TYPEOF(vector) == INTSXP) && (asInteger(vector) == NA_INTEGER) )
+                || ( (TYPEOF(vector) == REALSXP) && (asInteger(vector) == NA_REAL) )
                 || ( (TYPEOF(vector) == STRSXP) && (vector == NA_STRING) )) {
 
             res->isnull = 1;
             res->value = NULL;
     } else {
         res->isnull = 0;
-        switch (type) {
+        switch (rtype->type) {
             case PLC_DATA_INT1:
-                res->value = pmalloc(1);
+                res->value = pmalloc(sizeof(int));
                 if (LOGICAL_DATA(vector)[idx] == NA_LOGICAL) {
                     res->isnull = 1;
                     *((int *)res->value) = (int)0;
@@ -480,7 +481,7 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
             case PLC_DATA_INT2:
             case PLC_DATA_INT4:
                 /* 2 and 4 byte integer pgsql datatype => use R INTEGER */
-                res->value = pmalloc(4);
+                res->value = pmalloc(sizeof(int));
                 if (INTEGER_DATA(vector)[idx] == NA_INTEGER) {
                     *((int *)res->value) = (int)0;
                     res->isnull = 1;
@@ -496,7 +497,7 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
                  */
 
             case PLC_DATA_INT8:
-                res->value = pmalloc(8);
+                res->value = pmalloc(sizeof(int64));
                 if (IS_INTEGER(vector)){
                     if (INTEGER_DATA(vector)[idx] == NA_INTEGER) {
                         *((int64 *)res->value) = (int64)0;
@@ -515,7 +516,7 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
                 break;
 
             case PLC_DATA_FLOAT4:
-                res->value = pmalloc(4);
+                res->value = pmalloc(sizeof(float4));
                 if (R_IsNA(NUMERIC_DATA(vector)[idx])) {
                     res->isnull = 1;
                     *((float4 *)res->value) = (float4)0;
@@ -524,7 +525,7 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
                 }
                 break;
             case PLC_DATA_FLOAT8:
-                res->value = pmalloc(8);
+                res->value = pmalloc(sizeof(float8));
                 if (R_IsNA(NUMERIC_DATA(vector)[idx])) {
                     res->isnull = 1;
                     *((float8 *)res->value) = (float8)0;
@@ -534,11 +535,47 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type)
                 break;
 
             case PLC_DATA_UDT:
-            case PLC_DATA_INVALID:
-            case PLC_DATA_ARRAY:
-            case PLC_DATA_BYTEA:
-                lprintf(ERROR, "Arrays cannot handle element type %s [%d]", plc_get_type_name(type), type);
+                if (VECTOR_ELT(vector,idx) == R_NilValue ){
+                    res->isnull=TRUE;
+                    res->value=pmalloc(sizeof(int));
+                    *((int *)res->value) = (int)0;
+                }else{
+                    res->isnull=FALSE;
+                    plc_r_object_as_udt(VECTOR_ELT(vector,idx),&res->value, rtype);
+                }
                 break;
+
+            case PLC_DATA_ARRAY:
+
+                if ( (TYPEOF(vector) != LGLSXP) && (TYPEOF(vector) != REALSXP)
+                        &&  (TYPEOF(vector) != INTSXP) && (TYPEOF(vector) != STRSXP) ){
+                    // these are arrays of primitives
+                    if (VECTOR_ELT(vector,idx) == R_NilValue ){
+                        res->isnull=TRUE;
+                        res->value=pmalloc(sizeof(int));
+                        *((int *)res->value) = (int)0;
+                    }else{
+                        res->isnull=FALSE;
+                        plc_r_object_as_array(VECTOR_ELT(vector,idx),&res->value, rtype);
+                    }
+                }else{
+                    if ( vector == R_NilValue ){
+                        res->isnull=TRUE;
+                        res->value=pmalloc(sizeof(int));
+                        *((int *)res->value) = (int)0;
+                    }else{
+                        res->isnull=FALSE;
+                        plc_r_object_as_array(vector,&res->value, rtype);
+                    }
+                }
+
+                break;
+
+            case PLC_DATA_INVALID:
+            case PLC_DATA_BYTEA:
+                lprintf(ERROR, "Arrays cannot handle element type %s [%d]", plc_get_type_name(rtype->type), rtype->type);
+                break;
+
             case PLC_DATA_TEXT:
                 if (vector == NA_STRING || STRING_ELT(vector, idx) == NA_STRING) {
                     res->isnull = TRUE;
@@ -572,7 +609,7 @@ static rawdata *plc_r_object_as_array_next (plcIterator *iter) {
     idx = ptrs[ptr].pos;
     mtx = ptrs[ptr].obj;
 
-    res = plc_r_vector_element_rawdata(mtx, idx, meta->type->type);
+    res = plc_r_vector_element_rawdata(mtx, idx, meta->type);
     ptrs[ptr].pos += 1;
 
     return res;
@@ -742,6 +779,7 @@ static int plc_r_object_as_array(SEXP input, char **output, plcRType *type) {
 static int plc_r_object_as_udt(SEXP input, char **output, plcRType *type) {
     int res = 0;
     SEXP names;
+    SEXP dfcol;
 
     if ( (names = Rf_GetColNames(input)) == NILSXP) {
         lprintf(ERROR, "Output entry for plcRType must be a named list");
@@ -754,10 +792,35 @@ static int plc_r_object_as_udt(SEXP input, char **output, plcRType *type) {
         udt->data = pmalloc(type->nSubTypes * sizeof(rawdata));
         for (i = 0; i < type->nSubTypes && res == 0; i++) {
 
-            rawdata *datum = plc_r_vector_element_rawdata(input, i, type->subTypes[i].type );
-            udt->data[i].isnull = datum->isnull;
-            udt->data[i].value = datum->value;
-            free(datum);
+            PROTECT(dfcol = VECTOR_ELT(input, i));
+            /*
+             * R stores characters in factors for efficiency...
+             */
+            if ( isFactor(dfcol) ){
+               /*
+                * a factor is a special type of integer
+                * but must check for NA value first
+                */
+                if (INTEGER(dfcol)[i] != NA_INTEGER){
+                    SEXP c = Rf_asCharacterFactor(dfcol);
+
+                    rawdata *datum = plc_r_vector_element_rawdata(c, 0, &type->subTypes[i] );
+                    udt->data[i].isnull = datum->isnull;
+                    udt->data[i].value = datum->value;
+                    free(datum);
+
+                }else{
+                    udt->data[i].isnull = TRUE;
+                    udt->data[i].value = NULL;
+                }
+
+            }else{
+                rawdata *datum = plc_r_vector_element_rawdata(dfcol, 0, &type->subTypes[i] );
+                udt->data[i].isnull = datum->isnull;
+                udt->data[i].value = datum->value;
+                free(datum);
+            }
+            UNPROTECT(1);
         }
         *output = (char*)udt;
     }
@@ -985,14 +1048,15 @@ void plc_free_result_conversions(plcRResult *res) {
     free(res);
 }
 
-void plc_r_copy_type(plcType *type, plcRType *pytype) {
-    type->type = pytype->type;
-    type->nSubTypes = pytype->nSubTypes;
+void plc_r_copy_type(plcType *type, plcRType *rtype) {
+    type->type = rtype->type;
+    type->nSubTypes = rtype->nSubTypes;
+    type->typeName = (rtype->typeName == NULL) ? NULL : strdup(rtype->typeName);
     if (type->nSubTypes > 0) {
         int i = 0;
         type->subTypes = (plcType*)pmalloc(type->nSubTypes * sizeof(plcType));
         for (i = 0; i < type->nSubTypes; i++)
-            plc_r_copy_type(&type->subTypes[i], &pytype->subTypes[i]);
+            plc_r_copy_type(&type->subTypes[i], &rtype->subTypes[i]);
     } else {
         type->subTypes = NULL;
     }

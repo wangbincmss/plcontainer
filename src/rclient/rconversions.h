@@ -61,7 +61,7 @@ plcRFunction *plc_R_init_function(callreq call) ;
 void plc_r_copy_type(plcType *type, plcRType *pytype);
 void plc_r_free_function(plcRFunction *func);
 SEXP get_r_vector(plcDatatype type_id, int numels);
-rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcDatatype type);
+rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcRType *type);
 int plc_r_matrix_as_setof(SEXP input, int start, int dim1, char **output, plcRType *type);
 
 //#define DEBUGPROTECT

@@ -603,6 +603,45 @@ select rtestudt5(array[null]::test_type4[]);
          2
 (1 row)
 
+select rtestudt6();
+      rtestudt6      
+---------------------
+ (t,1,2,3,4,5,6,foo)
+(1 row)
+
+select rtestudt7();
+         rtestudt7         
+---------------------------
+ {"(1,2,foo)","(3,4,bar)"}
+(1 row)
+
+select rtestudt8();
+ rtestudt8 
+-----------
+ (1,2,foo)
+ (3,4,bar)
+(2 rows)
+
+select rtestudt9();
+         rtestudt9         
+---------------------------
+ {"(1,2,foo)","(3,4,bar)"}
+ {"(5,6,buz)","(7,8,zzz)"}
+(2 rows)
+
+select rtestudt10();
+                            rtestudt10                             
+-------------------------------------------------------------------
+ {"(1,\"{2,22}\",\"{foo,foo2}\")","(3,\"{4,44}\",\"{bar,bar2}\")"}
+(1 row)
+
+select rtestudt11();
+        rtestudt11         
+---------------------------
+ (1,"{2,22}","{foo,foo2}")
+ (3,"{4,44}","{bar,bar2}")
+(2 rows)
+
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
 -- This function is of "return setof record" type which is not supported yet

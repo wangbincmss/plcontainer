@@ -524,7 +524,7 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
                     free_result(res, true);
                     return -1;
             }
-            raw = plc_r_vector_element_rawdata(retval, i, r_func->res.type);
+            raw = plc_r_vector_element_rawdata(retval, i, &r_func->res);
             res->data[i] = raw;
 
         }
@@ -535,6 +535,7 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
 static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func) {
     plcontainer_result res;
     int i=0, ret=0;
+
 
     /* allocate a result */
     res          = malloc(sizeof(str_plcontainer_result));
@@ -550,11 +551,14 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
         }
     }else{
         if (Rf_isFrame(retval)){
-            res->rows     = nrows(retval);
-            res->cols   = ncols(retval);
-            SEXP col    = VECTOR_ELT(retval,0);
-            int l = length(col);
-            lprintf(DEBUG1, "length its %d\n",l);
+            SEXP dfcol;
+
+            /* at this point I have no idea why this is so */
+            PROTECT(dfcol = VECTOR_ELT(retval, 0));
+            res->rows = 1;//length(dfcol);
+            UNPROTECT(1);
+
+            res->cols   = 1;
 
         }else{
             res->rows   = 1;
