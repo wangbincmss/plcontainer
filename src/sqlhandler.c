@@ -68,6 +68,7 @@ static plcontainer_result create_sql_result() {
     result->rows    = SPI_processed;
     result->types   = palloc(result->cols * sizeof(*result->types));
     result->names   = palloc(result->cols * sizeof(*result->names));
+    result->exception_callback = NULL;
     resTypes        = palloc(result->cols * sizeof(plcTypeInfo));
     for (j = 0; j < result->cols; j++) {
         fill_type_info(NULL, res_tuptable->tupdesc->attrs[j]->atttypid, &resTypes[j]);

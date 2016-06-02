@@ -4,6 +4,8 @@
 #include "common/comm_connectivity.h"
 
 // Raising exception to the backend
-void raise_execution_error (plcConn *conn, const char *format, ...);
+void  raise_execution_error (const char *format, ...);
+void  plc_raise_delayed_error(void);
+void *plc_error_callback(void);
 
 #endif /* PLC_PYERROR_H */

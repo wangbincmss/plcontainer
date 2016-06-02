@@ -877,6 +877,39 @@ CREATE OR REPLACE FUNCTION pytestudtrecord2() RETURNS SETOF record AS $$
 # container: plc_python
 return [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}]
 $$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pybadint() RETURNS int AS $$
+# container: plc_python
+return 'foo'
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pybadfloat8() RETURNS float4 AS $$
+# container: plc_python
+return 'foo'
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pybadudt() RETURNS test_type3 AS $$
+# container: plc_python
+return {'a': 1, 'b': 2, 'd':'foo'}
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pybadudt2() RETURNS test_type4 AS $$
+# container: plc_python
+return {'a': 1, 'b': [1,'foo',3], 'c':['foo']}
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pybadarr() RETURNS int[] AS $$
+# container: plc_python
+return [1,2,3,'foo',5]
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pybadarr2() RETURNS int[] AS $$
+# container: plc_python
+return 1
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pybadudtarr() RETURNS test_type3[] AS $$
+# container: plc_python
+return [ {'a': 1, 'b': 2, 'c': 'foo'}, {'a': 1, 'b': 2} ]
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION pybadudtarr2() RETURNS test_type4[] AS $$
+# container: plc_python
+return [ {'a': 1, 'b': [2, 3], 'c': ['foo', 'bar']},
+         {'a': 4, 'b': [5, 'f'], 'c': ['a', 'b']} ]
+$$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION pyinvalid_function() RETURNS double precision AS $$
 # container: plc_python
 import math

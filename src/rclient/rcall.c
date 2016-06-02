@@ -408,6 +408,7 @@ static int process_data_frame(plcConn *conn, SEXP retval) {
         res->msgtype = MT_RESULT;
         res->names   = malloc(1 * sizeof(char*));
         res->types   = malloc(1 * sizeof(plcType));
+        res->exception_callback = NULL;
 
     /*
      * dataframes are lists of columns
@@ -542,6 +543,7 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
     res->msgtype = MT_RESULT;
     res->names   = malloc(1 * sizeof(char*));
     res->types   = malloc(1 * sizeof(plcType));
+    res->exception_callback = NULL;
 
 
     if ( r_func->retset != 0 ){

@@ -18,10 +18,12 @@
   1. https://docs.python.org/2/c-api/reflection.html
  */
 
+plcConn* plcconn_global = NULL;
+
 static char *create_python_func(callreq req);
-static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc);
+static PyObject *arguments_to_pytuple(plcPyFunction *pyfunc);
 static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *pyfunc);
-static int fill_rawdata(rawdata *res, plcConn *conn, PyObject *retval, plcPyFunction *pyfunc);
+static int fill_rawdata(rawdata *res, PyObject *retval, plcPyFunction *pyfunc);
 
 static PyObject *PyMainModule = NULL;
 static PyMethodDef moddef[] = {
@@ -64,18 +66,18 @@ int python_init() {
     /* Get module dictionary of objects */
     dict = PyModule_GetDict(PyMainModule);
     if (dict == NULL) {
-        lprintf(ERROR, "Cannot get '__main__' module contents in Python");
+        raise_execution_error("Cannot get '__main__' module contents in Python");
         return -1;
     }
 
     gd = PyDict_New();
     if (gd == NULL) {
-        lprintf(ERROR, "Cannot allocate dictionary object for GD");
+        raise_execution_error("Cannot allocate dictionary object for GD");
         return -1;
     }
 
     if (PyDict_SetItemString(dict, "GD", gd) < 0) {
-        lprintf(ERROR, "Cannot set GD dictionary to main module");
+        raise_execution_error("Cannot set GD dictionary to main module");
         return -1;
     }
     Py_DECREF(gd);
@@ -92,11 +94,13 @@ void handle_call(callreq req, plcConn *conn) {
     /*
      * Keep our connection for future calls from Python back to us.
      */
-    plcconn_global = conn;
+    plcconn_global   = conn;
+    plc_sending_data = 0;
+    plc_is_execution_terminated = 0;
 
     dict = PyModule_GetDict(PyMainModule); // Returns borrowed reference
     if (dict == NULL) {
-        raise_execution_error(conn, "Cannot get '__main__' module contents in Python");
+        raise_execution_error("Cannot get '__main__' module contents in Python");
         return;
     }
 
@@ -111,11 +115,14 @@ void handle_call(callreq req, plcConn *conn) {
 
         /* Modify function code for compiling it into Python object */
         func = create_python_func(req);
+        if (func == NULL) {
+            return;
+        }
 
         /* The function will be in the dictionary because it was wrapped with "def proc_name:... " */
         val = PyRun_String(func, Py_single_input, dict, dict); // Returns new reference
         if (val == NULL) {
-            raise_execution_error(conn, "Cannot compile function in Python");
+            raise_execution_error("Cannot compile function in Python");
             return;
         }
         Py_DECREF(val);
@@ -124,7 +131,7 @@ void handle_call(callreq req, plcConn *conn) {
         /* get the function from the global dictionary, returns borrowed reference */
         val = PyDict_GetItemString(dict, req->proc.name);
         if (!PyCallable_Check(val)) {
-            raise_execution_error(conn, "Object produced by function is not callable");
+            raise_execution_error("Object produced by function is not callable");
             return;
         }
 
@@ -136,22 +143,22 @@ void handle_call(callreq req, plcConn *conn) {
     }
 
     if (PyDict_SetItemString(dict, "SD", pyfunc->pySD) < 0) {
-        raise_execution_error(conn, "Cannot set SD dictionary to main module");
+        raise_execution_error("Cannot set SD dictionary to main module");
         return;
     }
 
-    args = arguments_to_pytuple(conn, pyfunc);
+    args = arguments_to_pytuple(pyfunc);
     if (args == NULL) {
-        raise_execution_error(conn, "Cannot convert input arguments to Python tuple");
+        raise_execution_error("Cannot convert input arguments to Python tuple");
         return;
     }
 
     /* call the function */
     plc_is_execution_terminated = 0;
     retval = PyObject_Call(pyfunc->pyfunc, args, NULL); // returns new reference
-    if (retval == NULL) {
+    if (retval == NULL || PyErr_Occurred()) {
         Py_XDECREF(args);
-        raise_execution_error(conn, "Function produced NULL output");
+        raise_execution_error("Exception occured in Python during function execution");
         return;
     }
 
@@ -198,7 +205,11 @@ static char *create_python_func(callreq req) {
 
     mrc  = malloc(mlen);
     plen = snprintf(mrc, mlen, "def %s(args", name);
-    assert(plen >= 0 && ((size_t)plen) < mlen);
+    if (plen < 0 || ((size_t)plen) > mlen) {
+        raise_execution_error("Function name is too long and not fitting the predefined buffer size");
+        free(mrc);
+        return NULL;
+    }
 
     sp = src;
     mp = mrc + plen;
@@ -227,12 +238,16 @@ static char *create_python_func(callreq req) {
     *mp++ = '\n';
     *mp++ = '\0';
 
-    assert(mp <= mrc + mlen);
+    if (mp > mrc + mlen) {
+        raise_execution_error("Function body is too long and not fitting the predefined buffer size");
+        free(mrc);
+        return NULL;
+    }
 
     return mrc;
 }
 
-static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
+static PyObject *arguments_to_pytuple(plcPyFunction *pyfunc) {
     PyObject *args;
     PyObject *arglist;
     int i;
@@ -262,8 +277,7 @@ static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
             arg = Py_None;
         } else {
             if (pyfunc->args[i].conv.inputfunc == NULL) {
-                raise_execution_error(conn,
-                                      "Parameter '%s' (#%d) type %d is not supported",
+                raise_execution_error("Parameter '%s' (#%d) type %d is not supported",
                                       pyfunc->args[i].argName,
                                       i,
                                       pyfunc->args[i].type);
@@ -275,8 +289,7 @@ static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
 
         /* Argument cannot be NULL unless some error has happened as Py_None != NULL */
         if (arg == NULL) {
-            raise_execution_error(conn,
-                                  "Converting parameter '%s' (#%d) to Python type failed",
+            raise_execution_error("Converting parameter '%s' (#%d) to Python type failed",
                                   pyfunc->args[i].argName, i);
             return NULL;
         }
@@ -284,8 +297,7 @@ static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
         /* Only named arguments are passed to the function input tuple */
         if (pyfunc->args[i].argName != NULL) {
             if (PyTuple_SetItem(args, pos, arg) != 0) { // steals the reference to arg
-                raise_execution_error(conn,
-                                      "Appending Python list element %d for argument '%s' has failed",
+                raise_execution_error("Appending Python list element %d for argument '%s' has failed",
                                       i, pyfunc->args[i].argName);
                 return NULL;
             }
@@ -296,8 +308,7 @@ static PyObject *arguments_to_pytuple(plcConn *conn, plcPyFunction *pyfunc) {
 
         /* All the arguments, including unnamed, are passed to the arguments array */
         if (PyList_SetItem(arglist, i, arg) != 0) { // steals the reference to arg
-            raise_execution_error(conn,
-                                  "Appending Python list element %d for argument '%s' has failed",
+            raise_execution_error("Appending Python list element %d for argument '%s' has failed",
                                   i, pyfunc->args[i].argName);
             return NULL;
         }
@@ -316,6 +327,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
     res->names[0] = (pyfunc->res.argName == NULL) ? NULL : strdup(pyfunc->res.argName);
     res->types    = malloc(1 * sizeof(plcType));
     res->data     = NULL;
+    res->exception_callback = plc_error_callback;
     plc_py_copy_type(&res->types[0], &pyfunc->res);
 
     /* Now we support only functions returning single column */
@@ -333,8 +345,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
             PyObject *obj  = NULL;
 
             if (retobj == NULL) {
-                raise_execution_error(conn,
-                                      "Cannot get iterator out of the returned object");
+                raise_execution_error("Cannot get iterator out of the returned object");
                 free_result(res, true);
                 return -1;
             }
@@ -348,7 +359,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
             }
 
             if (retcode < 0) {
-                raise_execution_error(conn, "Error receiving result data from Python iterator");
+                raise_execution_error("Error receiving result data from Python iterator");
                 free_result(res, true);
                 return -1;
             }
@@ -358,26 +369,32 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
         res->data = malloc(res->rows * sizeof(rawdata*));
         for(i = 0; i < len && retcode == 0; i++) {
             res->data[i] = malloc(res->cols * sizeof(rawdata));
-            retcode = fill_rawdata(&res->data[i][0], conn, PySequence_GetItem(retobj, i), pyfunc);
+            retcode = fill_rawdata(&res->data[i][0], PySequence_GetItem(retobj, i), pyfunc);
         }
     } else {
         res->rows = 1;
         res->data    = malloc(res->rows * sizeof(rawdata*));
         res->data[0] = malloc(res->cols * sizeof(rawdata));
-        retcode = fill_rawdata(&res->data[0][0], conn, retval, pyfunc);
+        retcode = fill_rawdata(&res->data[0][0], retval, pyfunc);
     }
 
     /* If the output operation succeeded we send the result back */
     if (retcode == 0) {
+        /* We manually state that we are sending the data to avoid message interleaving */
+        plc_sending_data = 1;
         plcontainer_channel_send(conn, (message)res);
+        plc_sending_data = 0;
     }
 
     free_result(res, true);
 
+    /* After the message is sent we can safely send exceptions */
+    plc_raise_delayed_error();
+
     return retcode;
 }
 
-static int fill_rawdata(rawdata *res, plcConn *conn, PyObject *retval, plcPyFunction *pyfunc) {
+static int fill_rawdata(rawdata *res, PyObject *retval, plcPyFunction *pyfunc) {
     if (retval == Py_None) {
         res->isnull = 1;
         res->value  = NULL;
@@ -385,16 +402,14 @@ static int fill_rawdata(rawdata *res, plcConn *conn, PyObject *retval, plcPyFunc
         int ret = 0;
         res->isnull = 0;
         if (pyfunc->res.conv.outputfunc == NULL) {
-            raise_execution_error(conn,
-                                  "Type %d is not yet supported by Python container",
+            raise_execution_error("Type %d is not yet supported by Python container",
                                   (int)pyfunc->res.type);
             return -1;
         }
         ret = pyfunc->res.conv.outputfunc(retval, &res->value, &pyfunc->res);
         if (ret != 0) {
-            raise_execution_error(conn,
-                                  "Exception raised converting function output to function output type %d",
-                                  (int)pyfunc->res.type);
+            raise_execution_error("Exception raised converting function output to type %s [%d]",
+                                  plc_get_type_name(pyfunc->res.type), (int)pyfunc->res.type);
             return -1;
         }
     }

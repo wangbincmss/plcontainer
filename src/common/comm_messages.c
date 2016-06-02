@@ -124,6 +124,18 @@ void free_result(plcontainer_result res, bool isSender) {
     pfree(res);
 }
 
+void free_error(error_message msg) {
+    if (msg != NULL) {
+        if (msg->message != NULL) {
+            pfree(msg->message);
+        }
+        if (msg->stacktrace != NULL) {
+            pfree(msg->stacktrace);
+        }
+        pfree(msg);
+    }
+}
+
 plcArray *plc_alloc_array(int ndims) {
     plcArray *arr;
     arr = (plcArray*)pmalloc(sizeof(plcArray));
