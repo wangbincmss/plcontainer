@@ -1,7 +1,9 @@
 #include "pyconversions.h"
 #include "pycall.h"
+#include "pyerror.h"
 #include "common/messages/messages.h"
 #include "common/comm_utils.h"
+
 #include <Python.h>
 
 static PyObject *plc_pyobject_from_int1(char *input, plcPyType *type);
@@ -144,6 +146,7 @@ static PyObject *plc_pyobject_from_udt(char *input, plcPyType *type) {
                                                                       &type->subTypes[i]));
             }
         } else {
+            raise_execution_error("Field %d of the input UDT is unnamed and cannot be converted to Python dict key", i);
             res = NULL;
             break;
         }
@@ -174,8 +177,10 @@ static int plc_pyobject_as_int1(PyObject *input, char **output, plcPyType *type 
         *out = (char)PyLong_AsLongLong(input);
     else if (PyFloat_Check(input))
         *out = (char)PyFloat_AsDouble(input);
-    else
+    else {
+        raise_execution_error("Exception occured transforming result object to int1");
         res = -1;
+    }
     return res;
 }
 
@@ -189,8 +194,10 @@ static int plc_pyobject_as_int2(PyObject *input, char **output, plcPyType *type 
         *((short*)out) = (short)PyLong_AsLongLong(input);
     else if (PyFloat_Check(input))
         *((short*)out) = (short)PyFloat_AsDouble(input);
-    else
+    else {
+        raise_execution_error("Exception occured transforming result object to int2");
         res = -1;
+    }
     return res;
 }
 
@@ -204,8 +211,10 @@ static int plc_pyobject_as_int4(PyObject *input, char **output, plcPyType *type 
         *((int*)out) = (int)PyLong_AsLongLong(input);
     else if (PyFloat_Check(input))
         *((int*)out) = (int)PyFloat_AsDouble(input);
-    else
+    else {
+        raise_execution_error("Exception occured transforming result object to int4");
         res = -1;
+    }
     return res;
 }
 
@@ -219,8 +228,10 @@ static int plc_pyobject_as_int8(PyObject *input, char **output, plcPyType *type 
         *((long long*)out) = (long long)PyInt_AsLong(input);
     else if (PyFloat_Check(input))
         *((long long*)out) = (long long)PyFloat_AsDouble(input);
-    else
+    else {
+        raise_execution_error("Exception occured transforming result object to int8");
         res = -1;
+    }
     return res;
 }
 
@@ -234,8 +245,10 @@ static int plc_pyobject_as_float4(PyObject *input, char **output, plcPyType *typ
         *((float*)out) = (float)PyLong_AsLongLong(input);
     else if (PyInt_Check(input))
         *((float*)out) = (float)PyInt_AsLong(input);
-    else
+    else {
+        raise_execution_error("Exception occured transforming result object to float4");
         res = -1;
+    }
     return res;
 }
 
@@ -249,8 +262,10 @@ static int plc_pyobject_as_float8(PyObject *input, char **output, plcPyType *typ
         *((double*)out) = (double)PyLong_AsLongLong(input);
     else if (PyInt_Check(input))
         *((double*)out) = (double)PyInt_AsLong(input);
-    else
+    else {
+        raise_execution_error("Exception occured transforming result object to float8");
         res = -1;
+    }
     return res;
 }
 
@@ -262,6 +277,8 @@ static int plc_pyobject_as_text(PyObject *input, char **output, plcPyType *type 
         *output = strdup(PyString_AsString(obj));
         Py_DECREF(obj);
     } else {
+        *output = NULL;
+        raise_execution_error("Exception occured transforming result object to text");
         res = -1;
     }
     return res;
@@ -400,6 +417,7 @@ static int plc_pyobject_as_array(PyObject *input, char **output, plcPyType *type
 
         *output = (char*)iter;
     } else {
+        raise_execution_error("Cannot convert non-sequence object to array");
         *output = NULL;
         res = -1;
     }
@@ -410,8 +428,9 @@ static int plc_pyobject_as_array(PyObject *input, char **output, plcPyType *type
 static int plc_pyobject_as_udt(PyObject *input, char **output, plcPyType *type) {
     int res = 0;
 
+    *output = NULL;
     if (!PyDict_Check(input)) {
-        lprintf(ERROR, "Output entry for plcPyType must be dict");
+        raise_execution_error("Only 'dict' object can be converted to UDT %s", type->typeName);
         res = -1;
     } else {
         int i = 0;
@@ -423,6 +442,10 @@ static int plc_pyobject_as_udt(PyObject *input, char **output, plcPyType *type) 
             PyObject *value = NULL;
             value = PyDict_GetItemString(input, type->subTypes[i].typeName);
             if (value == NULL) {
+                udt->data[i].isnull = true;
+                udt->data[i].value = NULL;
+                raise_execution_error("Cannot find key '%s' in result dictionary for converting "
+                                      "it into UDT", type->subTypes[i].typeName);
                 res = -1;
             } else if (value == Py_None) {
                 udt->data[i].isnull = true;
@@ -445,13 +468,13 @@ static int plc_pyobject_as_bytea(PyObject *input, char **output, plcPyType *type
     char *res;
 
     if (input == Py_None) {
-        lprintf(ERROR, "None object cannot be transformed to bytea");
+        raise_execution_error("None object cannot be transformed to bytea");
         return -1;
     }
 
     plrv_so = PyObject_Bytes(input);
     if (!plrv_so) {
-        lprintf(ERROR, "Could not create bytes representation of Python object");
+        raise_execution_error("Could not create bytes representation of Python object");
         return -1;
     }
 
@@ -461,8 +484,6 @@ static int plc_pyobject_as_bytea(PyObject *input, char **output, plcPyType *type
     memcpy(res + 4, PyBytes_AsString(plrv_so), len);
     Py_DECREF(plrv_so);
     *output = res;
-
-    lprintf(WARNING, "~~~~ bytea length = %d", len);
 
     return 0;
 }
@@ -513,8 +534,8 @@ static plcPyInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement
             }
             break;
         default:
-            lprintf(ERROR, "Type %d cannot be passed plc_get_input_function function",
-                    (int)dt);
+            raise_execution_error("Type %s [%d] cannot be passed plc_get_input_function function",
+                                  plc_get_type_name(dt), (int)dt);
             break;
     }
     return res;
@@ -554,8 +575,8 @@ static plcPyOutputFunc plc_get_output_function(plcDatatype dt) {
             res = plc_pyobject_as_udt;
             break;
         default:
-            lprintf(ERROR, "Type %d cannot be passed plc_get_output_function function",
-                    (int)dt);
+            raise_execution_error("Type %s [%d] cannot be passed plc_get_output_function function",
+                                  plc_get_type_name(dt), (int)dt);
             break;
     }
     return res;

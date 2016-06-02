@@ -264,10 +264,7 @@ int plcBufferReceive (plcConn *conn, size_t nBytes) {
             recBytes = plcSocketRecv(conn,
                                      buf->data + buf->pEnd,
                                      buf->bufSize - buf->pEnd);
-            if (recBytes == 0) {
-                return -2;
-            }
-            if (recBytes < 0) {
+            if (recBytes <= 0) {
                 return -1;
             }
             buf->pEnd += recBytes;

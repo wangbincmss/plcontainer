@@ -9,4 +9,6 @@ typedef struct str_error_message {
     char *stacktrace;
 } str_error_message, *error_message;
 
+void free_error(error_message msg);
+
 #endif /* PLC_MESSAGE_ERROR_H */

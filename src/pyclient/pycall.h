@@ -11,10 +11,11 @@
 #define UNUSED __attribute__ (( unused ))
 
 // Global connection object
-plcConn* plcconn_global;
+extern plcConn* plcconn_global;
 
 // Global execution termination flag
 int plc_is_execution_terminated;
+int plc_sending_data;
 
 // Initialization of Python module
 int python_init(void);

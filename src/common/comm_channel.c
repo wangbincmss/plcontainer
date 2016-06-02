@@ -125,11 +125,11 @@ int plcontainer_channel_send(plcConn *conn, message msg) {
 int plcontainer_channel_receive(plcConn *conn, message *plcMsg) {
     int  res;
     char cType;
+
     res = receive_message_type(conn, &cType);
-    if (res == -2) {
+    if (res < 0) {
         res = -3;
-    }
-    if (res == 0) {
+    } else {
         switch (cType) {
             case MT_PING:
                 res = receive_ping(conn, plcMsg);
@@ -651,6 +651,7 @@ static int send_call(plcConn *conn, callreq call) {
 static int send_result(plcConn *conn, plcontainer_result ret) {
     int res = 0;
     int i, j;
+    error_message msg = NULL;
 
     res |= message_start(conn, MT_RESULT);
     debug_print(WARNING, "Sending result of %d rows and %d columns", ret->rows, ret->cols);
@@ -672,8 +673,21 @@ static int send_result(plcConn *conn, plcontainer_result ret) {
             res |= send_raw_object(conn, &ret->types[j], &ret->data[i][j]);
         }
 
+    if (ret->exception_callback != NULL) {
+        msg = (error_message)ret->exception_callback();
+    }
+
+    if (msg == NULL) {
+        res |= send_char(conn, 'N');
+    } else {
+        res |= send_exception(conn, msg);
+        free_error(msg);
+    }
+
     res |= message_end(conn);
+
     debug_print(WARNING, "Finished sending function result");
+
     return res;
 }
 
@@ -729,9 +743,10 @@ static int receive_exception(plcConn *conn, message *mExc) {
 }
 
 static int receive_result(plcConn *conn, message *mRes) {
-    int i, j;
-    int res = 0;
+    int  i, j;
+    int  res = 0;
     plcontainer_result ret;
+    char exc;
 
     *mRes = (message)pmalloc(sizeof(str_plcontainer_result));
     ret = (plcontainer_result) *mRes;
@@ -771,6 +786,12 @@ static int receive_result(plcConn *conn, message *mRes) {
                 ret->data[i] = NULL;
             }
         }
+    }
+
+    res |= receive_char(conn, &exc);
+    if (exc == MT_EXCEPTION) {
+        res |= receive_exception(conn, mRes);
+        free_result(ret, false);
     }
 
     debug_print(WARNING, "Finished receiving function result");

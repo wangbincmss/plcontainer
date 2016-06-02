@@ -246,5 +246,10 @@ static void plcontainer_process_sql(sql_msg msg, plcConn* conn) {
  * Processing client exception message
  */
 static void plcontainer_process_exception(error_message msg) {
-    elog(ERROR, "exception occurred: \n %s \n %s", msg->message, msg->stacktrace);
+    if (msg->stacktrace != NULL) {
+        elog(ERROR, "PL/Container client exception occurred: \n %s \n %s", msg->message, msg->stacktrace);
+    } else {
+        elog(ERROR, "PL/Container client exception occurred: \n %s", msg->message);
+    }
+    free_error(msg);
 }
