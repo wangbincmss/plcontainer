@@ -27,9 +27,6 @@ install: all installdirs install-lib install-extra
 installdirs: installdirs-lib
 	$(MKDIR_P) '$(DESTDIR)$(bindir)'
 	$(MKDIR_P) '$(PLCONTAINERDIR)'
-	$(MKDIR_P) '$(PLCONTAINERDIR)/dockerfiles'
-	$(MKDIR_P) '$(PLCONTAINERDIR)/$(PYCLIENTDIR)'
-	$(MKDIR_P) '$(PLCONTAINERDIR)/$(RCLIENTDIR)'
 
 .PHONY: uninstall
 uninstall: uninstall-lib
@@ -39,23 +36,9 @@ uninstall: uninstall-lib
 .PHONY: install-extra
 install-extra:
 	# Management
-	$(INSTALL_PROGRAM) '$(MGMTDIR)/bin/plcontainer-config' '$(DESTDIR)$(bindir)/plcontainer-config'
+	$(INSTALL_PROGRAM) '$(MGMTDIR)/bin/plcontainer-config'               '$(DESTDIR)$(bindir)/plcontainer-config'
 	$(INSTALL_DATA)    '$(MGMTDIR)/config/plcontainer_configuration.xml' '$(PLCONTAINERDIR)'
 	$(INSTALL_DATA)    '$(MGMTDIR)/sql/plcontainer_install.sql'          '$(PLCONTAINERDIR)'
-	# Dockerfiles
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.R'                    '$(PLCONTAINERDIR)/dockerfiles'
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.python'               '$(PLCONTAINERDIR)/dockerfiles'
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.R.shared'             '$(PLCONTAINERDIR)/dockerfiles'
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.R.base'               '$(PLCONTAINERDIR)/dockerfiles'
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.python.shared'        '$(PLCONTAINERDIR)/dockerfiles'
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.python.anaconda'      '$(PLCONTAINERDIR)/dockerfiles'
-	$(INSTALL_DATA)    '$(DOCKERFILEDIR)/Dockerfile.python.anaconda.base' '$(PLCONTAINERDIR)/dockerfiles'
-	# Clients
-	$(INSTALL_PROGRAM) '$(PYCLIENTDIR)/client'     '$(PLCONTAINERDIR)/$(PYCLIENTDIR)'
-	$(INSTALL_PROGRAM) '$(PYCLIENTDIR)/client.sh'  '$(PLCONTAINERDIR)/$(PYCLIENTDIR)'
-	$(INSTALL_PROGRAM) '$(RCLIENTDIR)/client'      '$(PLCONTAINERDIR)/$(RCLIENTDIR)'
-	$(INSTALL_PROGRAM) '$(RCLIENTDIR)/client.sh'   '$(PLCONTAINERDIR)/$(RCLIENTDIR)'
-	$(INSTALL_DATA)    '$(RCLIENTDIR)/librcall.so' '$(PLCONTAINERDIR)/$(RCLIENTDIR)'
 
 .PHONY: installcheck
 installcheck:
