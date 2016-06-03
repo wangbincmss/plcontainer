@@ -667,6 +667,28 @@ select unnest(a) from (select pytestudt12() as a) as q;
  (7,"{8,88}","{zzz,zzz2}")
 (4 rows)
 
+select * from rtestudt13( (1,2,'a')::test_type3 );
+ a | b | c 
+---+---+---
+ 1 | 2 | a
+(1 row)
+
+select * from unnest(rtestudt14( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] ));
+ a | b | c 
+---+---+---
+ 1 | 1 | a
+ 2 | 2 | b
+ 3 | 3 | c
+(3 rows)
+
+select * from rtestudt15( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] );
+ a | b | c 
+---+---+---
+ 1 | 1 | a
+ 2 | 2 | b
+ 3 | 3 | c
+(3 rows)
+
 select * from pytestudtrecord1() as t(a int, b int, c varchar);
  a | b |  c  
 ---+---+-----
