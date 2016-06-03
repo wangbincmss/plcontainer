@@ -520,6 +520,21 @@ return [ [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c':
          [{'a': 5, 'b': [6,66], 'c': ['buz','buz2']}, {'a': 7, 'b': [8,88], 'c': ['zzz','zzz2']}] ]
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION rtestudt13(r test_type3) RETURNS test_type3 AS $$
+# container: plc_r
+return(r)
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtestudt14(r test_type3[]) RETURNS test_type3[] AS $$
+# container: plc_r
+return(r)
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION rtestudt15(r test_type3[]) RETURNS SETOF test_type3 AS $$
+# container: plc_r
+return(r)
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION rtestudtrecord1() RETURNS record AS $$
 # container: plc_r
 return {'a': 1, 'b': 2, 'c': 'foo'}
@@ -1034,6 +1049,21 @@ CREATE OR REPLACE FUNCTION pytestudt12() RETURNS SETOF test_type4[] AS $$
 # container: plc_python
 return [ [{'a': 1, 'b': [2,22], 'c': ['foo','foo2']}, {'a': 3, 'b': [4,44], 'c': ['bar','bar2']}],
          [{'a': 5, 'b': [6,66], 'c': ['buz','buz2']}, {'a': 7, 'b': [8,88], 'c': ['zzz','zzz2']}] ]
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pytestudt13(r test_type3) RETURNS test_type3 AS $$
+# container: plc_python
+return r
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pytestudt14(r test_type3[]) RETURNS test_type3[] AS $$
+# container: plc_python
+return r
+$$ LANGUAGE plcontainer;
+
+CREATE OR REPLACE FUNCTION pytestudt15(r test_type3[]) RETURNS SETOF test_type3 AS $$
+# container: plc_python
+return r
 $$ LANGUAGE plcontainer;
 
 CREATE OR REPLACE FUNCTION pytestudtrecord1() RETURNS record AS $$

@@ -119,6 +119,9 @@ select rtestudt8();
 select rtestudt9();
 select rtestudt10();
 select rtestudt11();
+select * from rtestudt13( (1,2,'a')::test_type3 );
+select * from unnest(rtestudt14( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] ));
+select * from rtestudt15( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] );
 
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
