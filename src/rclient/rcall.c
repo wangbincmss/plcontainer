@@ -170,7 +170,6 @@ static void load_r_cmd(const char *cmd) {
     SET_STRING_ELT(cmdSexp, 0, COPY_TO_USER_STRING(cmd));
     PROTECT(cmdexpr = R_PARSEVECTOR(cmdSexp, -1, &status));
     if (status != PARSE_OK) {
-        UNPROTECT(2);
         goto error;
     }
 
@@ -188,8 +187,9 @@ static void load_r_cmd(const char *cmd) {
     return;
 
 error:
-    // TODO send error back to client
-    printf("Error loading %s \n ",cmd);
+
+    UNPROTECT(2);
+    plr_error( "Error evaluating function");
     return;
 }
 
@@ -306,7 +306,6 @@ static SEXP parse_r_code(const char *code,  plcConn* conn, int *errorOccurred) {
     }
 
     if (status != PARSE_OK) {
-        UNPROTECT(3);
         if (last_R_error_msg != NULL) {
             errmsg  = strdup(last_R_error_msg);
         } else {
@@ -380,76 +379,6 @@ static char *create_r_func(callreq req) {
     return mrc;
 }
 
-#ifdef XXX
-static int process_data_frame(plcConn *conn, SEXP retval) {
-    SEXP dfcol,
-         dfcolcell;
-
-    int nr,
-        nc,
-        row,
-        col;
-
-    plcROutputFunc *output_functions;
-    plcontainer_result res;
-
-
-    res->data    = malloc(res->rows * sizeof(rawdata*));
-
-    for (i=0; i<res->rows;i++) {
-        res->data[i] = malloc(res->cols * sizeof(rawdata));
-    }
-    plc_r_copy_type(&res->types[0], &r_func->res);
-    res->names[0] = strdup(r_func->res.name);
-        int i=0;
-
-        /* allocate a result */
-        res          = malloc(sizeof(str_plcontainer_result));
-        res->msgtype = MT_RESULT;
-        res->names   = malloc(1 * sizeof(char*));
-        res->types   = malloc(1 * sizeof(plcType));
-        res->exception_callback = NULL;
-
-    /*
-     * dataframes are lists of columns
-     * each column is a list, the length of which is the number of rows
-     * each column will be the same type
-     */
-
-    nc = length(retval);
-
-    // get the first columns, then the length of the first col is the number of rows
-    dfcol = VECTOR_ELT(retval, 0);
-    nr = length(dfcol);
-    output_functions = malloc(nc*sizeof(plcROutputFunc *));
-
-    /* figure out the type for each column */
-
-    for (col=0; col < nc; col++){
-        dfcol = VECTOR_ELT(retval,nc);
-        dfcolcell = VECTOR_ELT(dfcol, 0 );
-
-        switch(TYPEOF(dfcolcell)){
-            case INTSXP:
-                output_functions[col] = plc_r_object_as_int4;
-                break;
-            case REALSXP:
-                output_functions[col] = plc_r_object_as_int4;
-                break;
-            case STRSXP:
-            case LGLSXP:
-        }
-
-    }
-
-    for (row=0; row < nr; row++) {
-        for (col=0;col < nc; col++) {
-
-        }
-    }
-
-}
-#endif
 
 static int handle_frame( SEXP df, plcRFunction *r_func, plcontainer_result res )
 {

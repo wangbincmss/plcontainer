@@ -37,6 +37,11 @@ CREATE TYPE test_type4 AS (
 
 /* ========================== R Functions ========================== */
 
+CREATE OR REPLACE FUNCTION rshouldnotparse() returns text as $$
+# container: plc_r
+return 'hello'
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION rlog100() RETURNS text AS $$
 # container: plc_r
 return(log10(100))
