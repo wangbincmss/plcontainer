@@ -18,5 +18,6 @@ void handle_call(callreq req, plcConn* conn);
 // Initialization of R module
 void r_init( );
 
+void raise_execution_error (plcConn *conn, const char *format, ...);
 
 #endif /* PLC_RCALL_H */

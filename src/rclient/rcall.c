@@ -94,7 +94,6 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
 static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func);
 static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func);
 static void pg_get_one_r(char *value,  plcDatatype column_type, SEXP *obj, int elnum);
-static void raise_execution_error (plcConn *conn, const char *format, ...);
 
 /* Externs */
 extern SEXP plr_SPI_execp(const char * sql);
@@ -697,7 +696,7 @@ static void pg_get_one_r(char *value,  plcDatatype column_type, SEXP *obj, int e
         case PLC_DATA_UDT:
         case PLC_DATA_INVALID:
         case PLC_DATA_ARRAY:
-            lprintf(ERROR, "unhandled type %s [%d]",
+            raise_execution_error(plcconn_global,  "unhandled type %s [%d]",
                            plc_get_type_name(column_type), column_type);
             break;
 
@@ -730,7 +729,7 @@ SEXP plr_SPI_exec(SEXP rsql) {
     UNPROTECT(1);
 
     if (sql == NULL) {
-        error("%s", "cannot execute empty query");
+        raise_execution_error(plcconn_global, "cannot execute empty query");
         return NULL;
     }
 
@@ -755,7 +754,7 @@ SEXP plr_SPI_exec(SEXP rsql) {
 receive:
     res = plcontainer_channel_receive(plcconn_global, &resp);
     if (res < 0) {
-        lprintf (ERROR, "Error receiving data from the backend, %d", res);
+        raise_execution_error(plcconn_global,  "Error receiving data from the backend, %d", res);
         return NULL;
     }
 
@@ -767,7 +766,7 @@ receive:
         case MT_RESULT:
             break;
         default:
-            lprintf(WARNING, "didn't receive result back %c", resp->msgtype);
+            raise_execution_error(plcconn_global, "didn't receive result back %c", resp->msgtype);
             return NULL;
     }
 
@@ -840,7 +839,7 @@ receive:
     return r_result;
 }
 
-static void raise_execution_error (plcConn *conn, const char *format, ...) {
+void raise_execution_error (plcConn *conn, const char *format, ...) {
     va_list        args;
     error_message  err;
     char          *msg;
@@ -884,6 +883,7 @@ void throw_r_error(const char **msg) {
     else
         last_R_error_msg = strdup("caught error calling R function");
 }
+
 
 #ifdef DEBUGPROTECT
 int balance=0;

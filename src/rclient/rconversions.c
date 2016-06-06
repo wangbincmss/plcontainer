@@ -180,7 +180,7 @@ static SEXP plc_r_object_from_array (char *input, plcRType *type) {
                  case PLC_DATA_INVALID:
                  case PLC_DATA_ARRAY:
                  case PLC_DATA_BYTEA:
-                    lprintf(ERROR, "Arrays cannot handle elements of type %s [%d]",
+                     raise_execution_error(plcconn_global, "Arrays cannot handle elements of type %s [%d]",
                                    plc_get_type_name(arr->meta->type),
                                    arr->meta->type);
                     break;
@@ -293,9 +293,10 @@ static SEXP plc_r_object_from_bytea(char *input, plcRType *type UNUSED) {
     PROTECT(result = R_tryEval(s, R_GlobalEnv, &status));
     if (status != 0) {
         if (last_R_error_msg) {
-            lprintf(ERROR, "R interpreter expression evaluation error: %s", last_R_error_msg);
+
+            raise_execution_error(plcconn_global,  "R interpreter expression evaluation error: %s", last_R_error_msg);
         } else {
-            lprintf(ERROR, "R interpreter expression evaluation error: "
+            raise_execution_error(plcconn_global,  "R interpreter expression evaluation error: "
                            "R expression evaluation error caught in \"unserialize\".");
         }
     }
@@ -573,7 +574,7 @@ rawdata *plc_r_vector_element_rawdata(SEXP vector, int idx, plcRType *rtype)
 
             case PLC_DATA_INVALID:
             case PLC_DATA_BYTEA:
-                lprintf(ERROR, "Arrays cannot handle element type %s [%d]", plc_get_type_name(rtype->type), rtype->type);
+                raise_execution_error(plcconn_global, "Arrays cannot handle element type %s [%d]", plc_get_type_name(rtype->type), rtype->type);
                 break;
 
             case PLC_DATA_TEXT:
@@ -782,7 +783,7 @@ static int plc_r_object_as_udt(SEXP input, char **output, plcRType *type) {
     SEXP dfcol;
 
     if ( (names = Rf_GetColNames(input)) == NILSXP) {
-        lprintf(ERROR, "Output entry for plcRType must be a named list");
+        raise_execution_error(plcconn_global,  "Output entry for plcRType must be a named list");
         res = -1;
     } else {
         int i = 0;
@@ -849,9 +850,9 @@ static int plc_r_object_as_bytea(SEXP input, char **output, plcRType *type UNUSE
     PROTECT(obj = R_tryEval(s, R_GlobalEnv, &status));
     if (status != 0) {
         if (last_R_error_msg) {
-            lprintf(ERROR, "R interpreter expression evaluation error: %s", last_R_error_msg);
+            raise_execution_error(plcconn_global, "R interpreter expression evaluation error: %s", last_R_error_msg);
         } else {
-            lprintf(ERROR, "R interpreter expression evaluation error: "
+            raise_execution_error(plcconn_global, "R interpreter expression evaluation error: "
                            "R expression evaluation error caught in \"serialize\".");
         }
         return -1;
@@ -898,7 +899,7 @@ static plcRInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement)
             break;
         case PLC_DATA_BYTEA:
             if (isArrayElement) {
-                lprintf(ERROR, "BYTEA data type is not supported as array element");
+                raise_execution_error(plcconn_global, "BYTEA data type is not supported as array element");
             }
             res = plc_r_object_from_bytea;
             break;
@@ -913,7 +914,7 @@ static plcRInputFunc plc_get_input_function(plcDatatype dt, bool isArrayElement)
             res = plc_r_object_from_array;
             break;
         default:
-            lprintf(ERROR, "Type %s [%d] cannot be passed plc_get_input_function function",
+            raise_execution_error(plcconn_global, "Type %s [%d] cannot be passed plc_get_input_function function",
                            plc_get_type_name(dt), (int)dt);
             break;
     }
@@ -954,7 +955,7 @@ static plcROutputFunc plc_get_output_function(plcDatatype dt) {
             res = plc_r_object_as_udt;
             break;
         default:
-            lprintf(ERROR, "Type %s [%d] cannot be passed plc_get_output_function function",
+            raise_execution_error(plcconn_global, "Type %s [%d] cannot be passed plc_get_output_function function",
                            plc_get_type_name(dt), (int)dt);
             break;
     }
