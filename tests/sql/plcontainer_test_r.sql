@@ -1,4 +1,5 @@
 set datestyle='ISO,MDY';
+select rshouldnotparse();
 select rlog100();
 select rbool('t');
 select rbool('f');
