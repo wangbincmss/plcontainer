@@ -113,7 +113,8 @@ select rtestudt4( array[
 
 select rtestudt5(null::test_type4[]);
 select rtestudt5(array[null]::test_type4[]);
-select rtestudt6();
+select rtestudt6a();
+select rtestudt6b();
 select rtestudt7();
 select rtestudt8();
 select rtestudt9();
