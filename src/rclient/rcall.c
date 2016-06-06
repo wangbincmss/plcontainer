@@ -451,6 +451,74 @@ static int process_data_frame(plcConn *conn, SEXP retval) {
 }
 #endif
 
+static int handle_frame( SEXP df, plcRFunction *r_func, plcontainer_result res )
+{
+    int row, col,cols;
+
+    // a data frame is an array of columns, the length of which is the number of columns
+    res->cols = 1;
+    cols = length(df);
+    SEXP dfcol = VECTOR_ELT(df, 0);
+    res->rows = length(dfcol);
+    res->data = pmalloc(res->rows * sizeof(rawdata *));
+
+
+    plc_r_copy_type(&res->types[0], &r_func->res);
+    res->names[0] = strdup(r_func->res.argName);
+
+    for ( row=0; row < res->rows; row++ ) {
+        plcUDT *udt;
+
+        // allocate space for the data
+        res->data[row]=pmalloc(sizeof(rawdata));
+
+        // allocate space for the UDT
+        udt = pmalloc(sizeof(plcUDT));
+
+        // allocate space for the columns of the UDT
+        udt->data = pmalloc(cols * sizeof(rawdata));
+
+        for ( col = 0; col < cols; col++ ) {
+
+            PROTECT(dfcol = VECTOR_ELT(df, col));
+            /*
+            * R stores characters in factors for efficiency...
+            */
+            if ( isFactor(dfcol) ){
+              /*
+               * a factor is a special type of integer
+               * but must check for NA value first
+               */
+               if (INTEGER(dfcol)[row] != NA_INTEGER){
+                   SEXP c;
+                   PROTECT( c = Rf_asCharacterFactor(dfcol) );
+
+                   rawdata *datum = plc_r_vector_element_rawdata(c, row, &r_func->res.subTypes[col] );
+                   udt->data[col].isnull = datum->isnull;
+                   udt->data[col].value = datum->value;
+
+                   UNPROTECT(1);
+                   free(datum);
+
+               }else{
+                   udt->data[col].isnull = TRUE;
+                   udt->data[col].value = NULL;
+               }
+
+            }else{
+               rawdata *datum = plc_r_vector_element_rawdata(dfcol, row, &r_func->res.subTypes[col] );
+               udt->data[col].isnull = datum->isnull;
+               udt->data[col].value = datum->value;
+               free(datum);
+            }
+            UNPROTECT(1);
+        }
+        res->data[row]->value = (char *)udt;
+        res->data[row]->isnull=FALSE;
+    }
+    return 0;
+
+}
 static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcontainer_result res )
 {
     int i=0, cols,start=0;
@@ -505,6 +573,8 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
 
     if ( isMatrix(retval) || (IS_CHARACTER(retval) && getAttrib(retval, R_DimSymbol) != R_NilValue) ){
         handle_matrix_set( retval, r_func, res );
+    }else if (isFrame(retval)){
+        handle_frame( retval, r_func, res);
     }else{
         res->rows = length(retval);
         res->cols = 1;
@@ -552,21 +622,9 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
             return -1;
         }
     }else{
-        if (Rf_isFrame(retval)){
-            SEXP dfcol;
 
-            /* at this point I have no idea why this is so */
-            PROTECT(dfcol = VECTOR_ELT(retval, 0));
-            res->rows = 1;//length(dfcol);
-            UNPROTECT(1);
-
-            res->cols   = 1;
-
-        }else{
-            res->rows   = 1;
-            res->cols   = 1;
-        }
-
+        res->rows   = 1;
+        res->cols   = 1;
 
         res->data = malloc(res->rows * sizeof(rawdata*));
         for (i=0; i<res->rows;i++){

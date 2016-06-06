@@ -367,9 +367,30 @@ for (el in r){
 }
 return(3)
 $$ LANGUAGE plcontainer;
-CREATE OR REPLACE FUNCTION rtestudt6() RETURNS test_type AS $$
+CREATE OR REPLACE FUNCTION rtestudt6a() RETURNS test_type AS $$
 # container: plc_r
-x<-data.frame(TRUE,as.integer(1),as.integer(2),3,4,5,6,'foo')
+a=TRUE
+b=as.integer(1)
+c=as.integer(2)
+d=3
+e=4
+f=4
+g=6
+h='foo'
+x<-data.frame(a,b,c,d,e,f,g,h)
+$$ LANGUAGE plcontainer;
+CREATE OR REPLACE FUNCTION rtestudt6b() RETURNS setof test_type AS $$
+# container: plc_r
+a=c(TRUE,FALSE,TRUE)
+b=as.integer(c(1,2,3))
+c=as.integer(c(5,6,7))
+d=c(8,9,10)
+e=c(1.0, 2.0, 3.0)
+f=c(4.0, 5.0, 6.0)
+g=c(7,8,9)
+h=c('foo','bar','zzz')
+x<-data.frame(a,b,c,d,e,f,g,h)
+return(x)
 $$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION rtestudt7() RETURNS test_type3[] AS $$
 # container: plc_r
@@ -451,11 +472,14 @@ return(r)
 $$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION rtestudtrecord1() RETURNS record AS $$
 # container: plc_r
-return {'a': 1, 'b': 2, 'c': 'foo'}
+data.frame(1,  2,  'foo' )
 $$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION rtestudtrecord2() RETURNS SETOF record AS $$
 # container: plc_r
-return [{'a': 1, 'b': 2, 'c': 'foo'}, {'a': 3, 'b': 4, 'c': 'bar'}]
+l=list()
+l[[1]] = data.frame(1,  2,  'foo' )
+l[[2]] = data.frame(3,  4,  'bar' )
+return (l)
 $$ LANGUAGE plcontainer;
 CREATE OR REPLACE FUNCTION rversion() RETURNS varchar AS $$
 # container : plc_r_shared
