@@ -7,42 +7,42 @@
 #include "rcall.h"
 #include "rlogging.h"
 
-static SEXP plr_output(volatile int,  char *args);
+static SEXP plr_output(volatile int,  SEXP args);
 
-SEXP plr_debug(char *args) {
+SEXP plr_debug(SEXP args) {
     return plr_output(DEBUG2, args);
 }
 
-SEXP plr_log( char *args) {
+SEXP plr_log( SEXP args) {
     return plr_output(LOG,  args);
 }
 
-SEXP plr_info( char *args) {
+SEXP plr_info( SEXP args) {
     return plr_output(INFO,  args);
 }
 
-SEXP plr_notice( char *args) {
+SEXP plr_notice( SEXP args) {
     return plr_output(NOTICE,  args);
 }
 
-SEXP plr_warning( char *args) {
+SEXP plr_warning( SEXP args) {
     return plr_output(WARNING,  args);
 }
 
-SEXP plr_error( char *args) {
+SEXP plr_error( SEXP args) {
     return plr_output(ERROR,  args);
 }
 
-SEXP plr_fatal( char *args) {
+SEXP plr_fatal( SEXP args) {
     return plr_output(FATAL,  args);
 }
 
-static SEXP plr_output(volatile int level, char *msg_arg) {
+static SEXP plr_output(volatile int level, SEXP args) {
     plcConn     *conn = plcconn_global;
     log_message msg;
 
     if (plc_is_execution_terminated == 0) {
-        char *str_msg = strdup( msg_arg );
+        char *str_msg = strdup( CHAR( asChar(args)));
 
 
         if (level >= ERROR)

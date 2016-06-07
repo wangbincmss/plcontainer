@@ -1,4 +1,12 @@
 set datestyle='ISO,MDY';
+select rshouldnotparse();
+ERROR:  PL/Container client exception occurred: (plcontainer.c:250)
+DETAIL:  
+ Parse Error
+rshouldnotparse <- function(args) {
+# container: plc_r
+return 'hello'
+}
 select rlog100();
  rlog100 
 ---------

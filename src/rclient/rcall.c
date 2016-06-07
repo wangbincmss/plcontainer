@@ -188,7 +188,7 @@ static void load_r_cmd(const char *cmd) {
 error:
 
     UNPROTECT(2);
-    plr_error( "Error evaluating function");
+    raise_execution_error(plcconn_global,  "Error evaluating function");
     return;
 }
 

@@ -3,12 +3,12 @@
 
 #include <R.h>
 
-SEXP plr_debug( char *args );
-SEXP plr_log( char *args );
-SEXP plr_info( char *args );
-SEXP plr_notice( char *args );
-SEXP plr_warning( char *args );
-SEXP plr_error( char *args );
-SEXP plr_fatal( char *args );
+SEXP plr_debug( SEXP args );
+SEXP plr_log( SEXP args );
+SEXP plr_info( SEXP args );
+SEXP plr_notice( SEXP args );
+SEXP plr_warning( SEXP args );
+SEXP plr_error( SEXP args );
+SEXP plr_fatal( SEXP args );
 
 #endif /* PLC_RLOGGING_H */
