@@ -122,6 +122,7 @@ static PyObject *plc_pyobject_from_array (char *input, plcPyType *type) {
         pos = arr->data;
         vallen = plc_get_type_length(arr->meta->type);
         res = plc_pyobject_from_array_dim(arr, &type->subTypes[0], idx, &ipos, &pos, vallen, 0);
+        free(idx);
     }
 
     return res;
@@ -131,6 +132,7 @@ static PyObject *plc_pyobject_from_udt(char *input, plcPyType *type) {
     plcUDT *udt;
     int i;
     PyObject *res = NULL;
+    PyObject *obj = NULL;
 
     udt = (plcUDT*)input;
     res = PyDict_New();
@@ -138,12 +140,12 @@ static PyObject *plc_pyobject_from_udt(char *input, plcPyType *type) {
     for (i = 0; i < type->nSubTypes; i++) {
         if (type->subTypes[i].typeName != NULL) {
             if (udt->data[i].isnull) {
-                Py_INCREF(Py_None);
                 PyDict_SetItemString(res, type->subTypes[i].typeName, Py_None);
             } else {
-                PyDict_SetItemString(res, type->subTypes[i].typeName,
-                                     type->subTypes[i].conv.inputfunc(udt->data[i].value,
-                                                                      &type->subTypes[i]));
+                obj = type->subTypes[i].conv.inputfunc(udt->data[i].value,
+                                                       &type->subTypes[i]);
+                PyDict_SetItemString(res, type->subTypes[i].typeName, obj);
+                Py_XDECREF(obj);
             }
         } else {
             raise_execution_error("Field %d of the input UDT is unnamed and cannot be converted to Python dict key", i);
@@ -317,6 +319,7 @@ static rawdata *plc_pyobject_as_array_next (plcIterator *iter) {
         res->isnull = 0;
         meta->outputfunc(obj, &res->value, meta->type);
     }
+    Py_XDECREF(obj);
 
     while (ptr >= 0) {
         ptrs[ptr].pos += 1;
@@ -332,7 +335,6 @@ static rawdata *plc_pyobject_as_array_next (plcIterator *iter) {
             ptr += 1;
             while (ptr < meta->ndims) {
                 ptrs[ptr].obj = PySequence_GetItem(ptrs[ptr-1].obj, ptrs[ptr-1].pos);
-                Py_INCREF(ptrs[ptr].obj);
                 ptrs[ptr].pos = 0;
                 ptr += 1;
             }
@@ -356,8 +358,9 @@ static int plc_pyobject_as_array(PyObject *input, char **output, plcPyType *type
     plcPyArrPointer *ptrs;
 
     /* We allow only lists to be returned as arrays */
-    if (PySequence_Check(input)) {
+    if (PySequence_Check(input) && !PyString_Check(input)) {
         obj = input;
+        Py_INCREF(obj);
         /* We want to iterate through all iterable objects except by strings */
         while (obj != NULL && PySequence_Check(obj) && !PyString_Check(obj)) {
             int len = PySequence_Length(obj);
@@ -367,13 +370,13 @@ static int plc_pyobject_as_array(PyObject *input, char **output, plcPyType *type
             }
             dims[ndims] = len;
             stack[ndims] = obj;
-            Py_INCREF(stack[ndims]);
             ndims += 1;
             if (dims[ndims-1] > 0)
                 obj = PySequence_GetItem(obj, 0);
             else
                 break;
         }
+        Py_XDECREF(obj);
 
         /* Allocate the iterator */
         iter = (plcIterator*)pmalloc(sizeof(plcIterator));
