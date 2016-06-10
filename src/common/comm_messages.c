@@ -32,11 +32,15 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "messages/messages.h"
 
 /* Recursive function to free up the type structure */
-static void free_subtypes(plcType *typArr) {
+static void free_type(plcType *typArr) {
+    if (typArr->typeName != NULL) {
+        pfree(typArr->typeName);
+    }
     if (typArr->nSubTypes > 0) {
         int i = 0;
-        for (i = 0; i < typArr->nSubTypes; i++)
-            free_subtypes(&typArr->subTypes[i]);
+        for (i = 0; i < typArr->nSubTypes; i++) {
+            free_type(&typArr->subTypes[i]);
+        }
         pfree(typArr->subTypes);
     }
 }
@@ -69,11 +73,11 @@ void free_callreq(callreq req, bool isShared, bool isSender) {
                 pfree(req->args[i].data.value);
             }
         }
-        free_subtypes(&req->args[i].type);
+        free_type(&req->args[i].type);
     }
     pfree(req->args);
 
-    free_subtypes(&req->retType);
+    free_type(&req->retType);
 
     /* free the top-level request */
     pfree(req);
@@ -116,7 +120,7 @@ void free_result(plcontainer_result res, bool isSender) {
         if (res->names[i] != NULL) {
             pfree(res->names[i]);
         }
-        free_subtypes(&res->types[i]);
+        free_type(&res->types[i]);
     }
     pfree(res->types);
     pfree(res->names);

@@ -169,6 +169,7 @@ void handle_call(callreq req, plcConn *conn) {
     pyfunc->call = NULL;
     Py_XDECREF(args);
     Py_XDECREF(retval);
+
     return;
 }
 
@@ -296,13 +297,13 @@ static PyObject *arguments_to_pytuple(plcPyFunction *pyfunc) {
 
         /* Only named arguments are passed to the function input tuple */
         if (pyfunc->args[i].argName != NULL) {
+            /* As the object reference will be stolen by setitem we need to incref */
+            Py_INCREF(arg);
             if (PyTuple_SetItem(args, pos, arg) != 0) { // steals the reference to arg
                 raise_execution_error("Appending Python list element %d for argument '%s' has failed",
                                       i, pyfunc->args[i].argName);
                 return NULL;
             }
-            /* As the object reference was stolen by setitem we need to incref */
-            Py_INCREF(arg);
             pos += 1;
         }
 
@@ -337,12 +338,12 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
         int       i      = 0;
         int       len    = 0;
         PyObject *retobj = retval;
+        PyObject *obj    = NULL;
 
         if (PySequence_Check(retval)) {
             len = PySequence_Length(retval);
         } else {
-            PyObject *iter = PyObject_GetIter(retval);
-            PyObject *obj  = NULL;
+            PyObject *iter = NULL;
 
             if (retobj == NULL) {
                 raise_execution_error("Cannot get iterator out of the returned object");
@@ -350,13 +351,17 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
                 return -1;
             }
 
+            iter = PyObject_GetIter(retval);
             retobj = PyList_New(0);
             obj = PyIter_Next(iter);
             while (obj != NULL && retcode == 0) {
                 len += 1;
                 retcode = PyList_Append(retobj, obj);
+                Py_DECREF(obj);
                 obj = PyIter_Next(iter);
             }
+            Py_XDECREF(obj);
+            Py_DECREF(iter);
 
             if (retcode < 0) {
                 raise_execution_error("Error receiving result data from Python iterator");
@@ -369,7 +374,9 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
         res->data = malloc(res->rows * sizeof(rawdata*));
         for(i = 0; i < len && retcode == 0; i++) {
             res->data[i] = malloc(res->cols * sizeof(rawdata));
-            retcode = fill_rawdata(&res->data[i][0], PySequence_GetItem(retobj, i), pyfunc);
+            obj = PySequence_GetItem(retobj, i);
+            retcode = fill_rawdata(&res->data[i][0], obj, pyfunc);
+            Py_XDECREF(obj);
         }
     } else {
         res->rows = 1;
