@@ -82,7 +82,7 @@ for _ in range(nrows):
 $BODY$ language plpythonu volatile;
 
 
-create or replace function generate_udt1(a int) returns endurance_udt1 as $BODY$
+create or replace function generate_udt1() returns endurance_udt1 as $BODY$
 import random
 
 def randstr(n):
@@ -93,7 +93,7 @@ return {'a': random.randint(1,100), 'b': random.random(), 'c': randstr(10)}
 $BODY$ language plpythonu volatile;
 
 
-create or replace function generate_udt2(a int) returns endurance_udt2 as $BODY$
+create or replace function generate_udt2() returns endurance_udt2 as $BODY$
 import random
 
 def randstr(n):
@@ -104,6 +104,7 @@ return {'a': [random.randint(1,100) for _ in range(random.randint(1,100))],
         'b': [random.random() for _ in range(random.randint(1,100))],
         'c': [randstr(random.randint(1,50)) for _ in range(random.randint(1,100))]}
 $BODY$ language plpythonu volatile;
+
 
 insert into endurance_test
     select * from generate_rows(1000) as tt (
@@ -144,11 +145,11 @@ update endurance_test as et
         ) as q
     where q.b = et.b;
         
-insert into endurance_test select * from endurance_test; -- 2000
-insert into endurance_test select * from endurance_test; -- 4000
-insert into endurance_test select * from endurance_test; -- 8000
-insert into endurance_test select * from endurance_test; -- 16000
-insert into endurance_test select * from endurance_test; -- 32000
+    insert into endurance_test select * from endurance_test; -- 2000
+    insert into endurance_test select * from endurance_test; -- 4000
+    insert into endurance_test select * from endurance_test; -- 8000
+    insert into endurance_test select * from endurance_test; -- 16000
+    insert into endurance_test select * from endurance_test; -- 32000
 
 /* ======================================================================== */
 /* PL/Container Python functions */
