@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import random
 import datetime as dt
 import os
 from optparse import OptionParser
@@ -97,10 +98,27 @@ def run_test(query, dburl, runtime):
     starttime = dt.datetime.now()
     execnum = 1
     while ( (dt.datetime.now() - starttime).seconds < runtime ):
-        logger.debug("Execution %d" % execnum)
+        logger.debug("Execution #%d" % execnum)
         res = execute(conn, query)
         if res != [[0]]:
             logger.error('Query returned incorrect result: %s' % str(res))
+            return -1
+        execnum += 1
+    conn.close()
+    return 0
+
+
+def run_rand_test(dburl, runtime):
+    conn = dbconn.connect(dburl)
+    logger.info('Running random queries test')
+    starttime = dt.datetime.now()
+    execnum = 1
+    while ( (dt.datetime.now() - starttime).seconds < runtime ):
+        query = random.choice(QUERIES)
+        logger.debug("Execution #%d query '%s'" % (execnum, query))
+        res = execute(conn, query)
+        if res != [[0]]:
+            logger.error('Query "%s" returned incorrect result: %s' % (query, str(res)))
             return -1
         execnum += 1
     conn.close()
@@ -126,6 +144,7 @@ def run(dbname, runtime):
                          port     = 5432,
                          dbname   = dbname,
                          username = 'vagrant')
+    run_rand_test(dburl, runtime)
     for query in QUERIES:
         if run_test(query, dburl, runtime) < 0:
             return
