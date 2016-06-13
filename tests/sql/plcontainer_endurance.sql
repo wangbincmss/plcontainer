@@ -393,7 +393,7 @@ CREATE OR REPLACE FUNCTION pyaudt2(u endurance_udt2[]) RETURNS endurance_udt2[] 
 return u
 $$ LANGUAGE plpythonu volatile;
 
-/* Queries used for testing:
+/* Queries used for testing Python:
 select count(*) from endurance_test where plcbool(a) != pybool(a);
 select count(*) from endurance_test where plcint(b) != pyint(b);
 select count(*) from endurance_test where plcint(c) != pyint(c);
@@ -418,6 +418,233 @@ select count(*) from endurance_test where plcatimestamp(u) != pyatimestamp(u);
 select count(*) from endurance_test where plcavarchar(v) != pyavarchar(v);
 select count(*) from endurance_test where plcatext(w) != pyatext(w);
 select count(*) from endurance_test where plcabytea(x) != pyabytea(x);
-select count(*) from endurance_test where plcaudt1(y) is not null;
-select count(*) from endurance_test where plcaudt2(z) is not null;
+select count(*) from endurance_test where plcaudt1(y) is null;
+select count(*) from endurance_test where plcaudt2(z) is null;
+*/
+
+/* ======================================================================== */
+/* PL/Container R functions */
+/* ======================================================================== */
+
+CREATE OR REPLACE FUNCTION rbool(b bool) RETURNS bool AS $$
+# container: plc_r
+return (b)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rint(i int2) RETURNS int2 AS $$
+# container: plc_r
+return (i)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rint(i int4) RETURNS int4 AS $$
+# container: plc_r
+return (i)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rint(i int8) RETURNS int8 AS $$
+# container: plc_r
+return (i)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rfloat(f float4) RETURNS float4 AS $$
+# container: plc_r
+return (f)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rfloat(f float8) RETURNS float8 AS $$
+# container: plc_r
+return (f)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rnumeric(n numeric) RETURNS numeric AS $$
+# container: plc_r
+return (n)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rtimestamp(t timestamp) RETURNS timestamp AS $$
+# container: plc_r
+return (t)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rvarchar(t varchar) RETURNS varchar AS $$
+# container: plc_r
+return (t)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rtext(t text) RETURNS text AS $$
+# container: plc_r
+return (t)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rbytea(r bytea) RETURNS bytea AS $$
+# container: plc_r
+return (r)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rudt1(u endurance_udt1) RETURNS endurance_udt1 AS $$
+# container: plc_r
+return (u)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rudt2(u endurance_udt2) RETURNS endurance_udt2 AS $$
+# container: plc_r
+return (u)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rabool(b bool[]) RETURNS bool[] AS $$
+# container: plc_r
+return (b)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION raint(i int2[]) RETURNS int2[] AS $$
+# container: plc_r
+return (i)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION raint(i int4[]) RETURNS int4[] AS $$
+# container: plc_r
+return (i)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION raint(i int8[]) RETURNS int8[] AS $$
+# container: plc_r
+return (i)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rafloat(f float4[]) RETURNS float4[] AS $$
+# container: plc_r
+return (f)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rafloat(f float8[]) RETURNS float8[] AS $$
+# container: plc_r
+return (f)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION ranumeric(n numeric[]) RETURNS numeric[] AS $$
+# container: plc_r
+return (n)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION ratimestamp(t timestamp[]) RETURNS timestamp[] AS $$
+# container: plc_r
+return (t)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION ravarchar(t varchar[]) RETURNS varchar[] AS $$
+# container: plc_r
+return (t)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION ratext(t text[]) RETURNS text[] AS $$
+# container: plc_r
+return (t)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rabytea(r bytea[]) RETURNS bytea[] AS $$
+# container: plc_r
+return (r)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION raudt1(u endurance_udt1[]) RETURNS endurance_udt1[] AS $$
+# container: plc_r
+return (u)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION raudt2(u endurance_udt2[]) RETURNS endurance_udt2[] AS $$
+# container: plc_r
+return (u)
+$$ LANGUAGE plcontainer volatile;
+
+create or replace function rbyteaout1(arg endurance_udt1) returns bytea as $$
+# container: plc_r
+return (arg)
+$$ language plcontainer;
+
+create or replace function rbyteain1(arg bytea) returns endurance_udt1 as $$
+# container: plc_r
+return (arg)
+$$ language plcontainer;
+
+create or replace function rbyteaout2(arg endurance_udt2) returns bytea as $$
+# container: plc_r
+return (arg)
+$$ language plcontainer;
+
+create or replace function rbyteain2(arg bytea) returns endurance_udt2 as $$
+# container: plc_r
+return (arg)
+$$ language plcontainer;
+
+create or replace function rbyteaout3(arg endurance_udt1[]) returns bytea as $$
+# container: plc_r
+return (arg)
+$$ language plcontainer;
+
+create or replace function rbyteain3(arg bytea) returns endurance_udt1[] as $$
+# container: plc_r
+return (arg)
+$$ language plcontainer;
+
+create or replace function rbyteaout4(arg endurance_udt2[]) returns bytea as $$
+# container: plc_r
+return (arg)
+$$ language plcontainer;
+
+create or replace function rbyteain4(arg bytea) returns endurance_udt2[] as $$
+# container: plc_r
+return (arg)
+$$ language plcontainer;
+
+
+/* Queries used for testing R:
+select count(*) from endurance_test where rbool(a) is null;
+select count(*) from endurance_test where rint(b) is null;
+select count(*) from endurance_test where rint(c) is null;
+select count(*) from endurance_test where rint(d) is null;
+select count(*) from endurance_test where rfloat(e) is null;
+select count(*) from endurance_test where rfloat(f) is null;
+select count(*) from endurance_test where rnumeric(g) is null;
+select count(*) from endurance_test where rtimestamp(h) is null;
+select count(*) from endurance_test where rvarchar(i) is null;
+select count(*) from endurance_test where rtext(j) is null;
+select count(*) from endurance_test where rudt1(l) is null;
+select count(*) from endurance_test where rudt2(m) is null;
+select count(*) from endurance_test where rabool(n) is null;
+select count(*) from endurance_test where raint(o) is null;
+select count(*) from endurance_test where raint(p) is null;
+select count(*) from endurance_test where raint(q) is null;
+select count(*) from endurance_test where rafloat(r) is null;
+select count(*) from endurance_test where rafloat(s) is null;
+select count(*) from endurance_test where ranumeric(t) is null;
+select count(*) from endurance_test where ratimestamp(u) is null;
+select count(*) from endurance_test where ravarchar(v) is null;
+select count(*) from endurance_test where ratext(w) is null;
+select count(*) from endurance_test where raudt1(y) is null;
+select count(*) from endurance_test where raudt2(z) is null;
+select count(*) from endurance_test where rbyteaout1(l) is null;
+select count(*) from endurance_test where rbyteain1(rbyteaout1(l)) is null;
+select count(*) from endurance_test where rbyteaout2(m) is null;
+select count(*) from endurance_test where rbyteain2(rbyteaout2(m)) is null;
+select count(*) from endurance_test where rbyteaout3(y) is null;
+select count(*) from endurance_test where rbyteain3(rbyteaout3(y)) is null;
+select count(*) from endurance_test where rbyteaout4(z) is null;
+select count(*) from endurance_test where rbyteain4(rbyteaout4(z)) is null;
+*/
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
