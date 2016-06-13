@@ -285,6 +285,16 @@ CREATE OR REPLACE FUNCTION plcaudt2(u endurance_udt2[]) RETURNS endurance_udt2[]
 return u
 $$ LANGUAGE plcontainer volatile;
 
+CREATE OR REPLACE FUNCTION plcsudt1(u endurance_udt1[]) RETURNS SETOF endurance_udt1 AS $$
+# container: plc_python
+return u
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION plcsudt2(u endurance_udt2[]) RETURNS SETOF endurance_udt2 AS $$
+# container: plc_python
+return u
+$$ LANGUAGE plcontainer volatile;
+
 /* ======================================================================== */
 /* Untrusted PL/Python functions */
 /* ======================================================================== */
@@ -420,6 +430,8 @@ select count(*) from endurance_test where plcatext(w) != pyatext(w);
 select count(*) from endurance_test where plcabytea(x) != pyabytea(x);
 select count(*) from endurance_test where plcaudt1(y) is null;
 select count(*) from endurance_test where plcaudt2(z) is null;
+select count(*) from (select plcsudt1(y) as y from endurance_test) as q where y is null;
+select count(*) from (select plcsudt2(z) as z from endurance_test) as q where z is null;
 */
 
 /* ======================================================================== */
@@ -556,6 +568,16 @@ CREATE OR REPLACE FUNCTION raudt2(u endurance_udt2[]) RETURNS endurance_udt2[] A
 return (u)
 $$ LANGUAGE plcontainer volatile;
 
+CREATE OR REPLACE FUNCTION rsudt1(u endurance_udt1[]) RETURNS SETOF endurance_udt1 AS $$
+# container: plc_r
+return (u)
+$$ LANGUAGE plcontainer volatile;
+
+CREATE OR REPLACE FUNCTION rsudt2(u endurance_udt2[]) RETURNS SETOF endurance_udt2 AS $$
+# container: plc_r
+return (u)
+$$ LANGUAGE plcontainer volatile;
+
 create or replace function rbyteaout1(arg endurance_udt1) returns bytea as $$
 # container: plc_r
 return (arg)
@@ -622,6 +644,8 @@ select count(*) from endurance_test where ravarchar(v) is null;
 select count(*) from endurance_test where ratext(w) is null;
 select count(*) from endurance_test where raudt1(y) is null;
 select count(*) from endurance_test where raudt2(z) is null;
+select count(*) from (select rsudt1(y) as y from endurance_test) as q where y is null;
+select count(*) from (select rsudt2(z) as z from endurance_test) as q where z is null;
 select count(*) from endurance_test where rbyteaout1(l) is null;
 select count(*) from endurance_test where rbyteain1(rbyteaout1(l)) is null;
 select count(*) from endurance_test where rbyteaout2(m) is null;

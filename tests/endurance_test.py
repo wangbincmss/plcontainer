@@ -42,7 +42,9 @@ QUERIES_PYTHON = [
         'select count(*) from endurance_test where plcatext(w) != pyatext(w);',
         'select count(*) from endurance_test where plcabytea(x) != pyabytea(x);',
         'select count(*) from endurance_test where plcaudt1(y) is null;',
-        'select count(*) from endurance_test where plcaudt2(z) is null;'
+        'select count(*) from endurance_test where plcaudt2(z) is null;',
+        'select count(*) from (select plcsudt1(y) as y from endurance_test) as q where y is null;',
+        'select count(*) from (select plcsudt2(z) as z from endurance_test) as q where z is null;'
     ]
 
 QUERIES_R = [
@@ -70,6 +72,8 @@ QUERIES_R = [
         'select count(*) from endurance_test where ratext(w) is null;',
         'select count(*) from endurance_test where raudt1(y) is null;',
         'select count(*) from endurance_test where raudt2(z) is null;',
+        'select count(*) from (select rsudt1(y) as y from endurance_test) as q where y is null;',
+        'select count(*) from (select rsudt2(z) as z from endurance_test) as q where z is null;',
         'select count(*) from endurance_test where rbyteaout1(l) is null;',
         'select count(*) from endurance_test where rbyteain1(rbyteaout1(l)) is null;',
         'select count(*) from endurance_test where rbyteaout2(m) is null;',
