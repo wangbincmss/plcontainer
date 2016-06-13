@@ -16,7 +16,7 @@ except ImportError, e:
     sys.exit('ERROR: Cannot import Greenplum modules.  Please check that you have sourced greenplum_path.sh.  Detail: ' + str(e))
 
 
-QUERIES = [
+QUERIES_PYTHON = [
         'select count(*) from endurance_test where plcbool(a) != pybool(a);',
         'select count(*) from endurance_test where plcint(b) != pyint(b);',
         'select count(*) from endurance_test where plcint(c) != pyint(c);',
@@ -45,6 +45,41 @@ QUERIES = [
         'select count(*) from endurance_test where plcaudt2(z) is null;'
     ]
 
+QUERIES_R = [
+        'select count(*) from endurance_test where rbool(a) is null;',
+        'select count(*) from endurance_test where rint(b) is null;',
+        'select count(*) from endurance_test where rint(c) is null;',
+        'select count(*) from endurance_test where rint(d) is null;',
+        'select count(*) from endurance_test where rfloat(e) is null;',
+        'select count(*) from endurance_test where rfloat(f) is null;',
+        'select count(*) from endurance_test where rnumeric(g) is null;',
+        'select count(*) from endurance_test where rtimestamp(h) is null;',
+        'select count(*) from endurance_test where rvarchar(i) is null;',
+        'select count(*) from endurance_test where rtext(j) is null;',
+        'select count(*) from endurance_test where rudt1(l) is null;',
+        'select count(*) from endurance_test where rudt2(m) is null;',
+        'select count(*) from endurance_test where rabool(n) is null;',
+        'select count(*) from endurance_test where raint(o) is null;',
+        'select count(*) from endurance_test where raint(p) is null;',
+        'select count(*) from endurance_test where raint(q) is null;',
+        'select count(*) from endurance_test where rafloat(r) is null;',
+        'select count(*) from endurance_test where rafloat(s) is null;',
+        'select count(*) from endurance_test where ranumeric(t) is null;',
+        'select count(*) from endurance_test where ratimestamp(u) is null;',
+        'select count(*) from endurance_test where ravarchar(v) is null;',
+        'select count(*) from endurance_test where ratext(w) is null;',
+        'select count(*) from endurance_test where raudt1(y) is null;',
+        'select count(*) from endurance_test where raudt2(z) is null;',
+        'select count(*) from endurance_test where rbyteaout1(l) is null;',
+        'select count(*) from endurance_test where rbyteain1(rbyteaout1(l)) is null;',
+        'select count(*) from endurance_test where rbyteaout2(m) is null;',
+        'select count(*) from endurance_test where rbyteain2(rbyteaout2(m)) is null;',
+        'select count(*) from endurance_test where rbyteaout3(y) is null;',
+        'select count(*) from endurance_test where rbyteain3(rbyteaout3(y)) is null;',
+        'select count(*) from endurance_test where rbyteaout4(z) is null;',
+        'select count(*) from endurance_test where rbyteain4(rbyteaout4(z)) is null;'
+    ]
+
 
 def parseargs():
     parser = OptionParser()
@@ -57,10 +92,14 @@ def parseargs():
                       help='SQL script to create endurance test database with all the data and functions')
     parser.add_option('-c', '--containersql', type='string', default='../management/sql/plcontainer_install.sql',
                       help='SQL script to create PL/Container language in given database')
+    parser.add_option('--nopython', action='store_true', help='Avoid running PL/Container Python test')
+    parser.add_option('--nor', action='store_true', help='Avoid running PL/Container R test')
     parser.add_option('-v', '--verbose', action='store_true', help='Enable verbose logging')
-    
 
     (options, args) = parser.parse_args()
+    if options.nopython and options.nor:
+        logger.error("You can specify either --nopython or --nor, but not both")
+        sys.exit(3)
     return options
 
 
@@ -108,13 +147,13 @@ def run_test(query, dburl, runtime):
     return 0
 
 
-def run_rand_test(dburl, runtime):
+def run_rand_test(dburl, runtime, queries):
     conn = dbconn.connect(dburl)
     logger.info('Running random queries test')
     starttime = dt.datetime.now()
     execnum = 1
     while ( (dt.datetime.now() - starttime).seconds < runtime ):
-        query = random.choice(QUERIES)
+        query = random.choice(queries)
         logger.debug("Execution #%d query '%s'" % (execnum, query))
         res = execute(conn, query)
         if res != [[0]]:
@@ -138,16 +177,18 @@ def prepare(dbname, plcsql, prepsql):
     return 0
 
 
-def run(dbname, runtime):
-    logger.info("Running endurance test...")
+def run(dbname, runtime, queries, type):
+    logger.info("Running endurance test for '%s' language..." % type)
     dburl = dbconn.DbURL(hostname = '127.0.0.1',
                          port     = 5432,
                          dbname   = dbname,
                          username = 'vagrant')
-    run_rand_test(dburl, runtime)
-    for query in QUERIES:
+    logger.info("Single queries...")
+    for query in queries:
         if run_test(query, dburl, runtime) < 0:
             return
+    logger.info("Random queries...")
+    run_rand_test(dburl, runtime, queries)
 
 
 def main():
@@ -156,7 +197,10 @@ def main():
         gplog.enable_verbose_logging()
     if prepare(options.dbname, options.containersql, options.preparesql) < 0:
         return
-    run(options.dbname, options.time)
+    if not options.nopython:
+        run(options.dbname, options.time, QUERIES_PYTHON, "python")
+    if not options.nor:
+        run(options.dbname, options.time, QUERIES_R, "R")
 
 
 if __name__ == '__main__':
