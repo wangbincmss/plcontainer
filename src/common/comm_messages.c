@@ -157,14 +157,17 @@ void plc_free_array(plcArray *arr, plcType *type, bool isSender) {
     if (arr != NULL) {
         if (arr->meta->type == PLC_DATA_TEXT || arr->meta->type == PLC_DATA_BYTEA) {
             for (i = 0; i < arr->meta->size; i++) {
-                if ( ((char**)arr->data)[i] != NULL )
+                if ( ((char**)arr->data)[i] != NULL ) {
                     pfree(((char**)arr->data)[i]);
+                }
             }
         }
         if (arr->meta->type == PLC_DATA_UDT) {
             for (i = 0; i < arr->meta->size; i++) {
-                if ( ((char**)arr->data)[i] != NULL )
+                if ( ((char**)arr->data)[i] != NULL ) {
                     plc_free_udt(((plcUDT**)arr->data)[i], &type->subTypes[0], isSender);
+                    pfree(((plcUDT**)arr->data)[i]);
+                }
             }
         }
         if (arr->meta->size > 0) {
