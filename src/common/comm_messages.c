@@ -68,7 +68,7 @@ void free_callreq(callreq req, bool isShared, bool isSender) {
             /* For arrays on receiver side we need to free up their data,
              * while on the sender side cleanup is managed by comm_channel */
             if (!isSender && req->args[i].type.type == PLC_DATA_ARRAY) {
-                plc_free_array((plcArray*)req->args[i].data.value, &req->args[i].type);
+                plc_free_array((plcArray*)req->args[i].data.value, &req->args[i].type, isSender);
             } else {
                 pfree(req->args[i].data.value);
             }
@@ -84,7 +84,7 @@ void free_callreq(callreq req, bool isShared, bool isSender) {
 }
 
 void free_result(plcontainer_result res, bool isSender) {
-    int i,j;
+    int i, j;
 
     /* free the data array */
     if (res->data != NULL) {
@@ -102,7 +102,7 @@ void free_result(plcontainer_result res, bool isSender) {
                         /* For arrays on receiver side we need to free up their data,
                          * while on the sender side cleanup is managed by comm_channel */
                         if (!isSender && res->types[j].type == PLC_DATA_ARRAY) {
-                            plc_free_array((plcArray*)res->data[i][j].value, &res->types[j]);
+                            plc_free_array((plcArray*)res->data[i][j].value, &res->types[j], isSender);
                         } else {
                             pfree(res->data[i][j].value);
                         }
@@ -152,7 +152,7 @@ plcArray *plc_alloc_array(int ndims) {
     return arr;
 }
 
-void plc_free_array(plcArray *arr, plcType *type) {
+void plc_free_array(plcArray *arr, plcType *type, bool isSender) {
     int i;
     if (arr != NULL) {
         if (arr->meta->type == PLC_DATA_TEXT || arr->meta->type == PLC_DATA_BYTEA) {
@@ -164,7 +164,7 @@ void plc_free_array(plcArray *arr, plcType *type) {
         if (arr->meta->type == PLC_DATA_UDT) {
             for (i = 0; i < arr->meta->size; i++) {
                 if ( ((char**)arr->data)[i] != NULL )
-                    plc_free_udt(((plcUDT**)arr->data)[i], &type->subTypes[0], true);
+                    plc_free_udt(((plcUDT**)arr->data)[i], &type->subTypes[0], isSender);
             }
         }
         if (arr->meta->size > 0) {
@@ -194,7 +194,7 @@ void plc_free_udt(plcUDT *udt, plcType *type, bool isSender) {
     for (i = 0; i < type->nSubTypes; i++) {
         if (!udt->data[i].isnull) {
             if (!isSender && type->subTypes[i].type == PLC_DATA_ARRAY) {
-                plc_free_array((plcArray*)udt->data[i].value, &type->subTypes[i]);
+                plc_free_array((plcArray*)udt->data[i].value, &type->subTypes[i], isSender);
             } else {
                 pfree(udt->data[i].value);
             }

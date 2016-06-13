@@ -39,7 +39,7 @@ typedef struct plcUDT {
 } plcUDT;
 
 plcArray *plc_alloc_array(int ndims);
-void plc_free_array(plcArray *arr, plcType *type);
+void plc_free_array(plcArray *arr, plcType *type, bool isSender);
 plcUDT *plc_alloc_udt(int nargs);
 void plc_free_udt(plcUDT *udt, plcType *type, bool isSender);
 
