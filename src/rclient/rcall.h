@@ -13,7 +13,7 @@ plcConn* plcconn_global;
 int plc_is_execution_terminated;
 
 // Processing of the Greenplum function call
-void handle_call(callreq req, plcConn* conn);
+void handle_call(plcMsgCallreq *req, plcConn* conn);
 
 // Initialization of R module
 void r_init( );

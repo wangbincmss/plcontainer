@@ -45,7 +45,7 @@ static void free_type(plcType *typArr) {
     }
 }
 
-void free_callreq(callreq req, bool isShared, bool isSender) {
+void free_callreq(plcMsgCallreq *req, bool isShared, bool isSender) {
     int i;
 
     if (!isShared) {
@@ -83,7 +83,7 @@ void free_callreq(callreq req, bool isShared, bool isSender) {
     pfree(req);
 }
 
-void free_result(plcontainer_result res, bool isSender) {
+void free_result(plcMsgResult *res, bool isSender) {
     int i, j;
 
     /* free the data array */
@@ -128,7 +128,7 @@ void free_result(plcontainer_result res, bool isSender) {
     pfree(res);
 }
 
-void free_error(error_message msg) {
+void free_error(plcMsgError *msg) {
     if (msg != NULL) {
         if (msg->message != NULL) {
             pfree(msg->message);

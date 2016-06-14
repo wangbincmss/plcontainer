@@ -20,7 +20,7 @@
 
 plcConn* plcconn_global = NULL;
 
-static char *create_python_func(callreq req);
+static char *create_python_func(plcMsgCallreq *req);
 static PyObject *arguments_to_pytuple(plcPyFunction *pyfunc);
 static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *pyfunc);
 static int fill_rawdata(rawdata *res, PyObject *retval, plcPyFunction *pyfunc);
@@ -85,7 +85,7 @@ int python_init() {
     return 0;
 }
 
-void handle_call(callreq req, plcConn *conn) {
+void handle_call(plcMsgCallreq *req, plcConn *conn) {
     PyObject      *retval = NULL;
     PyObject      *dict = NULL;
     PyObject      *args = NULL;
@@ -173,7 +173,7 @@ void handle_call(callreq req, plcConn *conn) {
     return;
 }
 
-static char *create_python_func(callreq req) {
+static char *create_python_func(plcMsgCallreq *req) {
     int         i, plen;
     const char *sp;
     char *      mrc, *mp;
@@ -318,11 +318,11 @@ static PyObject *arguments_to_pytuple(plcPyFunction *pyfunc) {
 }
 
 static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *pyfunc) {
-    plcontainer_result res;
-    int                retcode = 0;
+    plcMsgResult *res;
+    int           retcode = 0;
 
     /* allocate a result */
-    res           = malloc(sizeof(str_plcontainer_result));
+    res           = malloc(sizeof(plcMsgResult));
     res->msgtype  = MT_RESULT;
     res->names    = malloc(1 * sizeof(char*));
     res->names[0] = (pyfunc->res.argName == NULL) ? NULL : strdup(pyfunc->res.argName);
@@ -389,7 +389,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
     if (retcode == 0) {
         /* We manually state that we are sending the data to avoid message interleaving */
         plc_sending_data = 1;
-        plcontainer_channel_send(conn, (message)res);
+        plcontainer_channel_send(conn, (plcMessage*)res);
         plc_sending_data = 0;
     }
 

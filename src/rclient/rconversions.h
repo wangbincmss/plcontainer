@@ -33,8 +33,8 @@ typedef struct plcRTypeConv {
 } plcRTypeConv;
 
 typedef struct plcRResult {
-    plcontainer_result  res;
-    plcRTypeConv       *inconv;
+    plcMsgResult *res;
+    plcRTypeConv *inconv;
 } plcRResult;
 
 struct plcRType {
@@ -47,17 +47,17 @@ struct plcRType {
 };
 
 typedef struct plcRFunction {
-    plcProcSrc  proc;
-    callreq     call;
-    SEXP        RProc;
-    int         nargs;
-    int         retset;
-    unsigned int  objectid;
-    plcRType  *args;
-    plcRType   res;
+    plcProcSrc     proc;
+    plcMsgCallreq *call;
+    SEXP           RProc;
+    int            nargs;
+    int            retset;
+    unsigned int   objectid;
+    plcRType      *args;
+    plcRType       res;
 } plcRFunction;
 
-plcRFunction *plc_R_init_function(callreq call) ;
+plcRFunction *plc_R_init_function(plcMsgCallreq *call);
 void plc_r_copy_type(plcType *type, plcRType *pytype);
 void plc_r_free_function(plcRFunction *func);
 SEXP get_r_vector(plcDatatype type_id, int numels);

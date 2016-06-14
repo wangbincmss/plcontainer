@@ -88,12 +88,12 @@ static char *get_load_self_ref_cmd(const char *libstr);
 static void load_r_cmd(const char *cmd);
 static void send_error(plcConn* conn, char *msg);
 static SEXP parse_r_code(const char *code,  plcConn* conn, int *errorOccurred);
-static char *create_r_func(callreq req);
-static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcontainer_result res );
-static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result res );
+static char *create_r_func(plcMsgCallreq *req);
+static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcMsgResult *res );
+static int handle_retset( SEXP retval, plcRFunction *r_func, plcMsgResult *res );
 static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func);
 static SEXP arguments_to_r (plcConn *conn, plcRFunction *r_func);
-static void pg_get_one_r(char *value,  plcDatatype column_type, SEXP *obj, int elnum);
+static void pg_get_one_r(char *value, plcDatatype column_type, SEXP *obj, int elnum);
 
 /* Externs */
 extern SEXP plr_SPI_execp(const char * sql);
@@ -192,7 +192,7 @@ error:
     return;
 }
 
-void handle_call(callreq req, plcConn* conn) {
+void handle_call(plcMsgCallreq *req, plcConn* conn) {
     SEXP             r,
                      strres,
                      call,
@@ -266,20 +266,20 @@ void handle_call(callreq req, plcConn* conn) {
 
 static void send_error(plcConn* conn, char *msg) {
     /* an exception was thrown */
-    error_message err;
-    err             = pmalloc(sizeof(*err));
+    plcMsgError *err;
+    err             = pmalloc(sizeof(plcMsgError));
     err->msgtype    = MT_EXCEPTION;
     err->message    = msg;
-    err->stacktrace = "";
+    err->stacktrace = NULL;
 
     /* send the result back */
-    plcontainer_channel_send(conn, (message)err);
+    plcontainer_channel_send(conn, (plcMessage*)err);
 
     /* free the objects */
     free(err);
 }
 
-static SEXP parse_r_code(const char *code,  plcConn* conn, int *errorOccurred) {
+static SEXP parse_r_code(const char *code, plcConn* conn, int *errorOccurred) {
     /* int hadError; */
     ParseStatus status;
     char *      errmsg;
@@ -330,7 +330,7 @@ error:
     return NULL;
 }
 
-static char *create_r_func(callreq req) {
+static char *create_r_func(plcMsgCallreq *req) {
     int    plen;
     char * mrc;
     size_t mlen = 0;
@@ -378,10 +378,8 @@ static char *create_r_func(callreq req) {
     return mrc;
 }
 
-
-static int handle_frame( SEXP df, plcRFunction *r_func, plcontainer_result res )
-{
-    int row, col,cols;
+static int handle_frame( SEXP df, plcRFunction *r_func, plcMsgResult *res ) {
+    int row, col, cols;
 
     // a data frame is an array of columns, the length of which is the number of columns
     res->cols = 1;
@@ -427,13 +425,11 @@ static int handle_frame( SEXP df, plcRFunction *r_func, plcontainer_result res )
 
                    UNPROTECT(1);
                    free(datum);
-
-               }else{
+               } else {
                    udt->data[col].isnull = TRUE;
                    udt->data[col].value = NULL;
                }
-
-            }else{
+            } else {
                rawdata *datum = plc_r_vector_element_rawdata(dfcol, row, &r_func->res.subTypes[col] );
                udt->data[col].isnull = datum->isnull;
                udt->data[col].value = datum->value;
@@ -445,10 +441,9 @@ static int handle_frame( SEXP df, plcRFunction *r_func, plcontainer_result res )
         res->data[row]->isnull=FALSE;
     }
     return 0;
-
 }
-static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcontainer_result res )
-{
+
+static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcMsgResult *res ) {
     int i=0, cols,start=0;
     SEXP rdims;
 
@@ -457,8 +452,7 @@ static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcontainer_res
     if (rdims != R_NilValue) {
         res->rows = INTEGER(rdims)[0];
         cols = INTEGER(rdims)[1];
-
-    }else {
+    } else {
         UNPROTECT(1);
         return -1;
     }
@@ -487,8 +481,7 @@ static int handle_matrix_set( SEXP retval, plcRFunction *r_func, plcontainer_res
     return 0;
 }
 
-static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result res )
-{
+static int handle_retset( SEXP retval, plcRFunction *r_func, plcMsgResult *res ) {
     int i=0;
     rawdata *raw;
 
@@ -499,11 +492,11 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
      *  having a dimension should guarantee that it is an array of text
      */
 
-    if ( isMatrix(retval) || (IS_CHARACTER(retval) && getAttrib(retval, R_DimSymbol) != R_NilValue) ){
+    if ( isMatrix(retval) || (IS_CHARACTER(retval) && getAttrib(retval, R_DimSymbol) != R_NilValue) ) {
         handle_matrix_set( retval, r_func, res );
-    }else if (isFrame(retval)){
+    } else if (isFrame(retval)) {
         handle_frame( retval, r_func, res);
-    }else{
+    } else {
         res->rows = length(retval);
         res->cols = 1;
         res->data = malloc(res->rows * sizeof(rawdata*));
@@ -532,24 +525,24 @@ static int handle_retset( SEXP retval, plcRFunction *r_func, plcontainer_result 
 }
 
 static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func) {
-    plcontainer_result res;
+    plcMsgResult *res;
     int i=0, ret=0;
 
 
     /* allocate a result */
-    res          = malloc(sizeof(str_plcontainer_result));
+    res          = malloc(sizeof(plcMsgResult));
     res->msgtype = MT_RESULT;
     res->names   = malloc(1 * sizeof(char*));
     res->types   = malloc(1 * sizeof(plcType));
     res->exception_callback = NULL;
 
 
-    if ( r_func->retset != 0 ){
+    if ( r_func->retset != 0 ) {
         if (handle_retset( retval, r_func, res ) != 0 ){
             free_result(res, true);
             return -1;
         }
-    }else{
+    } else {
 
         res->rows   = 1;
         res->cols   = 1;
@@ -590,7 +583,7 @@ static int process_call_results(plcConn *conn, SEXP retval, plcRFunction *r_func
         }
     }
     /* send the result back */
-    plcontainer_channel_send(conn, (message)res);
+    plcontainer_channel_send(conn, (plcMessage*)res);
 
     free_result(res, true);
 
@@ -720,9 +713,9 @@ SEXP plr_SPI_exec(SEXP rsql) {
                     i,j;
     char            buf[256];
 
-    sql_msg_statement  msg;
-    plcontainer_result result;
-    message            resp;
+    plcMsgSQL      *msg;
+    plcMsgResult   *result;
+    plcMessage     *resp;
 
     PROTECT(rsql =  AS_CHARACTER(rsql));
     sql = CHAR(STRING_ELT(rsql, 0));
@@ -738,7 +731,7 @@ SEXP plr_SPI_exec(SEXP rsql) {
         return NULL;
     }
 
-    msg            = pmalloc(sizeof(*msg));
+    msg            = pmalloc(sizeof(plcMsgSQL));
     msg->msgtype   = MT_SQL;
     msg->sqltype   = SQL_TYPE_STATEMENT;
     /*
@@ -746,7 +739,7 @@ SEXP plr_SPI_exec(SEXP rsql) {
      */
     msg->statement = (char *)sql;
 
-    plcontainer_channel_send(plcconn_global, (message)msg);
+    plcontainer_channel_send(plcconn_global, (plcMessage*)msg);
 
     /* we don't need it anymore */
     pfree(msg);
@@ -760,8 +753,8 @@ receive:
 
     switch (resp->msgtype) {
         case MT_CALLREQ:
-            handle_call((callreq)resp, plcconn_global);
-            free_callreq((callreq)resp, false, false);
+            handle_call((plcMsgCallreq*)resp, plcconn_global);
+            free_callreq((plcMsgCallreq*)resp, false, false);
             goto receive;
         case MT_RESULT:
             break;
@@ -770,7 +763,7 @@ receive:
             return NULL;
     }
 
-    result = (plcontainer_result)resp;
+    result = (plcMsgResult*)resp;
     if (result->rows == 0) {
         return R_NilValue;
     }
@@ -841,7 +834,7 @@ receive:
 
 void raise_execution_error (plcConn *conn, const char *format, ...) {
     va_list        args;
-    error_message  err;
+    plcMsgError   *err;
     char          *msg;
     int            len, res;
 
@@ -858,13 +851,13 @@ void raise_execution_error (plcConn *conn, const char *format, ...) {
         lprintf(FATAL, "Error formatting error message string");
     } else {
         /* an exception to be thrown */
-        err             = malloc(sizeof(*err));
+        err             = malloc(sizeof(plcMsgError));
         err->msgtype    = MT_EXCEPTION;
         err->message    = msg;
         err->stacktrace = "";
 
         /* send the result back */
-        plcontainer_channel_send(conn, (message)err);
+        plcontainer_channel_send(conn, (plcMessage*)err);
     }
 
     /* free the objects */

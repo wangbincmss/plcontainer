@@ -8,7 +8,7 @@ typedef struct {
     char *name; // name of procedure
 } plcProcSrc;
 
-typedef struct call_req {
+typedef struct plcMsgCallreq {
     base_message_content;    // message_type ID
     unsigned int objectid;   // OID of the function in GPDB
     int          hasChanged; // flag signaling the function has changed in GPDB
@@ -17,12 +17,12 @@ typedef struct call_req {
     int          retset;     // whether the function is set-returning
     int          nargs;      // number of function arguments
     plcArgument *args;       // function arguments
-} call_req, *callreq;
+} plcMsgCallreq;
 
 /*
   Frees a callreq and all subfields of the struct, this function
   assumes ownership of all pointers in the struct and substructs
 */
-void free_callreq(callreq req, bool isShared, bool isSender);
+void free_callreq(plcMsgCallreq *req, bool isShared, bool isSender);
 
 #endif /* PLC_MESSAGE_CALLREQ_H */

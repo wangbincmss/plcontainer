@@ -70,49 +70,43 @@ static int receive_udt(plcConn *conn, plcType *type, char **resdata);
 
 static int send_argument(plcConn *conn, plcArgument *arg);
 static int send_ping(plcConn *conn);
-static int send_call(plcConn *conn, callreq call);
-static int send_result(plcConn *conn, plcontainer_result res);
-static int send_log(plcConn *conn, log_message mlog);
-static int send_exception(plcConn *conn, error_message err);
-static int send_sql(plcConn *conn, sql_msg msg);
+static int send_call(plcConn *conn, plcMsgCallreq *call);
+static int send_result(plcConn *conn, plcMsgResult *res);
+static int send_log(plcConn *conn, plcMsgLog *mlog);
+static int send_exception(plcConn *conn, plcMsgError *err);
+static int send_sql(plcConn *conn, plcMsgSQL *msg);
 
-static int receive_exception(plcConn *conn, message *mExc);
-static int receive_result(plcConn *conn, message *mRes);
-static int receive_log(plcConn *conn, message *mLog);
-static int receive_sql_statement(plcConn *conn, message *mStmt);
-static int receive_sql_prepare(plcConn *conn, message *mPrep);
-static int receive_sql_pexec(plcConn *conn, message *mPExec);
-static int receive_sql_cursorclose(plcConn *conn, message *mCurc);
-static int receive_sql_unprepare(plcConn *conn, message *mUnp);
-static int receive_sql_opencursor_sql(plcConn *conn, message *mCuro);
-static int receive_sql_fetch(plcConn *conn, message *mCurf);
+static int receive_exception(plcConn *conn, plcMessage **mExc);
+static int receive_result(plcConn *conn, plcMessage **mRes);
+static int receive_log(plcConn *conn, plcMessage **mLog);
+static int receive_sql_statement(plcConn *conn, plcMessage **mStmt);
 static int receive_argument(plcConn *conn, plcArgument *arg);
-static int receive_ping(plcConn *conn, message *mPing);
-static int receive_call(plcConn *conn, message *mCall);
-static int receive_sql(plcConn *conn, message *mSql);
+static int receive_ping(plcConn *conn, plcMessage **mPing);
+static int receive_call(plcConn *conn, plcMessage **mCall);
+static int receive_sql(plcConn *conn, plcMessage **mSql);
 
 /* Public API Functions */
 
-int plcontainer_channel_send(plcConn *conn, message msg) {
+int plcontainer_channel_send(plcConn *conn, plcMessage *msg) {
     int res;
     switch (msg->msgtype) {
         case MT_PING:
             res = send_ping(conn);
             break;
         case MT_CALLREQ:
-            res = send_call(conn, (callreq)msg);
+            res = send_call(conn, (plcMsgCallreq*)msg);
             break;
         case MT_RESULT:
-            res = send_result(conn, (plcontainer_result)msg);
+            res = send_result(conn, (plcMsgResult*)msg);
             break;
         case MT_EXCEPTION:
-            res = send_exception(conn, (error_message)msg);
+            res = send_exception(conn, (plcMsgError*)msg);
             break;
         case MT_LOG:
-            res = send_log(conn, (log_message)msg);
+            res = send_log(conn, (plcMsgLog*)msg);
             break;
         case MT_SQL:
-            res = send_sql(conn, (sql_msg)msg);
+            res = send_sql(conn, (plcMsgSQL*)msg);
             break;
         default:
             lprintf(ERROR, "UNHANDLED MESSAGE: '%c'", msg->msgtype);
@@ -122,7 +116,7 @@ int plcontainer_channel_send(plcConn *conn, message msg) {
     return res;
 }
 
-int plcontainer_channel_receive(plcConn *conn, message *plcMsg) {
+int plcontainer_channel_receive(plcConn *conn, plcMessage **msg) {
     int  res;
     char cType;
 
@@ -132,26 +126,26 @@ int plcontainer_channel_receive(plcConn *conn, message *plcMsg) {
     } else {
         switch (cType) {
             case MT_PING:
-                res = receive_ping(conn, plcMsg);
+                res = receive_ping(conn, msg);
                 break;
             case MT_CALLREQ:
-                res = receive_call(conn, plcMsg);
+                res = receive_call(conn, msg);
                 break;
             case MT_RESULT:
-                res = receive_result(conn, plcMsg);
+                res = receive_result(conn, msg);
                 break;
             case MT_EXCEPTION:
-                res = receive_exception(conn, plcMsg);
+                res = receive_exception(conn, msg);
                 break;
             case MT_LOG:
-                res = receive_log(conn, plcMsg);
+                res = receive_log(conn, msg);
                 break;
             case MT_SQL:
-                res = receive_sql(conn, plcMsg);
+                res = receive_sql(conn, msg);
                 break;
             default:
                 lprintf(ERROR, "message type unknown %d / '%c'", (int)cType, cType);
-                plcMsg = NULL;
+                *msg = NULL;
                 res = -1;
                 break;
         }
@@ -613,13 +607,12 @@ static int send_ping(plcConn *conn) {
     debug_print(WARNING, "Sending ping message");
     res |= message_start(conn, MT_PING);
     res |= send_cstring(conn, ping);
-
     res |= message_end(conn);
     debug_print(WARNING, "Finished ping message");
     return res;
 }
 
-static int send_call(plcConn *conn, callreq call) {
+static int send_call(plcConn *conn, plcMsgCallreq *call) {
     int res = 0;
     int i;
 
@@ -648,10 +641,10 @@ static int send_call(plcConn *conn, callreq call) {
     return res;
 }
 
-static int send_result(plcConn *conn, plcontainer_result ret) {
+static int send_result(plcConn *conn, plcMsgResult *ret) {
     int res = 0;
     int i, j;
-    error_message msg = NULL;
+    plcMsgError *msg = NULL;
 
     res |= message_start(conn, MT_RESULT);
     debug_print(WARNING, "Sending result of %d rows and %d columns", ret->rows, ret->cols);
@@ -674,7 +667,7 @@ static int send_result(plcConn *conn, plcontainer_result ret) {
         }
 
     if (ret->exception_callback != NULL) {
-        msg = (error_message)ret->exception_callback();
+        msg = (plcMsgError*)ret->exception_callback();
     }
 
     if (msg == NULL) {
@@ -691,7 +684,7 @@ static int send_result(plcConn *conn, plcontainer_result ret) {
     return res;
 }
 
-static int send_log(plcConn *conn, log_message mlog) {
+static int send_log(plcConn *conn, plcMsgLog *mlog) {
     int res = 0;
 
     debug_print(WARNING, "Sending log message to backend");
@@ -704,7 +697,7 @@ static int send_log(plcConn *conn, log_message mlog) {
     return res;
 }
 
-static int send_exception(plcConn *conn, error_message err) {
+static int send_exception(plcConn *conn, plcMsgError *err) {
     int res = 0;
     res |= message_start(conn, MT_EXCEPTION);
     res |= send_cstring(conn, err->message);
@@ -713,12 +706,12 @@ static int send_exception(plcConn *conn, error_message err) {
     return res;
 }
 
-static int send_sql(plcConn *conn, sql_msg msg) {
+static int send_sql(plcConn *conn, plcMsgSQL *msg) {
     int res = 0;
     if (msg->sqltype == SQL_TYPE_STATEMENT) {
         res |= message_start(conn, MT_SQL);
-        res |= send_int32(conn, ((sql_msg_statement)msg)->sqltype);
-        res |= send_cstring(conn, ((sql_msg_statement)msg)->statement);
+        res |= send_int32(conn, ((plcMsgSQL*)msg)->sqltype);
+        res |= send_cstring(conn, ((plcMsgSQL*)msg)->statement);
         res |= message_end(conn);
     } else {
         lprintf(ERROR, "Unhandled SQL Message type '%c'", msg->sqltype);
@@ -729,12 +722,12 @@ static int send_sql(plcConn *conn, sql_msg msg) {
 
 /* Receive Functions for the Main Engine */
 
-static int receive_exception(plcConn *conn, message *mExc) {
+static int receive_exception(plcConn *conn, plcMessage **mExc) {
     int res = 0;
-    error_message ret;
+    plcMsgError *ret;
 
-    *mExc = pmalloc(sizeof(str_error_message));
-    ret = (error_message) *mExc;
+    *mExc = pmalloc(sizeof(plcMsgError));
+    ret = (plcMsgError*) *mExc;
     ret->msgtype = MT_EXCEPTION;
     res |= receive_cstring(conn, &ret->message);
     res |= receive_cstring(conn, &ret->stacktrace);
@@ -742,14 +735,14 @@ static int receive_exception(plcConn *conn, message *mExc) {
     return res;
 }
 
-static int receive_result(plcConn *conn, message *mRes) {
+static int receive_result(plcConn *conn, plcMessage **mRes) {
     int  i, j;
     int  res = 0;
-    plcontainer_result ret;
     char exc;
+    plcMsgResult *ret;
 
-    *mRes = (message)pmalloc(sizeof(str_plcontainer_result));
-    ret = (plcontainer_result) *mRes;
+    *mRes = pmalloc(sizeof(plcMsgResult));
+    ret = (plcMsgResult*) *mRes;
     ret->msgtype = MT_RESULT;
     res |= receive_int32(conn, &ret->rows);
     res |= receive_int32(conn, &ret->cols);
@@ -798,13 +791,13 @@ static int receive_result(plcConn *conn, message *mRes) {
     return res;
 }
 
-static int receive_log(plcConn *conn, message *mLog) {
+static int receive_log(plcConn *conn, plcMessage **mLog) {
     int res = 0;
-    log_message ret;
+    plcMsgLog *ret;
 
     debug_print(WARNING, "Receiving log message from client");
-    *mLog = pmalloc(sizeof(str_log_message));
-    ret   = (log_message) *mLog;
+    *mLog = pmalloc(sizeof(plcMsgLog));
+    ret   = (plcMsgLog*) *mLog;
     ret->msgtype = MT_LOG;
     res |= receive_int32(conn, &ret->level);
     res |= receive_cstring(conn, &ret->message);
@@ -813,130 +806,15 @@ static int receive_log(plcConn *conn, message *mLog) {
     return res;
 }
 
-static int receive_sql_statement(plcConn *conn, message *mStmt) {
+static int receive_sql_statement(plcConn *conn, plcMessage **mStmt) {
     int res = 0;
-    sql_msg_statement ret;
+    plcMsgSQL *ret;
 
-    *mStmt = (message)pmalloc(sizeof(struct str_sql_statement));
-    ret          = (sql_msg_statement) *mStmt;
+    *mStmt       = pmalloc(sizeof(plcMsgSQL));
+    ret          = (plcMsgSQL*) *mStmt;
     ret->msgtype = MT_SQL;
     ret->sqltype = SQL_TYPE_STATEMENT;
     res = receive_cstring(conn, &ret->statement);
-    return res;
-}
-
-static int receive_sql_prepare(plcConn *conn, message *mPrep) {
-    int             i;
-    int             res = 0;
-    sql_msg_prepare ret;
-
-    *mPrep       = (message)pmalloc(sizeof(struct str_sql_prepare));
-    ret          = (sql_msg_prepare) *mPrep;
-    ret->msgtype = MT_SQL;
-    ret->sqltype = SQL_TYPE_PREPARE;
-    res          |= receive_cstring(conn, &ret->statement);
-    res          |= receive_int32(conn, &ret->ntypes);
-    ret->types =
-        ret->ntypes == 0 ? NULL : pmalloc(ret->ntypes * sizeof(char *));
-
-    for (i = 0; i < ret->ntypes; i++) {
-        res |= receive_cstring(conn, &ret->types[i]);
-    }
-
-    return res;
-}
-
-static int receive_sql_pexec(plcConn *conn, message *mPExec) {
-    sql_pexecute      ret;
-    int               i;
-    int               res = 0;
-    plcArgument      *param;
-
-    *mPExec      = (message) pmalloc(sizeof(struct str_sql_pexecute));
-    ret          = (sql_pexecute) *mPExec;
-    ret->msgtype = MT_SQL;
-    ret->sqltype = SQL_TYPE_PEXECUTE;
-    res |= receive_int32(conn, &ret->planid);
-    res |= receive_raw(conn, (char*)&ret->action, sizeof(sql_action));
-    res |= receive_int32(conn, &ret->nparams);
-
-    if (res == 0) {
-        if (ret->nparams == 0) {
-            ret->params = NULL;
-        } else {
-            ret->params = pmalloc(ret->nparams * sizeof(plcArgument));
-        }
-
-        for (i = 0; i < ret->nparams && res == 0; i++) {
-            char isnull;
-            isnull = 0;
-            res |= receive_char(conn, &isnull);
-            param = &ret->params[i];
-            if (isnull == 'N') {
-                param->data.isnull = 1;
-                param->data.value  = NULL;
-            } else {
-                param->data.isnull = 0;
-                res |= receive_type(conn, &param->type);
-                res |= receive_cstring(conn, &param->data.value);
-            }
-        }
-    }
-    return res;
-}
-
-static int receive_sql_cursorclose(plcConn *conn, message *mCurc) {
-    int res = 0;
-    sql_msg_cursor_close ret;
-
-    *mCurc       = (message)pmalloc(sizeof(struct str_sql_msg_cursor_close));
-    ret          = (sql_msg_cursor_close)*mCurc;
-    ret->msgtype = MT_SQL;
-    ret->sqltype = SQL_TYPE_CURSOR_CLOSE;
-    res = receive_cstring(conn, &ret->cursorname);
-
-    return res;
-}
-
-static int receive_sql_unprepare(plcConn *conn, message *mUnp) {
-    int res = 0;
-    sql_msg_unprepare ret;
-
-    *mUnp        = (message)pmalloc(sizeof(struct str_sql_unprepare));
-    ret          = (sql_msg_unprepare)*mUnp;
-    ret->msgtype = MT_SQL;
-    ret->sqltype = SQL_TYPE_UNPREPARE;
-    res = receive_int32(conn, &ret->planid);
-
-    return res;
-}
-
-static int receive_sql_opencursor_sql(plcConn *conn, message *mCuro) {
-    int res = 0;
-    sql_msg_cursor_open ret;
-
-    *mCuro       = (message)pmalloc(sizeof(struct str_sql_msg_cursor_open));
-    ret          = (sql_msg_cursor_open)*mCuro;
-    ret->msgtype = MT_SQL;
-    ret->sqltype = SQL_TYPE_CURSOR_OPEN;
-    res |= receive_cstring(conn, &ret->cursorname);
-    res |= receive_cstring(conn, &ret->query);
-
-    return res;
-}
-
-static int receive_sql_fetch(plcConn *conn, message *mCurf) {
-    int res = 0;
-    sql_msg_cursor_fetch ret;
-
-    *mCurf       = (message)pmalloc(sizeof(struct str_sql_msg_cursor_fetch));
-    ret          = (sql_msg_cursor_fetch) *mCurf;
-    ret->msgtype = MT_SQL;
-    ret->sqltype = SQL_TYPE_FETCH;
-    res |= receive_cstring(conn, &ret->cursorname);
-    res |= receive_int32(conn, &ret->count);
-    res |= receive_int16(conn, &ret->direction);
-
     return res;
 }
 
@@ -950,12 +828,12 @@ static int receive_argument(plcConn *conn, plcArgument *arg) {
     return res;
 }
 
-static int receive_ping(plcConn *conn, message *mPing) {
+static int receive_ping(plcConn *conn, plcMessage **mPing) {
     int   res = 0;
     char *ping;
 
-    *mPing = (message)pmalloc(sizeof(struct str_ping_message));
-    ((ping_message)*mPing)->msgtype = MT_PING;
+    *mPing = (plcMessage*)pmalloc(sizeof(plcMsgPing));
+    ((plcMsgPing*)*mPing)->msgtype = MT_PING;
 
     debug_print(WARNING, "Receiving ping message");
     res |= receive_cstring(conn, &ping);
@@ -971,13 +849,13 @@ static int receive_ping(plcConn *conn, message *mPing) {
     return res;
 }
 
-static int receive_call(plcConn *conn, message *mCall) {
+static int receive_call(plcConn *conn, plcMessage **mCall) {
     int res = 0;
     int i;
-    callreq req;
+    plcMsgCallreq *req;
 
-    *mCall         = (message)pmalloc(sizeof(struct call_req));
-    req            = (callreq) *mCall;
+    *mCall         = pmalloc(sizeof(plcMsgCallreq));
+    req            = (plcMsgCallreq*) *mCall;
     req->msgtype   = MT_CALLREQ;
     res |= receive_cstring(conn, &req->proc.name);
     debug_print(WARNING, "Receiving call request for function '%s'", req->proc.name);
@@ -1003,32 +881,15 @@ static int receive_call(plcConn *conn, message *mCall) {
     return res;
 }
 
-static int receive_sql(plcConn *conn, message *mSql) {
+static int receive_sql(plcConn *conn, plcMessage **mSql) {
     int res = 0;
     int sqlType;
+
     res = receive_int32(conn, &sqlType);
     if (res == 0) {
         switch (sqlType) {
             case SQL_TYPE_STATEMENT:
                 res = receive_sql_statement(conn, mSql);
-                break;
-            case SQL_TYPE_PREPARE:
-                res = receive_sql_prepare(conn, mSql);
-                break;
-            case SQL_TYPE_PEXECUTE:
-                res = receive_sql_pexec(conn, mSql);
-                break;
-            case SQL_TYPE_FETCH:
-                res = receive_sql_fetch(conn, mSql);
-                break;
-            case SQL_TYPE_CURSOR_CLOSE:
-                res = receive_sql_cursorclose(conn, mSql);
-                break;
-            case SQL_TYPE_UNPREPARE:
-                res = receive_sql_unprepare(conn, mSql);
-                break;
-            case SQL_TYPE_CURSOR_OPEN:
-                res = receive_sql_opencursor_sql(conn, mSql);
                 break;
             default:
                 res = -1;

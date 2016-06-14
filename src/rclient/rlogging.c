@@ -38,8 +38,8 @@ SEXP plr_fatal( SEXP args) {
 }
 
 static SEXP plr_output(volatile int level, SEXP args) {
-    plcConn     *conn = plcconn_global;
-    log_message msg;
+    plcConn   *conn = plcconn_global;
+    plcMsgLog *msg;
 
     if (plc_is_execution_terminated == 0) {
         char *str_msg = strdup( CHAR( asChar(args)));
@@ -48,12 +48,12 @@ static SEXP plr_output(volatile int level, SEXP args) {
         if (level >= ERROR)
             plc_is_execution_terminated = 1;
 
-        msg = pmalloc(sizeof(struct str_log_message));
+        msg = pmalloc(sizeof(plcMsgLog));
         msg->msgtype = MT_LOG;
         msg->level = level;
         msg->message = str_msg;
 
-        plcontainer_channel_send(conn, (message)msg);
+        plcontainer_channel_send(conn, (plcMessage*)msg);
 
         free(msg);
         free(str_msg);

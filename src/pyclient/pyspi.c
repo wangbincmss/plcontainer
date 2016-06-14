@@ -6,12 +6,12 @@
 
 #include <Python.h>
 
-static plcontainer_result receive_from_backend();
+static plcMsgResult *receive_from_backend();
 
-static plcontainer_result receive_from_backend() {
-    message  resp = NULL;
-    int      res = 0;
-    plcConn *conn = plcconn_global;
+static plcMsgResult *receive_from_backend() {
+    plcMessage *resp = NULL;
+    int         res = 0;
+    plcConn    *conn = plcconn_global;
 
     res = plcontainer_channel_receive(conn, &resp);
     if (res < 0) {
@@ -21,8 +21,8 @@ static plcontainer_result receive_from_backend() {
 
     switch (resp->msgtype) {
         case MT_CALLREQ:
-            handle_call((callreq)resp, conn);
-            free_callreq((callreq)resp, false, false);
+            handle_call((plcMsgCallreq*)resp, conn);
+            free_callreq((plcMsgCallreq*)resp, false, false);
             return receive_from_backend();
         case MT_RESULT:
             break;
@@ -30,19 +30,19 @@ static plcontainer_result receive_from_backend() {
             raise_execution_error("Client cannot process message type %c", resp->msgtype);
             return NULL;
     }
-    return (plcontainer_result)resp;
+    return (plcMsgResult*)resp;
 }
 
 /* plpy methods */
 PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
-    int                 i, j;
-    sql_msg_statement   msg;
-    plcontainer_result  resp;
-    PyObject           *pyresult,
-                       *pydict,
-                       *pyval;
-    plcPyResult        *result;
-    plcConn            *conn = plcconn_global;
+    int           i, j;
+    plcMsgSQL    *msg;
+    plcMsgResult *resp;
+    PyObject     *pyresult,
+                 *pydict,
+                 *pyval;
+    plcPyResult  *result;
+    plcConn      *conn = plcconn_global;
 
     if (!PyString_Check(pyquery)) {
         raise_execution_error("plpy module 'execute()' expected string object as input query");
@@ -54,12 +54,12 @@ PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery) {
         return NULL;
     }
 
-    msg            = malloc(sizeof(*msg));
+    msg            = malloc(sizeof(plcMsgSQL));
     msg->msgtype   = MT_SQL;
     msg->sqltype   = SQL_TYPE_STATEMENT;
     msg->statement = PyString_AsString(pyquery);
 
-    plcontainer_channel_send(conn, (message)msg);
+    plcontainer_channel_send(conn, (plcMessage*)msg);
 
     /* we don't need it anymore */
     free(msg);

@@ -49,7 +49,7 @@ static PyObject *plpy_output(volatile int level, PyObject *self UNUSED, PyObject
     char     *volatile sv;
     int                freesv = 0;
     plcConn           *conn = plcconn_global;
-    log_message        msg;
+    plcMsgLog         *msg;
 
     if (plc_is_execution_terminated == 0) {
         if (PyTuple_Size(args) == 1) {
@@ -73,12 +73,12 @@ static PyObject *plpy_output(volatile int level, PyObject *self UNUSED, PyObject
         if (level >= ERROR)
             plc_is_execution_terminated = 1;
 
-        msg = pmalloc(sizeof(struct str_log_message));
+        msg = pmalloc(sizeof(plcMsgLog));
         msg->msgtype = MT_LOG;
         msg->level = level;
         msg->message = sv;
 
-        plcontainer_channel_send(conn, (message)msg);
+        plcontainer_channel_send(conn, (plcMessage*)msg);
 
         /*
          * Note: If sv came from PyString_AsString(), it points into storage

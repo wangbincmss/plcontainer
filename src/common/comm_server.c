@@ -72,7 +72,6 @@ void connection_wait(int sock) {
 plcConn* connection_init(int sock) {
     socklen_t          raddr_len;
     struct sockaddr_in raddr;
-    plcConn*           conn;
     int                connection;
 
     raddr_len  = sizeof(raddr);
@@ -81,17 +80,14 @@ plcConn* connection_init(int sock) {
         lprintf(ERROR, "failed to accept connection: %s", strerror(errno));
     }
 
-    conn = plcConnInit(connection);
-    // plcConnectionDebug(conn, stdout);
-
-    return conn;
+    return plcConnInit(connection);
 }
 
 /*
  * The loop of receiving commands from the Greenplum process and processing them
  */
-void receive_loop( void (*handle_call)(callreq, plcConn*), plcConn* conn) {
-    message msg;
+void receive_loop( void (*handle_call)(plcMsgCallreq*, plcConn*), plcConn* conn) {
+    plcMessage *msg;
     int res = 0;
 
     res = plcontainer_channel_receive(conn, &msg);
@@ -125,8 +121,8 @@ void receive_loop( void (*handle_call)(callreq, plcConn*), plcConn* conn) {
 
         switch (msg->msgtype) {
             case MT_CALLREQ:
-                handle_call((callreq)msg, conn);
-                free_callreq((callreq)msg, false, false);
+                handle_call((plcMsgCallreq*)msg, conn);
+                free_callreq((plcMsgCallreq*)msg, false, false);
                 break;
             default:
                 lprintf(ERROR, "received unknown message: %c", msg->msgtype);

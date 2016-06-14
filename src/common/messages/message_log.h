@@ -3,10 +3,10 @@
 
 #include "message_base.h"
 
-typedef struct str_log_message {
+typedef struct plcMsgLog {
     base_message_content;
     int   level;
     char *message;
-} str_log_message, *log_message;
+} plcMsgLog;
 
 #endif /* PLC_MESSAGE_LOG_H */

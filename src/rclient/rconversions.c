@@ -982,7 +982,7 @@ static void plc_parse_type(plcRType *Rtype, plcType *type, char* argName, bool i
     }
 }
 
-plcRFunction *plc_R_init_function(callreq call) {
+plcRFunction *plc_R_init_function(plcMsgCallreq *call) {
     plcRFunction *res;
     int i;
 
@@ -1002,7 +1002,7 @@ plcRFunction *plc_R_init_function(callreq call) {
     return res;
 }
 
-plcRResult *plc_init_result_conversions(plcontainer_result res) {
+plcRResult *plc_init_result_conversions(plcMsgResult *res) {
     plcRResult *Rres = NULL;
     int i;
 
