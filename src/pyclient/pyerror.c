@@ -12,7 +12,7 @@
 static char *get_python_error();
 
 /* Stack of error messages obtained when no connectivity was available */
-error_message plcLastErrMessage = NULL;
+plcMsgError *plcLastErrMessage = NULL;
 
 static char *get_python_error() {
     // Python equivilant:
@@ -90,10 +90,10 @@ void raise_execution_error (const char *format, ...) {
     stack = get_python_error();
 
     if (plcLastErrMessage == NULL && plc_is_execution_terminated == 0) {
-        error_message  err;
+        plcMsgError *err;
 
         /* an exception to be thrown */
-        err             = malloc(sizeof(*err));
+        err             = malloc(sizeof(plcMsgError));
         err->msgtype    = MT_EXCEPTION;
         err->message    = msg;
         err->stacktrace = stack;
@@ -116,7 +116,7 @@ void plc_raise_delayed_error() {
         if (plc_is_execution_terminated == 0 &&
                 plcconn_global != NULL &&
                 plc_sending_data == 0) {
-            plcontainer_channel_send(plcconn_global, (message)plcLastErrMessage);
+            plcontainer_channel_send(plcconn_global, (plcMessage*)plcLastErrMessage);
             free_error(plcLastErrMessage);
             plcLastErrMessage = NULL;
             plc_is_execution_terminated = 1;
@@ -125,8 +125,7 @@ void plc_raise_delayed_error() {
 }
 
 void *plc_error_callback() {
-    error_message msg = plcLastErrMessage;
-
+    plcMsgError *msg = plcLastErrMessage;
     plcLastErrMessage = NULL;
     return (void*)msg;
 }

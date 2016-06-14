@@ -605,7 +605,7 @@ static void plc_parse_type(plcPyType *pytype, plcType *type, char* argName, bool
     }
 }
 
-plcPyFunction *plc_py_init_function(callreq call) {
+plcPyFunction *plc_py_init_function(plcMsgCallreq *call) {
     plcPyFunction *res;
     int i;
 
@@ -628,7 +628,7 @@ plcPyFunction *plc_py_init_function(callreq call) {
     return res;
 }
 
-plcPyResult *plc_init_result_conversions(plcontainer_result res) {
+plcPyResult *plc_init_result_conversions(plcMsgResult *res) {
     plcPyResult *pyres = NULL;
     int i;
 

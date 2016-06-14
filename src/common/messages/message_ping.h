@@ -3,8 +3,8 @@
 
 #include "message_base.h"
 
-typedef struct str_ping_message {
+typedef struct plcMsgPing {
     base_message_content;
-} str_ping_message, *ping_message;
+} plcMsgPing;
 
 #endif /* PLC_MESSAGE_PING_H */

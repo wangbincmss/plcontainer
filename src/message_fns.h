@@ -43,13 +43,13 @@ typedef struct {
     int              nargs;
     char           **argnames;
     plcTypeInfo     *argtypes;
-    plcontainer_result result;
-    int                resrow;
+    plcMsgResult    *result;
+    int              resrow;
 } plcProcInfo;
 
-plcProcInfo * get_proc_info(FunctionCallInfo fcinfo);
+plcProcInfo *get_proc_info(FunctionCallInfo fcinfo);
 void free_proc_info(plcProcInfo *proc);
 
-callreq plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo);
+plcMsgCallreq *plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo);
 
 #endif /* PLC_MESSAGE_FNS_H */

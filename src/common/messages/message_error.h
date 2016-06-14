@@ -3,12 +3,12 @@
 
 #include "message_base.h"
 
-typedef struct str_error_message {
+typedef struct plcMsgError {
     base_message_content;
     char *message;
     char *stacktrace;
-} str_error_message, *error_message;
+} plcMsgError;
 
-void free_error(error_message msg);
+void free_error(plcMsgError *msg);
 
 #endif /* PLC_MESSAGE_ERROR_H */

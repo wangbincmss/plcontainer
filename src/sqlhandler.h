@@ -3,6 +3,6 @@
 
 #include "common/messages/messages.h"
 
-message handle_sql_message(sql_msg);
+plcMessage *handle_sql_message(plcMsgSQL *msg);
 
 #endif /* PLC_SQLHANDLER_H */

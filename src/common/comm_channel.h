@@ -40,7 +40,7 @@ interpreted as representing official policies, either expressed or implied, of t
     #define debug_print(...)
 #endif
 
-int plcontainer_channel_send(plcConn *conn, message msg);
-int plcontainer_channel_receive(plcConn *conn, message *plcMsg);
+int plcontainer_channel_send(plcConn *conn, plcMessage *msg);
+int plcontainer_channel_receive(plcConn *conn, plcMessage **msg);
 
 #endif /* PLC_COMM_CHANNEL_H */

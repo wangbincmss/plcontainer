@@ -3,7 +3,7 @@
 
 #include "message_base.h"
 
-typedef struct str_plcontainer_result {
+typedef struct plcMsgResult {
     base_message_content;
     int           rows;
     int           cols;
@@ -13,8 +13,8 @@ typedef struct str_plcontainer_result {
     /* Callback called from message sending function to return the error message
      * generated during the period engine could not send it */
     void        *(*exception_callback)(void);
-} str_plcontainer_result, *plcontainer_result;
+} plcMsgResult;
 
-void free_result(plcontainer_result res, bool isSender);
+void free_result(plcMsgResult *res, bool isSender);
 
 #endif /* PLC_MESSAGE_RESULT_H */

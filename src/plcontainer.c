@@ -22,13 +22,13 @@ PG_MODULE_MAGIC;
 PG_FUNCTION_INFO_V1(plcontainer_call_handler);
 
 static Datum plcontainer_call_hook(PG_FUNCTION_ARGS);
-static plcontainer_result plcontainer_get_result(FunctionCallInfo  fcinfo,
-                                                 plcProcInfo      *pinfo);
+static plcMsgResult *plcontainer_get_result(FunctionCallInfo  fcinfo,
+                                            plcProcInfo      *pinfo);
 static Datum plcontainer_process_result(FunctionCallInfo    fcinfo,
                                         plcProcInfo        *pinfo);
-static void plcontainer_process_exception(error_message);
-static void plcontainer_process_sql(sql_msg msg, plcConn* conn);
-static void plcontainer_process_log(log_message);
+static void plcontainer_process_exception(plcMsgError *msg);
+static void plcontainer_process_sql(plcMsgSQL *msg, plcConn* conn);
+static void plcontainer_process_log(plcMsgLog *log);
 
 Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
     Datum datumreturn = (Datum) 0;
@@ -36,7 +36,7 @@ Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
 
     /* TODO: handle trigger requests as well */
     if (CALLED_AS_TRIGGER(fcinfo)) {
-        elog(ERROR, "triggers aren't supported");
+        elog(ERROR, "PL/Container does not support triggers");
         return datumreturn;
     }
 
@@ -119,13 +119,13 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     return result;
 }
 
-static plcontainer_result plcontainer_get_result(FunctionCallInfo  fcinfo,
-                                                 plcProcInfo      *pinfo) {
-    char        *name;
-    callreq      req;
-    plcConn     *conn;
-    int          message_type;
-    plcontainer_result result = NULL;
+static plcMsgResult *plcontainer_get_result(FunctionCallInfo  fcinfo,
+                                            plcProcInfo      *pinfo) {
+    char          *name;
+    plcConn       *conn;
+    int            message_type;
+    plcMsgCallreq *req    = NULL;
+    plcMsgResult  *result = NULL;
 
     req = plcontainer_create_call(fcinfo, pinfo);
     name = parse_container_meta(req->proc.src);
@@ -143,12 +143,12 @@ static plcontainer_result plcontainer_get_result(FunctionCallInfo  fcinfo,
     pfree(name);
 
     if (conn != NULL) {
-        plcontainer_channel_send(conn, (message)req);
+        plcontainer_channel_send(conn, (plcMessage*)req);
         free_callreq(req, true, true);
 
         while (1) {
-            int     res = 0;
-            message answer;
+            int res = 0;
+            plcMessage *answer;
 
             res = plcontainer_channel_receive(conn, &answer);
             if (res < 0) {
@@ -159,16 +159,16 @@ static plcontainer_result plcontainer_get_result(FunctionCallInfo  fcinfo,
             message_type = answer->msgtype;
             switch (message_type) {
                 case MT_RESULT:
-                    result = (plcontainer_result)answer;
+                    result = (plcMsgResult*)answer;
                     break;
                 case MT_EXCEPTION:
-                    plcontainer_process_exception((error_message)answer);
+                    plcontainer_process_exception((plcMsgError*)answer);
                     break;
                 case MT_SQL:
-                    plcontainer_process_sql((sql_msg)answer, conn);
+                    plcontainer_process_sql((plcMsgSQL*)answer, conn);
                     break;
                 case MT_LOG:
-                    plcontainer_process_log((log_message)answer);
+                    plcontainer_process_log((plcMsgLog*)answer);
                     break;
                 default:
                     elog(ERROR, "Received unhandled message with type id %d "
@@ -188,8 +188,8 @@ static plcontainer_result plcontainer_get_result(FunctionCallInfo  fcinfo,
  */
 static Datum plcontainer_process_result(FunctionCallInfo  fcinfo,
                                         plcProcInfo      *pinfo) {
-    Datum              result = (Datum) 0;
-    plcontainer_result resmsg = pinfo->result;
+    Datum         result = (Datum) 0;
+    plcMsgResult *resmsg = pinfo->result;
 
     if (resmsg->cols > 1) {
         elog(ERROR, "Functions returning multiple columns are not supported yet");
@@ -217,24 +217,25 @@ static Datum plcontainer_process_result(FunctionCallInfo  fcinfo,
 /*
  * Processing client log message
  */
-static void plcontainer_process_log(log_message log) {
+static void plcontainer_process_log(plcMsgLog *log) {
     elog(log->level, "%s", log->message);
 }
 
 /*
  * Processing client SQL query message
  */
-static void plcontainer_process_sql(sql_msg msg, plcConn* conn) {
-    message res;
+static void plcontainer_process_sql(plcMsgSQL *msg, plcConn* conn) {
+    plcMessage *res;
+
     res = handle_sql_message(msg);
     if (res != NULL) {
         plcontainer_channel_send(conn, res);
         switch (res->msgtype) {
             case MT_RESULT:
-                free_result((plcontainer_result)res, true);
+                free_result((plcMsgResult*)res, true);
                 break;
             case MT_CALLREQ:
-                free_callreq((callreq)res, true, true);
+                free_callreq((plcMsgCallreq*)res, true, true);
                 break;
             default:
                 elog(ERROR, "Returning message type '%c' from SPI call is not implemented", res->msgtype);
@@ -245,7 +246,7 @@ static void plcontainer_process_sql(sql_msg msg, plcConn* conn) {
 /*
  * Processing client exception message
  */
-static void plcontainer_process_exception(error_message msg) {
+static void plcontainer_process_exception(plcMsgError *msg) {
     if (msg->stacktrace != NULL) {
         elog(ERROR, "PL/Container client exception occurred: \n %s \n %s", msg->message, msg->stacktrace);
     } else {

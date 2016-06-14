@@ -5,7 +5,9 @@
 
 #define base_message_content unsigned short msgtype;
 
-typedef struct str_message { base_message_content } str_message, *message;
+typedef struct plcMessage {
+    base_message_content
+} plcMessage;
 
 typedef struct {
     int   isnull;

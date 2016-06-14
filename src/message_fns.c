@@ -43,7 +43,7 @@ interpreted as representing official policies, either expressed or implied, of t
 
 static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup);
 static bool plc_type_valid(plcTypeInfo *type);
-static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req);
+static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, plcMsgCallreq *req);
 
 plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
     int           i, len;
@@ -179,10 +179,10 @@ void free_proc_info(plcProcInfo *proc) {
     pfree(proc);
 }
 
-callreq plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
-    callreq   req;
+plcMsgCallreq *plcontainer_create_call(FunctionCallInfo fcinfo, plcProcInfo *pinfo) {
+    plcMsgCallreq *req;
 
-    req          = pmalloc(sizeof(*req));
+    req          = pmalloc(sizeof(plcMsgCallreq));
     req->msgtype = MT_CALLREQ;
     req->proc.name = pinfo->name;
     req->proc.src  = pinfo->src;
@@ -258,7 +258,7 @@ static bool plc_procedure_valid(plcProcInfo *proc, HeapTuple procTup) {
     return valid;
 }
 
-static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, callreq req) {
+static void fill_callreq_arguments(FunctionCallInfo fcinfo, plcProcInfo *pinfo, plcMsgCallreq *req) {
     int   i;
 
     req->nargs = pinfo->nargs;

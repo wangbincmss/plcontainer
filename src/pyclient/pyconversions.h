@@ -41,27 +41,27 @@ struct plcPyType {
 };
 
 typedef struct plcPyResult {
-    plcontainer_result  res;
-    plcPyType          *args;
+    plcMsgResult *res;
+    plcPyType    *args;
 } plcPyResult;
 
 typedef struct plcPyFunction {
-    plcProcSrc    proc;
-    callreq       call;
-    PyObject     *pyProc;
-    int           nargs;
-    plcPyType    *args;
-    plcPyType     res;
-    int           retset;
-    unsigned int  objectid;
-    PyObject     *pyfunc;
-    PyObject     *pySD;
+    plcProcSrc     proc;
+    plcMsgCallreq *call;
+    PyObject      *pyProc;
+    int            nargs;
+    plcPyType     *args;
+    plcPyType      res;
+    int            retset;
+    unsigned int   objectid;
+    PyObject      *pyfunc;
+    PyObject      *pySD;
 } plcPyFunction;
 
 void plc_py_copy_type(plcType *type, plcPyType *pytype);
 
-plcPyFunction *plc_py_init_function(callreq call);
-plcPyResult  *plc_init_result_conversions(plcontainer_result res);
+plcPyFunction *plc_py_init_function(plcMsgCallreq *call);
+plcPyResult  *plc_init_result_conversions(plcMsgResult *res);
 void plc_py_free_function(plcPyFunction *func);
 void plc_free_result_conversions(plcPyResult *res);
 

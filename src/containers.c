@@ -133,7 +133,7 @@ plcConn *start_container(plcContainer *cont) {
     int port;
     unsigned int sleepus = 25000;
     unsigned int sleepms = 0;
-    ping_message mping = NULL;
+    plcMsgPing *mping = NULL;
     plcConn *conn = NULL;
 
 #ifdef CONTAINER_DEBUG
@@ -187,15 +187,15 @@ plcConn *start_container(plcContainer *cont) {
      * CONTAINER_CONNECT_TIMEOUT_MS is reached. Exponential backoff for
      * reconnecting first attempts: 25ms, 50ms, 100ms, 200ms, 200ms, etc.
      */
-    mping = palloc(sizeof(str_ping_message));
+    mping = palloc(sizeof(plcMsgPing));
     mping->msgtype = MT_PING;
     while (sleepms < CONTAINER_CONNECT_TIMEOUT_MS) {
-        int          res = 0;
-        message      mresp = NULL;
+        int         res = 0;
+        plcMessage *mresp = NULL;
 
         conn = plcConnect(port);
         if (conn != NULL) {
-            res = plcontainer_channel_send(conn, (message)mping);
+            res = plcontainer_channel_send(conn, (plcMessage*)mping);
             if (res == 0) {
                 res = plcontainer_channel_receive(conn, &mresp);
                 if (mresp != NULL)
