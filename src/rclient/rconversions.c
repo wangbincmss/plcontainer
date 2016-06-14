@@ -262,7 +262,8 @@ static SEXP plc_r_object_from_udt(char *input, plcRType *type) {
     /* finally, tell R we are a data.frame */
     setAttrib(res, R_ClassSymbol, mkString("data.frame"));
 
-    UNPROTECT(3); /* res, names, row_names */
+    /* we return res PROTECTED as per all of the other input functions */
+    UNPROTECT( type->nSubTypes + 2 ); /* names, row_names */
     return res;
 }
 

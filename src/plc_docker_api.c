@@ -38,7 +38,7 @@ static char *plc_docker_get_message =
 static char *plc_docker_create_request =
         "{\n"
         "    \"AttachStdin\": false,\n"
-        "    \"AttachStdout\": false,\n"
+        "    \"AttachStdout\": true,\n"
         "    \"AttachStderr\": false,\n"
         "    \"Tty\": false,\n"
         "    \"Cmd\": [\"%s\"],\n"
@@ -358,7 +358,7 @@ static int recv_port_mapping(int sockfd, int *port) {
         }
 
         if (strstr(buf, "\r\n0\r\n")) {
-            elog(ERROR, "Error - cannot find port mapping information for container");
+            elog(ERROR, "Error - cannot find port mapping information for container: %s", buf);
             return -1;
         }
 
