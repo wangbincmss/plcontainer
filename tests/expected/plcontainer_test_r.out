@@ -1,6 +1,6 @@
 set datestyle='ISO,MDY';
 select rshouldnotparse();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:250)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:253)
 DETAIL:  
  Parse Error
 rshouldnotparse <- function(args) {
@@ -349,12 +349,7 @@ select rtimestamparr($${'2012-01-02 12:34:56.789012','2012-01-03 12:34:56.789012
  {"2012-01-02 13:34:56.789011","2012-01-03 13:34:56.789011"}
 (1 row)
 
-select rlog100_shared();
- rlog100_shared 
-----------------
- 2
-(1 row)
-
+--select rlog100_shared();
 select rpg_spi_exec('select 1');
  rpg_spi_exec 
 --------------
@@ -551,18 +546,8 @@ select rnested_call_three('foo');
  foo
 (1 row)
 
-select rnested_call_two('foobar');
- rnested_call_two 
-------------------
- foobar
-(1 row)
-
-select rnested_call_one('foo1');
- rnested_call_one 
-------------------
- foo1
-(1 row)
-
+--select rnested_call_two('foobar');
+--select rnested_call_one('foo1');
 select rtestudt1( ('t', 1, 2, 3, 4, 5, 6, 'foobar')::test_type );
  rtestudt1 
 -----------
