@@ -98,6 +98,7 @@ static void pg_get_one_r(char *value, plcDatatype column_type, SEXP *obj, int el
 /* Externs */
 extern SEXP plr_SPI_execp(const char * sql);
 
+
 /* Globals */
 
 /* Exposed in R_interface.h */
@@ -149,6 +150,7 @@ void r_init( ) {
     load_r_cmd(PG_LOG_ERROR_CMD);
     load_r_cmd(PG_LOG_FATAL_CMD);
     load_r_cmd(SPI_DBGETQUERY_CMD);
+
 }
 
 static char *get_load_self_ref_cmd(const char *libstr) {
@@ -191,7 +193,7 @@ error:
     raise_execution_error(plcconn_global,  "Error evaluating function");
     return;
 }
-
+int iteration=0;
 void handle_call(plcMsgCallreq *req, plcConn* conn) {
     SEXP             r,
                      strres,
@@ -204,6 +206,7 @@ void handle_call(plcMsgCallreq *req, plcConn* conn) {
                     *errmsg;
 
 
+    lprintf(DEBUG1, "proc %d: %s",iteration++, req->proc.name);
     /*
      * Keep our connection for future calls from R back to us.
     */
@@ -235,11 +238,10 @@ void handle_call(plcMsgCallreq *req, plcConn* conn) {
     /* call the function */
     plc_is_execution_terminated = 0;
 
-    strres = R_tryEval(call, R_GlobalEnv, &errorOccurred);
-    UNPROTECT(1); //call
+    PROTECT(strres = R_tryEval(call, R_GlobalEnv, &errorOccurred));
 
-    if (errorOccurred) {
-        UNPROTECT(1); //r
+    if ( errorOccurred ) {
+        UNPROTECT(3); //r, strres, call
         //TODO send real error message
         if (last_R_error_msg){
             errmsg = strdup(last_R_error_msg);
@@ -250,6 +252,7 @@ void handle_call(plcMsgCallreq *req, plcConn* conn) {
         }
         send_error(conn, errmsg);
         free(errmsg);
+        plc_r_free_function(r_func);
         return;
     }
 
@@ -259,7 +262,7 @@ void handle_call(plcMsgCallreq *req, plcConn* conn) {
 
     plc_r_free_function(r_func);
 
-    UNPROTECT(1); //r
+    UNPROTECT(3); //r, strres, call
 
     return;
 }
@@ -744,7 +747,7 @@ SEXP plr_SPI_exec(SEXP rsql) {
     /* we don't need it anymore */
     pfree(msg);
 
-receive:
+
     res = plcontainer_channel_receive(plcconn_global, &resp);
     if (res < 0) {
         raise_execution_error(plcconn_global,  "Error receiving data from the backend, %d", res);
@@ -755,7 +758,7 @@ receive:
         case MT_CALLREQ:
             handle_call((plcMsgCallreq*)resp, plcconn_global);
             free_callreq((plcMsgCallreq*)resp, false, false);
-            goto receive;
+
         case MT_RESULT:
             break;
         default:

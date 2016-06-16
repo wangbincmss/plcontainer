@@ -244,6 +244,7 @@ static SEXP plc_r_object_from_udt(char *input, plcRType *type) {
             SET_STRING_ELT(names,i, Rf_mkChar(type->subTypes[i].typeName));
 
             SET_VECTOR_ELT(res,i,element);
+            UNPROTECT(1);
 
         } else {
             res = R_NilValue;
@@ -252,18 +253,19 @@ static SEXP plc_r_object_from_udt(char *input, plcRType *type) {
     }
     /* attach the column names */
     setAttrib(res, R_NamesSymbol, names);
+    UNPROTECT(1); //names
 
     /* attach row names - basically just the row number, zero based */
     PROTECT(row_names = allocVector(STRSXP, 1));
     SET_STRING_ELT(row_names, 0, Rf_mkChar("1"));
 
     setAttrib(res, R_RowNamesSymbol, row_names);
+    UNPROTECT(1); // row_names
 
     /* finally, tell R we are a data.frame */
     setAttrib(res, R_ClassSymbol, mkString("data.frame"));
 
     /* we return res PROTECTED as per all of the other input functions */
-    UNPROTECT( type->nSubTypes + 2 ); /* names, row_names */
     return res;
 }
 
