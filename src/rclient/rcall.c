@@ -206,7 +206,7 @@ void handle_call(plcMsgCallreq *req, plcConn* conn) {
                     *errmsg;
 
 
-    lprintf(DEBUG1, "proc %d: %s",iteration++, req->proc.name);
+/*    lprintf(DEBUG1, "proc %d: %s",iteration++, req->proc.name); */
     /*
      * Keep our connection for future calls from R back to us.
     */
