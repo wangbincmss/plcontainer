@@ -38,7 +38,7 @@ static char *plc_docker_get_message =
 static char *plc_docker_create_request =
         "{\n"
         "    \"AttachStdin\": false,\n"
-        "    \"AttachStdout\": true,\n"
+        "    \"AttachStdout\": false,\n"
         "    \"AttachStderr\": false,\n"
         "    \"Tty\": false,\n"
         "    \"Cmd\": [\"%s\"],\n"
