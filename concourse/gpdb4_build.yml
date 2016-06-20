@@ -1,0 +1,20 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: agrishchenko/plc_gpdb_centos7
+    tag: '0.1'
+
+inputs:
+  - name: gpdb4_src
+  - name: plcontainer_src
+  - name: gpdb_rebuild_daily
+
+outputs:
+  - name: gpdb_build
+
+run:
+  path: echo
+    args:
+    - hello world
