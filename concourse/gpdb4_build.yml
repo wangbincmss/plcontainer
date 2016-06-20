@@ -12,7 +12,7 @@ inputs:
   - name: gpdb_rebuild_daily
 
 outputs:
-  - name: gpdb_build
+  - name: gpdb4_build
 
 run:
   path: plcontainer_src/concourse/scripts/gpdb4_build.sh
