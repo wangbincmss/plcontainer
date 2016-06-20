@@ -15,4 +15,4 @@ outputs:
   - name: gpdb_build
 
 run:
-  path: gpdb_src/concourse/scripts/gpdb_build.sh
+  path: plcontainer_src/concourse/scripts/gpdb_build.sh
