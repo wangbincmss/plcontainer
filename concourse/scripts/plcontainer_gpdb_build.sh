@@ -1,8 +1,8 @@
 #!/bin/bash
 
-cp bin_gpdb_centos7/bin_gpdb_centos7.tar.gz /usr/local
+cp $1/$1.tar.gz /usr/local
 pushd /usr/local
-tar zxvf bin_gpdb_centos7.tar.gz
+tar zxvf $1.tar.gz
 popd
 source /usr/local/greenplum-db/greenplum_path.sh
 
@@ -12,4 +12,4 @@ pushd package
 make cleanall && make
 popd
 popd
-cp plcontainer_src/package/plcontainer-*.gppkg plcontainer_gpdb_build/
+cp plcontainer_src/package/plcontainer-*.gppkg $2/

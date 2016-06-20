@@ -7,14 +7,14 @@ image_resource:
     tag: '0.1'
 
 inputs:
-  - name: bin_gpdb_centos7
+  - name: bin_gpdb4off_centos7
   - name: plcontainer_src
 
 outputs:
-  - name: plcontainer_gpdb_build
+  - name: plcontainer_gpdb4off_build
 
 run:
   path: plcontainer_src/concourse/scripts/plcontainer_gpdb_build.sh
   args:
-    - bin_gpdb_centos7
-    - plcontainer_gpdb_build
+    - bin_gpdb4off_centos7
+    - plcontainer_gpdb4off_build
