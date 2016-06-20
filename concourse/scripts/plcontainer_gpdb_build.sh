@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 cp $1/$1.tar.gz /usr/local
 pushd /usr/local
 tar zxvf $1.tar.gz
