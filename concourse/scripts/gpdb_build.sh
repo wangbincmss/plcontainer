@@ -10,4 +10,4 @@ cd ..
 pushd /usr/local
 tar -zcvf bin_gpdb_centos7.tar.gz greenplum-db
 popd
-mv /usr/local/bin_gpdb_centos7.tar.gz gpdb4_build/
+mv /usr/local/bin_gpdb_centos7.tar.gz gpdb_build/
