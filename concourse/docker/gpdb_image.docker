@@ -1,0 +1,13 @@
+FROM centos:7.2.1511
+
+# Install dependencies
+RUN yum -y groupinstall "Development tools"
+RUN yum -y install epel-release ed wget coreutils sed psmisc
+RUN yum -y install readline-devel zlib-devel curl-devel bzip2-devel python-devel \
+                   apr-devel libevent-devel openssl-libs openssl-devel libyaml   \
+                   libyaml-devel libxml2 libxml2-devel htop perl-Env libffi-devel
+RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
+RUN pip install psi lockfile paramiko setuptools epydoc psutil
+
+# Install Docker
+RUN yum -y install docker
