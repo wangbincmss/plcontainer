@@ -15,6 +15,4 @@ outputs:
   - name: gpdb_build
 
 run:
-  path: echo
-    args:
-    - hello world
+  path: plcontainer_src/concourse/scripts/gpdb4_build.sh
