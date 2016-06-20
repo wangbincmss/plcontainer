@@ -14,4 +14,4 @@ pushd package
 make cleanall && make
 popd
 popd
-cp plcontainer_src/package/plcontainer-*.gppkg $2/
+cp plcontainer_src/package/plcontainer-*.gppkg $2/plcontainer-concourse.gppkg
