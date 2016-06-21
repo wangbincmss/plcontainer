@@ -1,0 +1,22 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: agrishchenko/plc_gpdb_centos7
+    tag: 'latest'
+
+inputs:
+  - name: plcontainer_src
+  - name: bin_python26_client
+  - name: bin_python27_client
+  - name: bin_r31_client
+  - name: bin_r31_clientlib
+  - name: bin_r32_client
+  - name: bin_r32_clientlib
+
+outputs:
+  - name: plcontainer_images_build
+
+run:
+  path: plcontainer_src/concourse/scripts/plcontainer_images_build.sh
