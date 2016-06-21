@@ -17,9 +17,9 @@ popd
 pushd src/rclient
 make clean && make
 popd
-cp src/pyclient/client    ../plcontainer_clients_build/python27/client
-cp src/rclient/client     ../plcontainer_clients_build/r32/client
-cp src/rclient/libcall.so ../plcontainer_clients_build/r32/libcall.so
+cp src/pyclient/client     ../plcontainer_clients_build/python27/client
+cp src/rclient/client      ../plcontainer_clients_build/r32/client
+cp src/rclient/librcall.so ../plcontainer_clients_build/r32/librcall.so
 unset R_HOME
 
 # Build Python 2.6 and R 3.1 - the ones shipped with GPDB
@@ -34,6 +34,6 @@ popd
 pushd src/rclient
 make clean && make
 popd
-cp src/pyclient/client    ../plcontainer_clients_build/python26/client
-cp src/rclient/client     ../plcontainer_clients_build/r31/client
-cp src/rclient/libcall.so ../plcontainer_clients_build/r31/libcall.so
+cp src/pyclient/client     ../plcontainer_clients_build/python26/client
+cp src/rclient/client      ../plcontainer_clients_build/r31/client
+cp src/rclient/librcall.so ../plcontainer_clients_build/r31/librcall.so
