@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 mkdir /usr/local/greenplum-db
 export BLD_ARCH=rhel5_x86_64
 cd gpdb4_src
