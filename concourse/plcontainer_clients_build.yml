@@ -1,0 +1,17 @@
+platform: linux
+
+image_resource:
+  type: docker-image
+  source:
+    repository: agrishchenko/plc_gpdb_centos7
+    tag: '0.1'
+
+inputs:
+  - name: plcontainer_src
+  - name: bin_gpdb4off_centos7
+
+outputs:
+  - name: plcontainer_clients_build
+
+run:
+  path: plcontainer_src/concourse/scripts/plcontainer_clients_build.sh
