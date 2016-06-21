@@ -11,3 +11,6 @@ RUN pip install psi lockfile paramiko setuptools epydoc psutil
 
 # Install Docker
 RUN yum -y install docker
+
+# Install R
+RUN yum -y install R R-devel R-core
