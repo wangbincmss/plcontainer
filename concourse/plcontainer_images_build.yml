@@ -8,6 +8,7 @@ image_resource:
 
 inputs:
   - name: plcontainer_src
+  - name: bin_gpdb_centos7
   - name: bin_python26_client
   - name: bin_python27_client
   - name: bin_r31_client
