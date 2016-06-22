@@ -2,8 +2,18 @@
 
 set -x
 
+# Put GPDB binaries in place to get pg_config
+cp bin_gpdb_centos7/bin_gpdb_centos7.tar.gz /usr/local
+pushd /usr/local
+tar zxvf bin_gpdb_centos7.tar.gz
+popd
+source /usr/local/greenplum-db/greenplum_path.sh
+
+# Preparing for Docker and starting it
 source plcontainer_src/concourse/scripts/docker_scripts.sh
 start_docker
+
+echo 'agrishchenko@pivotal.io\n\n' > docker login -u agrishchenko -p MyDockerPassword9283
 
 # Making so would change container tags to "devel"
 export CIBUILD=1
@@ -29,8 +39,7 @@ make container_r
 make container_anaconda
 popd
 
-docker login -u agrishchenko -p MyDockerPassword9283
-
+# Publising new images to Docker Hub
 docker push pivotaldata/plcontainer_python:devel
 docker push pivotaldata/plcontainer_r:devel
 docker push pivotaldata/plcontainer_r_shared:devel
