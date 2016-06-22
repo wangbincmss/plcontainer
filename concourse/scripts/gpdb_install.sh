@@ -19,6 +19,7 @@ source ~/.bashrc
 mkdir $GPDATA/master
 mkdir $GPDATA/primary
 
+gpssh-exkeys -h 127.0.0.1
 echo "127.0.0.1" > $GPDATA/hosts
 
 GPCFG=$GPDATA/gpinitsystem_config
