@@ -12,7 +12,6 @@ source /usr/local/greenplum-db/greenplum_path.sh || exit 1
 # Preparing for Docker and starting it
 source plcontainer_src/concourse/scripts/docker_scripts.sh
 start_docker || exit 1
-
 echo 'agrishchenko@pivotal.io\n\n' | docker login -u agrishchenko -p MyDockerPassword9283 || exit 1
 
 # Making so would change container tags to "devel"
