@@ -32,8 +32,8 @@ ssh_keyscan_for_user() {
 }
 
 transfer_ownership() {
-  chown -R gpadmin:gpadmin gpdb_src
-  chown -R gpadmin:gpadmin /usr/local/gpdb
+  chown -R gpadmin:gpadmin /data
+  chown -R gpadmin:gpadmin /usr/local/greenplum-db
 }
 
 setup_gpadmin_user() {
@@ -58,7 +58,8 @@ setup_sshd() {
   setup_ssh_for_user root
 
   # Test that sshd can start
-  /etc/init.d/sshd start
+  nohup /usr/sbin/sshd -D &
+  #/etc/init.d/sshd start
 
   ssh_keyscan_for_user root
   ssh_keyscan_for_user gpadmin
