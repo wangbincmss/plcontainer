@@ -19,13 +19,14 @@ source ~/.bashrc
 mkdir $GPDATA/master
 mkdir $GPDATA/primary
 
-gpssh-exkeys -h 127.0.0.1
-echo "127.0.0.1" > $GPDATA/hosts
+HOSTNAME=`hostname`
+gpssh-exkeys -h $HOSTNAME
+echo "$HOSTNAME" > $GPDATA/hosts
 
 GPCFG=$GPDATA/gpinitsystem_config
 rm -f $GPCFG
 printf "declare -a DATA_DIRECTORY=($GPDATA/primary $GPDATA/primary)\n" >> $GPCFG
-printf "MASTER_HOSTNAME=127.0.0.1\n"                                   >> $GPCFG
+printf "MASTER_HOSTNAME=$HOSTNAME\n"                                   >> $GPCFG
 printf "MACHINE_LIST_FILE=$GPDATA/hosts\n"                             >> $GPCFG
 printf "MASTER_DIRECTORY=$GPDATA/master\n"                             >> $GPCFG
 printf "ARRAY_NAME=\"GPDB\" \n"                                        >> $GPCFG
