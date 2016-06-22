@@ -9,10 +9,13 @@ RUN yum -y install readline-devel zlib-devel curl-devel bzip2-devel python-devel
 RUN wget https://bootstrap.pypa.io/get-pip.py && python get-pip.py
 RUN pip install psi lockfile paramiko setuptools epydoc psutil
 
+# Install R
+RUN yum -y install R R-devel R-core
+
 # Install Docker
 ADD . /plctemp
 RUN cp /plctemp/docker.repo /etc/yum.repos.d/
 RUN yum -y install docker-engine-1.11.0
 
-# Install R
-RUN yum -y install R R-devel R-core
+# Install runtime dependencies
+RUN yum -y install openssh-server net-tools iproute

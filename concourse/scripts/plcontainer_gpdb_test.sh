@@ -19,7 +19,7 @@ mkdir /data
 chown gpadmin:gpadmin /data
 cp plcontainer_src/concourse/scripts/gpdb_install.sh /tmp
 chmod 777 /tmp/gpdb_install.sh
-runuser gpadmin -c "source /usr/local/gpdb/greenplum_path.sh && bash /tmp/gpdb_install.sh /data" || exit 1
+runuser gpadmin -c "source /usr/local/greenplum-db/greenplum_path.sh && bash /tmp/gpdb_install.sh /data" || exit 1
 
 runuser gpadmin -c "bash gppkg -i $2/plcontainer-concourse.gppkg" || exit 1
 
