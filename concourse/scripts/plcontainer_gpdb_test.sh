@@ -10,13 +10,12 @@ popd
 source /usr/local/greenplum-db/greenplum_path.sh || exit 1
 
 # GPDB Installation Preparation
+mkdir /data
 source plcontainer_src/concourse/scripts/gpdb_install_functions.sh || exit 1
 setup_gpadmin_user
 setup_sshd
 
 # GPDB Installation
-mkdir /data
-chown gpadmin:gpadmin /data
 cp plcontainer_src/concourse/scripts/gpdb_install.sh /tmp
 chmod 777 /tmp/gpdb_install.sh
 runuser gpadmin -c "source /usr/local/greenplum-db/greenplum_path.sh && bash /tmp/gpdb_install.sh /data" || exit 1
