@@ -7,6 +7,7 @@ set -x
 WORKDIR=$1
 PLCGPPKG=$2
 TMPDIR=$3
+GPDBVER=$4
 
 cd $WORKDIR
 
@@ -18,4 +19,10 @@ plcontainer-config --reset
 rm -rf $TMPDIR
 cp -r plcontainer_src $TMPDIR
 cd $TMPDIR/tests
-make tests || exit 1
+
+# Test version depends on GPDB release we are running on
+if [ "$GPDBVER" == "gpdb5" ]; then
+    make tests || exit 1
+else
+    make tests4 || exit 1
+fi

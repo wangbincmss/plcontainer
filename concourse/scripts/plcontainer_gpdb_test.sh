@@ -6,6 +6,7 @@ WORKDIR=`pwd`
 GPDBTAR=$1
 PLCGPPKG=$2
 OUTPUT=$3
+GPDBVER=$4
 TMPDIR=/tmp/localplccopy
 
 # Put GPDB binaries in place to get pg_config
@@ -38,7 +39,7 @@ docker pull pivotaldata/plcontainer_r_shared:devel || exit 1
 docker pull pivotaldata/plcontainer_python_shared:devel || exit 1
 docker pull pivotaldata/plcontainer_anaconda:devel || exit 1
 
-runuser gpadmin -c "bash /tmp/plcontainer_install_test.sh $WORKDIR $PLCGPPKG $TMPDIR"
+runuser gpadmin -c "bash /tmp/plcontainer_install_test.sh $WORKDIR $PLCGPPKG $TMPDIR $GPDBVER"
 RETCODE=$?
 
 if [ $RETCODE -ne 0 ]; then
