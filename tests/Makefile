@@ -11,11 +11,10 @@ default: all
 all: tests
 
 .PHONY: tests
-tests: submake
+tests:
 	$(top_builddir)/src/test/regress/pg_regress \
 				--psqldir=$(PSQLDIR) $(REGRESS_OPTS) $(REGRESS)
 
 .PHONY: submake
 submake:
 	$(MAKE) -C $(top_builddir)/src/test/regress pg_regress$(X)
-
