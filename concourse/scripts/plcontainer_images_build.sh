@@ -21,6 +21,9 @@ export CIBUILD=1
 cp bin_python26_client/client      plcontainer_src/src/pyclient/bin/
 cp bin_r31_client/client           plcontainer_src/src/rclient/bin/
 cp bin_r31_clientlib/librcall.so   plcontainer_src/src/rclient/bin/
+chmod 777 plcontainer_src/src/pyclient/bin/client
+chmod 777 plcontainer_src/src/rclient/bin/client
+chmod 777 plcontainer_src/src/rclient/bin/librcall.so
 
 pushd plcontainer_src
 make container_python_shared || exit 1
@@ -31,6 +34,9 @@ popd
 cp bin_python27_client/client      plcontainer_src/src/pyclient/bin/
 cp bin_r32_client/client           plcontainer_src/src/rclient/bin/
 cp bin_r32_clientlib/librcall.so   plcontainer_src/src/rclient/bin/
+chmod 777 plcontainer_src/src/pyclient/bin/client
+chmod 777 plcontainer_src/src/rclient/bin/client
+chmod 777 plcontainer_src/src/rclient/bin/librcall.so
 
 pushd plcontainer_src
 make container_python   || exit 1
