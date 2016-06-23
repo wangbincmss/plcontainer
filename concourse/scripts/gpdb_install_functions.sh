@@ -41,6 +41,7 @@ setup_gpadmin_user() {
   echo -e "password\npassword" | passwd gpadmin
   groupadd supergroup
   usermod -a -G supergroup gpadmin
+  usermod -a -G docker gpadmin
   setup_ssh_for_user gpadmin
   transfer_ownership
   chmod u+s `which ping`
