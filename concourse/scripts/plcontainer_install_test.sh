@@ -18,3 +18,10 @@ rm -rf /tmp/localplccopy
 cp -r plcontainer_src /tmp/localplccopy
 cd /tmp/localplccopy/tests
 make tests
+RETCODE=$?
+echo "=================================================================="
+cat ./regression.diffs
+echo "=================================================================="
+cat results/plcontainer_test_python.out
+
+exit $RETCODE
