@@ -20,3 +20,4 @@ run:
     - bin_gpdb_centos7
     - plcontainer_gpdb_centos7_build
     - plcontainer_gpdb_test
+    - gpdb5
