@@ -180,7 +180,7 @@ static int plc_pyobject_as_int1(PyObject *input, char **output, plcPyType *type 
     else if (PyFloat_Check(input))
         *out = (char)PyFloat_AsDouble(input);
     else {
-        raise_execution_error("Exception occured transforming result object to int1");
+        raise_execution_error("Exception occurred transforming result object to int1");
         res = -1;
     }
     return res;
@@ -197,7 +197,7 @@ static int plc_pyobject_as_int2(PyObject *input, char **output, plcPyType *type 
     else if (PyFloat_Check(input))
         *((short*)out) = (short)PyFloat_AsDouble(input);
     else {
-        raise_execution_error("Exception occured transforming result object to int2");
+        raise_execution_error("Exception occurred transforming result object to int2");
         res = -1;
     }
     return res;
@@ -214,7 +214,7 @@ static int plc_pyobject_as_int4(PyObject *input, char **output, plcPyType *type 
     else if (PyFloat_Check(input))
         *((int*)out) = (int)PyFloat_AsDouble(input);
     else {
-        raise_execution_error("Exception occured transforming result object to int4");
+        raise_execution_error("Exception occurred transforming result object to int4");
         res = -1;
     }
     return res;
@@ -231,7 +231,7 @@ static int plc_pyobject_as_int8(PyObject *input, char **output, plcPyType *type 
     else if (PyFloat_Check(input))
         *((long long*)out) = (long long)PyFloat_AsDouble(input);
     else {
-        raise_execution_error("Exception occured transforming result object to int8");
+        raise_execution_error("Exception occurred transforming result object to int8");
         res = -1;
     }
     return res;
@@ -248,7 +248,7 @@ static int plc_pyobject_as_float4(PyObject *input, char **output, plcPyType *typ
     else if (PyInt_Check(input))
         *((float*)out) = (float)PyInt_AsLong(input);
     else {
-        raise_execution_error("Exception occured transforming result object to float4");
+        raise_execution_error("Exception occurred transforming result object to float4");
         res = -1;
     }
     return res;
@@ -265,7 +265,7 @@ static int plc_pyobject_as_float8(PyObject *input, char **output, plcPyType *typ
     else if (PyInt_Check(input))
         *((double*)out) = (double)PyInt_AsLong(input);
     else {
-        raise_execution_error("Exception occured transforming result object to float8");
+        raise_execution_error("Exception occurred transforming result object to float8");
         res = -1;
     }
     return res;
@@ -280,7 +280,7 @@ static int plc_pyobject_as_text(PyObject *input, char **output, plcPyType *type 
         Py_DECREF(obj);
     } else {
         *output = NULL;
-        raise_execution_error("Exception occured transforming result object to text");
+        raise_execution_error("Exception occurred transforming result object to text");
         res = -1;
     }
     return res;

@@ -47,7 +47,11 @@ install-extra:
 
 .PHONY: installcheck
 installcheck:
-	$(MAKE) -C tests
+	$(MAKE) -C tests tests
+
+.PHONY: installcheck4
+installcheck4:
+	$(MAKE) -C tests tests4
 
 .PHONY: clients
 clients:

@@ -194,7 +194,7 @@ static plcContainer *get_containers(xmlNode *node, int *size) {
         }
     }
 
-    /* If error occured during parsing - return NULL */
+    /* If error occurred during parsing - return NULL */
     if (res != 0) {
         free_containers(result, nContainers);
         result = NULL;

@@ -158,7 +158,7 @@ void handle_call(plcMsgCallreq *req, plcConn *conn) {
     retval = PyObject_Call(pyfunc->pyfunc, args, NULL); // returns new reference
     if (retval == NULL || PyErr_Occurred()) {
         Py_XDECREF(args);
-        raise_execution_error("Exception occured in Python during function execution");
+        raise_execution_error("Exception occurred in Python during function execution");
         return;
     }
 
