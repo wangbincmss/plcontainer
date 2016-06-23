@@ -19,9 +19,9 @@ cp -r plcontainer_src /tmp/localplccopy
 cd /tmp/localplccopy/tests
 make tests
 RETCODE=$?
-echo "=================================================================="
-cat ./regression.diffs
-echo "=================================================================="
-cat results/plcontainer_test_python.out
+echo '======================================================================'
+psql -d pl_regression -c 'set client_min_messages=DEBUG1; select pylog100();'
+echo '======================================================================'
+docker run -d pivotaldata/plcontainer_python:devel ./client
 
 exit $RETCODE
