@@ -14,5 +14,5 @@ gppkg -i $PLCGPPKG/plcontainer-concourse.gppkg || exit 1
 cp plcontainer_src/management/config/plcontainer_configuration-ci.xml $GPHOME/share/postgresql/plcontainer/plcontainer_configuration.xml
 plcontainer-config --reset
 
-cd plcontainer_src
-make installcheck
+cd plcontainer_src/tests
+make tests
