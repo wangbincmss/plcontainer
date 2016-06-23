@@ -565,7 +565,7 @@ select rtestudt1( ('t', 1, 2, 3, 4, 5, 6, 'foobar')::test_type );
 (1 row)
 
 select rtestudt2( (
-        array['t','f','t']::bool[],
+        array[true,false,true]::bool[],
         array[1,2,3]::smallint[],
         array[2,3,4]::int[],
         array[3,4,5]::int8[],
@@ -576,34 +576,6 @@ select rtestudt2( (
  rtestudt2 
 -----------
         10
-(1 row)
-
-select rtestudt3( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] );
-              rtestudt3               
---------------------------------------
-  # 1 | 1 | a # 2 | 2 | b # 3 | 3 | c
-(1 row)
-
-select rtestudt4( array[
-                (1,array[1,2,3],array['a','b','c']),
-                (2,array[2,3,4],array['b','c','d']),
-                (3,array[3,4,5],array['c','d','e'])
-            ]::test_type4[] );
-                  rtestudt4                  
----------------------------------------------
-  # 1 | 6 | , a # 2 | 9 | , b # 3 | 12 | , c
-(1 row)
-
-select rtestudt5(null::test_type4[]);
- rtestudt5 
------------
-         1
-(1 row)
-
-select rtestudt5(array[null]::test_type4[]);
- rtestudt5 
------------
-         2
 (1 row)
 
 select rtestudt6a();
@@ -620,31 +592,12 @@ select rtestudt6b();
  (t,3,7,10,3,6,9,zzz)
 (3 rows)
 
-select rtestudt7();
-         rtestudt7         
----------------------------
- {"(1,2,foo)","(3,4,bar)"}
-(1 row)
-
 select rtestudt8();
  rtestudt8 
 -----------
  (1,2,foo)
  (3,4,bar)
 (2 rows)
-
-select rtestudt9();
-         rtestudt9         
----------------------------
- {"(1,2,foo)","(3,4,bar)"}
- {"(5,6,buz)","(7,8,zzz)"}
-(2 rows)
-
-select rtestudt10();
-                            rtestudt10                             
--------------------------------------------------------------------
- {"(1,\"{2,22}\",\"{foo,foo2}\")","(3,\"{4,44}\",\"{bar,bar2}\")"}
-(1 row)
 
 select rtestudt11();
         rtestudt11         
@@ -658,22 +611,6 @@ select * from rtestudt13( (1,2,'a')::test_type3 );
 ---+---+---
  1 | 2 | a
 (1 row)
-
-select * from unnest(rtestudt14( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] ));
- a | b | c 
----+---+---
- 1 | 1 | a
- 2 | 2 | b
- 3 | 3 | c
-(3 rows)
-
-select * from rtestudt15( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] );
- a | b | c 
----+---+---
- 1 | 1 | a
- 2 | 2 | b
- 3 | 3 | c
-(3 rows)
 
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');

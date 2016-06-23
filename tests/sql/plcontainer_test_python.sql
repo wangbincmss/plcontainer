@@ -28,9 +28,9 @@ select pyfloatarr(array[array[1.1,3.3,5.5,7.7],array[3.3,4.4,5.5,6.6]]::float8[]
 select pytextarr(array['aaa','bbb','ccc']::varchar[]);
 select pytextarr(array['aaa','','ccc']::varchar[]);
 select pytsarr(array['2010-01-01 00:00:00', '2010-02-02 01:01:01', '2010-03-03 03:03:03', '2012-01-01 00:00:00']::timestamp[]);
-select pybyteaarr(array['123','321']::bytea[]);
-select pybyteaarr(array['123','321',null]::bytea[]);
-select pybyteaarr(array[]::bytea[]);
+select pybyteaarr(array['123'::bytea,'321'::bytea]::bytea[]);
+select pybyteaarr(array['123'::bytea,'321'::bytea,null::bytea]::bytea[]);
+select pybyteaarr('{}'::bytea[]);
 select pyintnulls(array[1,2,3,4,5,null]::int8[]);
 select pyintnulls(array[null,null,null]::int8[]);
 select pyreturnarrint1(5);
@@ -42,8 +42,8 @@ select pyreturnarrfloat8(10);
 select pyreturnarrnumeric(11);
 select pyreturnarrtext(12);
 select pyreturnarrdate(13);
-select pyreturnarrbytea(array['foo','bar']::bytea[]);
-select pyreturnarrbytea(array['foo','bar',null]::bytea[]);
+select pyreturnarrbytea(array['foo'::bytea,'bar'::bytea]::bytea[]);
+select pyreturnarrbytea(array['foo'::bytea,'bar'::bytea,null::bytea]::bytea[]);
 select pyreturnarrbytea(null::bytea[]);
 select pyreturnarrbytea2(14);
 select pyreturntupint8();
@@ -89,7 +89,7 @@ select pylargetextin(string_agg(x,',')) from (select x::varchar from generate_se
 select length(pylargetextout(100000));
 select pytestudt1( ('t', 1, 2, 3, 4, 5, 6, 'foobar')::test_type );
 select pytestudt2( (
-        array['t','f','t']::bool[],
+        array[true,false,true]::bool[],
         array[1,2,3]::smallint[],
         array[2,3,4]::int[],
         array[3,4,5]::int8[],
@@ -97,24 +97,10 @@ select pytestudt2( (
         array[5.5,6.5,7.5]::float8[],
         array[6.5,7.5,8.5]::numeric[],
         array['a','b','c']::varchar[])::test_type2 );
-select pytestudt3( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] );
-select pytestudt4( array[
-                (1,array[1,2,3],array['a','b','c']),
-                (2,array[2,3,4],array['b','c','d']),
-                (3,array[3,4,5],array['c','d','e'])
-            ]::test_type4[] );
-select pytestudt5(null::test_type4[]);
-select pytestudt5(array[null]::test_type4[]);
 select pytestudt6();
-select pytestudt7();
 select pytestudt8();
-select pytestudt9();
-select * from unnest(pytestudt10());
 select * from pytestudt11();
-select unnest(a) from (select pytestudt12() as a) as q;
 select * from rtestudt13( (1,2,'a')::test_type3 );
-select * from unnest(rtestudt14( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] ));
-select * from rtestudt15( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] );
 select * from pytestudtrecord1() as t(a int, b int, c varchar);
 select * from pytestudtrecord2() as t(a int, b int, c varchar);
 select pybadint();
@@ -123,7 +109,5 @@ select pybadudt();
 select pybadudt2();
 select pybadarr();
 select pybadarr2();
-select pybadudtarr();
-select pybadudtarr2();
 select pyinvalid_function();
 select pyinvalid_syntax();

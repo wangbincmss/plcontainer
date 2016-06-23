@@ -95,7 +95,7 @@ select rnested_call_two('foobar');
 select rnested_call_one('foo1');
 select rtestudt1( ('t', 1, 2, 3, 4, 5, 6, 'foobar')::test_type );
 select rtestudt2( (
-        array['t','f','t']::bool[],
+        array[true,false,true]::bool[],
         array[1,2,3]::smallint[],
         array[2,3,4]::int[],
         array[3,4,5]::int8[],
@@ -104,26 +104,11 @@ select rtestudt2( (
         array[6.5,7.5,8.5]::numeric[],
         array['a','b','c']::varchar[])::test_type2 );
 
-select rtestudt3( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] );
-
-select rtestudt4( array[
-                (1,array[1,2,3],array['a','b','c']),
-                (2,array[2,3,4],array['b','c','d']),
-                (3,array[3,4,5],array['c','d','e'])
-            ]::test_type4[] );
-
-select rtestudt5(null::test_type4[]);
-select rtestudt5(array[null]::test_type4[]);
 select rtestudt6a();
 select rtestudt6b();
-select rtestudt7();
 select rtestudt8();
-select rtestudt9();
-select rtestudt10();
 select rtestudt11();
 select * from rtestudt13( (1,2,'a')::test_type3 );
-select * from unnest(rtestudt14( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] ));
-select * from rtestudt15( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] );
 
 --select paster('{hello, happy}','{world, birthday}',' ');
 --select rtest_spi_tup('select fname, lname,username from users order by 1,2,3');
