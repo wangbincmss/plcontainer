@@ -19,7 +19,7 @@ setup_sshd
 cp plcontainer_src/concourse/scripts/gpdb_install.sh /tmp
 chmod 777 /tmp/gpdb_install.sh
 runuser gpadmin -c "source /usr/local/greenplum-db/greenplum_path.sh && bash /tmp/gpdb_install.sh /data" || exit 1
-runuser gpadmin -c "gppkg -i $2/plcontainer-concourse.gppkg" || exit 1
+runuser gpadmin -c "source ~/.bashrc && gppkg -i $2/plcontainer-concourse.gppkg" || exit 1
 
 # Preparing for Docker and starting it
 #source plcontainer_src/concourse/scripts/docker_scripts.sh
