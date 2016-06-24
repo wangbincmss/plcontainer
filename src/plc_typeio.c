@@ -344,7 +344,7 @@ static char *plc_datum_as_array(Datum input, plcTypeInfo *type) {
     meta->type = type->subTypes[0].type;
     meta->ndims = ARR_NDIM(array);
     meta->dims = (int*)palloc(meta->ndims * sizeof(int));
-    iter->position = (char*)palloc(sizeof(int) * meta->ndims * 2 + 2);
+    iter->position = (char*)palloc(sizeof(plcTypeInfo*) + sizeof(int) * meta->ndims * 2);
     ((plcTypeInfo**)iter->position)[0] = type;
     meta->size = meta->ndims > 0 ? 1 : 0;
     for (i = 0; i < meta->ndims; i++) {
