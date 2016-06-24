@@ -33,6 +33,7 @@ interpreted as representing official policies, either expressed or implied, of t
 /* Greenplum headers */
 #include "postgres.h"
 #include "executor/spi.h"
+#include "access/transam.h"
 
 /* message and function definitions */
 #include "common/comm_utils.h"
@@ -210,7 +211,7 @@ static bool plc_type_valid(plcTypeInfo *type) {
 
         Assert(OidIsValid(type->typ_relid));
         Assert(TransactionIdIsValid(type->typrel_xmin));
-        Assert(ItemPointerIsValid(type->typrel_tid));
+        Assert(ItemPointerIsValid(&type->typrel_tid));
 
         // Get the pg_class tuple for the argument type
         relTup = SearchSysCache1(RELOID, ObjectIdGetDatum(type->typ_relid));
