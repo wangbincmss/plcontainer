@@ -101,6 +101,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     /* If we processed all the rows or the function returned 0 rows we can return immediately */
     if (pinfo->resrow >= pinfo->result->rows) {
         free_result(pinfo->result, false);
+        MemoryContextSwitchTo(oldcontext);
         SRF_RETURN_DONE(funcctx);
     }
 
