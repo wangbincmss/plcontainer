@@ -16,24 +16,20 @@ static plcMsgResult *create_sql_result(void);
 static plcMsgResult *create_sql_result() {
     plcMsgResult  *result;
     int            i, j;
-    SPITupleTable *res_tuptable;
     plcTypeInfo   *resTypes;
-
-    res_tuptable = SPI_tuptable;
-    SPI_tuptable = NULL;
 
     result          = palloc(sizeof(plcMsgResult));
     result->msgtype = MT_RESULT;
-    result->cols    = res_tuptable->tupdesc->natts;
+    result->cols    = SPI_tuptable->tupdesc->natts;
     result->rows    = SPI_processed;
     result->types   = palloc(result->cols * sizeof(*result->types));
     result->names   = palloc(result->cols * sizeof(*result->names));
     result->exception_callback = NULL;
     resTypes        = palloc(result->cols * sizeof(plcTypeInfo));
     for (j = 0; j < result->cols; j++) {
-        fill_type_info(NULL, res_tuptable->tupdesc->attrs[j]->atttypid, &resTypes[j]);
+        fill_type_info(NULL, SPI_tuptable->tupdesc->attrs[j]->atttypid, &resTypes[j]);
         copy_type_info(&result->types[j], &resTypes[j]);
-        result->names[j] = SPI_fname(res_tuptable->tupdesc, j + 1);
+        result->names[j] = SPI_fname(SPI_tuptable->tupdesc, j + 1);
     }
 
     if (result->rows == 0) {
@@ -46,10 +42,10 @@ static plcMsgResult *create_sql_result() {
         for (i = 0; i < result->rows; i++) {
             result->data[i] = palloc(result->cols * sizeof(*result->data[i]));
             for (j = 0; j < result->cols; j++) {
-                origval = heap_getattr(res_tuptable->vals[i],
-                                       j + 1,
-                                       res_tuptable->tupdesc,
-                                       &isnull);
+                origval = SPI_getbinval(SPI_tuptable->vals[i],
+                                        SPI_tuptable->tupdesc,
+                                        j + 1,
+                                        &isnull);
                 if (isnull) {
                     result->data[i][j].isnull = 1;
                     result->data[i][j].value = NULL;
@@ -71,7 +67,9 @@ static plcMsgResult *create_sql_result() {
 
 plcMessage *handle_sql_message(plcMsgSQL *msg) {
     int retval;
+    plcMessage   *result = NULL;
 
+    BeginInternalSubTransaction(NULL);
     retval = SPI_exec(msg->statement, 0);
     switch (retval) {
         case SPI_OK_SELECT:
@@ -79,13 +77,15 @@ plcMessage *handle_sql_message(plcMsgSQL *msg) {
         case SPI_OK_DELETE_RETURNING:
         case SPI_OK_UPDATE_RETURNING:
             /* some data was returned back */
-            return (plcMessage*)create_sql_result();
+            result = (plcMessage*)create_sql_result();
             break;
         default:
             lprintf(ERROR, "cannot handle non-select sql at the moment");
             break;
     }
 
-    /* we shouldn't get here */
-    abort();
+    SPI_freetuptable(SPI_tuptable);
+    ReleaseCurrentSubTransaction();
+
+    return result;
 }
