@@ -69,23 +69,32 @@ plcMessage *handle_sql_message(plcMsgSQL *msg) {
     int retval;
     plcMessage   *result = NULL;
 
-    BeginInternalSubTransaction(NULL);
-    retval = SPI_exec(msg->statement, 0);
-    switch (retval) {
-        case SPI_OK_SELECT:
-        case SPI_OK_INSERT_RETURNING:
-        case SPI_OK_DELETE_RETURNING:
-        case SPI_OK_UPDATE_RETURNING:
-            /* some data was returned back */
-            result = (plcMessage*)create_sql_result();
-            break;
-        default:
-            lprintf(ERROR, "cannot handle non-select sql at the moment");
-            break;
-    }
+    PG_TRY();
+    {
+        BeginInternalSubTransaction(NULL);
+        retval = SPI_exec(msg->statement, 0);
+        switch (retval) {
+            case SPI_OK_SELECT:
+            case SPI_OK_INSERT_RETURNING:
+            case SPI_OK_DELETE_RETURNING:
+            case SPI_OK_UPDATE_RETURNING:
+                /* some data was returned back */
+                result = (plcMessage*)create_sql_result();
+                break;
+            default:
+                lprintf(ERROR, "cannot handle non-select sql at the moment");
+                break;
+        }
 
-    SPI_freetuptable(SPI_tuptable);
-    ReleaseCurrentSubTransaction();
+        SPI_freetuptable(SPI_tuptable);
+        ReleaseCurrentSubTransaction();
+    }
+    PG_CATCH();
+    {
+        RollbackAndReleaseCurrentSubTransaction();
+        PG_RE_THROW();
+    }
+    PG_END_TRY();
 
     return result;
 }
