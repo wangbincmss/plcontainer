@@ -32,6 +32,7 @@ static void plcontainer_process_log(plcMsgLog *log);
 
 Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
     Datum datumreturn = (Datum) 0;
+    MemoryContext oldMC = NULL;
     int ret;
 
     /* TODO: handle trigger requests as well */
@@ -41,6 +42,7 @@ Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
     }
 
     /* save caller's context */
+    oldMC = pl_container_caller_context;
     pl_container_caller_context = CurrentMemoryContext;
 
     /* Create a new memory context and switch to it */
@@ -57,6 +59,7 @@ Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
         elog(ERROR, "[plcontainer] SPI finish error: %d (%s)", ret,
              SPI_result_code_string(ret));
 
+    pl_container_caller_context = oldMC;
     return datumreturn;
 }
 
@@ -227,6 +230,12 @@ static void plcontainer_process_log(plcMsgLog *log) {
  */
 static void plcontainer_process_sql(plcMsgSQL *msg, plcConn* conn) {
     plcMessage *res;
+    volatile MemoryContext oldcontext;
+    volatile ResourceOwner oldowner;
+
+    oldcontext = CurrentMemoryContext;
+    oldowner = CurrentResourceOwner;
+    MemoryContextSwitchTo(pl_container_caller_context);
 
     res = handle_sql_message(msg);
     if (res != NULL) {
@@ -242,6 +251,15 @@ static void plcontainer_process_sql(plcMsgSQL *msg, plcConn* conn) {
                 elog(ERROR, "Returning message type '%c' from SPI call is not implemented", res->msgtype);
         }
     }
+
+    MemoryContextSwitchTo(oldcontext);
+    CurrentResourceOwner = oldowner;
+
+    /*
+     * AtEOSubXact_SPI() should not have popped any SPI context, but just
+     * in case it did, make sure we remain connected.
+     */
+    SPI_restore_connection();
 }
 
 /*
