@@ -276,7 +276,7 @@ char *parse_container_meta(const char *source) {
      * Allocate container name variable and copy container name
      * ignoring whitespaces, i.e. container name cannot contain whitespaces
      */
-    name = (char*)pmalloc(last-first);
+    name = (char*)pmalloc(last-first+1);
     while (first < last && source[first] != ':') {
         if (!is_whitespace(source[first])) {
             name[nameptr] = source[first];
