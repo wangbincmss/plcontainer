@@ -10,6 +10,7 @@ inputs:
   - name: plcontainer_src
   - name: bin_gpdb4git_centos7
   - name: plcontainer_gpdb4git_centos7_build
+  - name: tmp_gpdb4git_gphdfs
 
 outputs:
   - name: plcontainer_gpdb4git_test
@@ -21,3 +22,4 @@ run:
     - plcontainer_gpdb4git_centos7_build
     - plcontainer_gpdb4git_test
     - gpdb4
+    - tmp_gpdb4git_gphdfs

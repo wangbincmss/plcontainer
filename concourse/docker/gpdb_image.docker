@@ -19,3 +19,4 @@ RUN yum -y install docker-engine-1.11.0
 
 # Install runtime dependencies
 RUN yum -y install openssh-server net-tools iproute
+RUN yum -y install java-1.8.0-openjdk java-1.8.0-openjdk-devel

@@ -21,3 +21,4 @@ run:
     - plcontainer_gpdb_centos7_build
     - plcontainer_gpdb_test
     - gpdb5
+    - none

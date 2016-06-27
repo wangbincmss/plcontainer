@@ -7,12 +7,16 @@ GPDBTAR=$1
 PLCGPPKG=$2
 OUTPUT=$3
 GPDBVER=$4
+GPHDFS=$5
 TMPDIR=/tmp/localplccopy
 
 # Put GPDB binaries in place to get pg_config
 cp $GPDBTAR/$GPDBTAR.tar.gz /usr/local
 pushd /usr/local
 tar zxvf $GPDBTAR.tar.gz
+if [ "$GPHDFS" != "none" ]; then
+    cp $WORKDIR/$GPHDFS/gphdfs.so /usr/local/greenplum-db/lib/postgresql/gphdfs.so
+fi
 popd
 source /usr/local/greenplum-db/greenplum_path.sh || exit 1
 
