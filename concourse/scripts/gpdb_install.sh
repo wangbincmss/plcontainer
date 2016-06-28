@@ -42,4 +42,10 @@ printf '# Remember the master data directory location\n' >> ~/.bashrc
 printf 'export MASTER_DATA_DIRECTORY=$GPDATA/master/gpseg-1\n' >> ~/.bashrc
 source ~/.bashrc
 
+# Allow all the connections
+echo "local all all           trust" >> $MASTER_DATA_DIRECTORY/pg_hba.conf
+echo "host  all all ::1/0     trust" >> $MASTER_DATA_DIRECTORY/pg_hba.conf
+echo "host  all all 0.0.0.0/0 trust" >> $MASTER_DATA_DIRECTORY/pg_hba.conf
+gpstop -u
+
 gpstate || exit 1
