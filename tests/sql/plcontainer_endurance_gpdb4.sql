@@ -40,9 +40,7 @@ create table endurance_test (
     u timestamp[],
     v varchar[],
     w text[],
-    x bytea[],
-    y endurance_udt1[],
-    z endurance_udt2[]
+    x bytea[]
 ) distributed randomly;
 
 create or replace function generate_rows(nrows int) returns setof record as $BODY$
@@ -105,7 +103,6 @@ return {'a': [random.randint(1,100) for _ in range(random.randint(1,100))],
         'c': [randstr(random.randint(1,50)) for _ in range(random.randint(1,100))]}
 $BODY$ language plpythonu volatile;
 
-
 insert into endurance_test
     select * from generate_rows(1000) as tt (
         a bool,
@@ -132,24 +129,12 @@ insert into endurance_test
         v varchar[],
         w text[],
         x bytea[]);
-
-update endurance_test as et
-    set y = q.y,
-        z = q.z
-    from (
-            select  b,
-                    array_agg(generate_udt1()) as y,
-                    array_agg(generate_udt2()) as z
-                from endurance_test
-                group by b
-        ) as q
-    where q.b = et.b;
         
-    insert into endurance_test select * from endurance_test; -- 2000
-    insert into endurance_test select * from endurance_test; -- 4000
-    insert into endurance_test select * from endurance_test; -- 8000
-    insert into endurance_test select * from endurance_test; -- 16000
-    insert into endurance_test select * from endurance_test; -- 32000
+insert into endurance_test select * from endurance_test; -- 2000
+insert into endurance_test select * from endurance_test; -- 4000
+insert into endurance_test select * from endurance_test; -- 8000
+insert into endurance_test select * from endurance_test; -- 16000
+insert into endurance_test select * from endurance_test; -- 32000
 
 /* ======================================================================== */
 /* PL/Container Python functions */
@@ -275,26 +260,6 @@ CREATE OR REPLACE FUNCTION plcabytea(r bytea[]) RETURNS bytea[] AS $$
 return r
 $$ LANGUAGE plcontainer volatile;
 
-CREATE OR REPLACE FUNCTION plcaudt1(u endurance_udt1[]) RETURNS endurance_udt1[] AS $$
-# container: plc_python
-return u
-$$ LANGUAGE plcontainer volatile;
-
-CREATE OR REPLACE FUNCTION plcaudt2(u endurance_udt2[]) RETURNS endurance_udt2[] AS $$
-# container: plc_python
-return u
-$$ LANGUAGE plcontainer volatile;
-
-CREATE OR REPLACE FUNCTION plcsudt1(u endurance_udt1[]) RETURNS SETOF endurance_udt1 AS $$
-# container: plc_python
-return u
-$$ LANGUAGE plcontainer volatile;
-
-CREATE OR REPLACE FUNCTION plcsudt2(u endurance_udt2[]) RETURNS SETOF endurance_udt2 AS $$
-# container: plc_python
-return u
-$$ LANGUAGE plcontainer volatile;
-
 /* ======================================================================== */
 /* Untrusted PL/Python functions */
 /* ======================================================================== */
@@ -395,14 +360,6 @@ CREATE OR REPLACE FUNCTION pyabytea(r bytea[]) RETURNS bytea[] AS $$
 return r
 $$ LANGUAGE plpythonu volatile;
 
-CREATE OR REPLACE FUNCTION pyaudt1(u endurance_udt1[]) RETURNS endurance_udt1[] AS $$
-return u
-$$ LANGUAGE plpythonu volatile;
-
-CREATE OR REPLACE FUNCTION pyaudt2(u endurance_udt2[]) RETURNS endurance_udt2[] AS $$
-return u
-$$ LANGUAGE plpythonu volatile;
-
 /* Queries used for testing Python:
 select count(*) from endurance_test where plcbool(a) != pybool(a);
 select count(*) from endurance_test where plcint(b) != pyint(b);
@@ -428,10 +385,6 @@ select count(*) from endurance_test where plcatimestamp(u) != pyatimestamp(u);
 select count(*) from endurance_test where plcavarchar(v) != pyavarchar(v);
 select count(*) from endurance_test where plcatext(w) != pyatext(w);
 select count(*) from endurance_test where plcabytea(x) != pyabytea(x);
-select count(*) from endurance_test where plcaudt1(y) is null;
-select count(*) from endurance_test where plcaudt2(z) is null;
-select count(*) from (select plcsudt1(y) as y from endurance_test) as q where y is null;
-select count(*) from (select plcsudt2(z) as z from endurance_test) as q where z is null;
 */
 
 /* ======================================================================== */
@@ -558,26 +511,6 @@ CREATE OR REPLACE FUNCTION rabytea(r bytea[]) RETURNS bytea[] AS $$
 return (r)
 $$ LANGUAGE plcontainer volatile;
 
-CREATE OR REPLACE FUNCTION raudt1(u endurance_udt1[]) RETURNS endurance_udt1[] AS $$
-# container: plc_r
-return (u)
-$$ LANGUAGE plcontainer volatile;
-
-CREATE OR REPLACE FUNCTION raudt2(u endurance_udt2[]) RETURNS endurance_udt2[] AS $$
-# container: plc_r
-return (u)
-$$ LANGUAGE plcontainer volatile;
-
-CREATE OR REPLACE FUNCTION rsudt1(u endurance_udt1[]) RETURNS SETOF endurance_udt1 AS $$
-# container: plc_r
-return (u)
-$$ LANGUAGE plcontainer volatile;
-
-CREATE OR REPLACE FUNCTION rsudt2(u endurance_udt2[]) RETURNS SETOF endurance_udt2 AS $$
-# container: plc_r
-return (u)
-$$ LANGUAGE plcontainer volatile;
-
 create or replace function rbyteaout1(arg endurance_udt1) returns bytea as $$
 # container: plc_r
 return (arg)
@@ -597,27 +530,6 @@ create or replace function rbyteain2(arg bytea) returns endurance_udt2 as $$
 # container: plc_r
 return (arg)
 $$ language plcontainer;
-
-create or replace function rbyteaout3(arg endurance_udt1[]) returns bytea as $$
-# container: plc_r
-return (arg)
-$$ language plcontainer;
-
-create or replace function rbyteain3(arg bytea) returns endurance_udt1[] as $$
-# container: plc_r
-return (arg)
-$$ language plcontainer;
-
-create or replace function rbyteaout4(arg endurance_udt2[]) returns bytea as $$
-# container: plc_r
-return (arg)
-$$ language plcontainer;
-
-create or replace function rbyteain4(arg bytea) returns endurance_udt2[] as $$
-# container: plc_r
-return (arg)
-$$ language plcontainer;
-
 
 /* Queries used for testing R:
 select count(*) from endurance_test where rbool(a) is null;
@@ -642,33 +554,8 @@ select count(*) from endurance_test where ranumeric(t) is null;
 select count(*) from endurance_test where ratimestamp(u) is null;
 select count(*) from endurance_test where ravarchar(v) is null;
 select count(*) from endurance_test where ratext(w) is null;
-select count(*) from endurance_test where raudt1(y) is null;
-select count(*) from endurance_test where raudt2(z) is null;
-select count(*) from (select rsudt1(y) as y from endurance_test) as q where y is null;
-select count(*) from (select rsudt2(z) as z from endurance_test) as q where z is null;
 select count(*) from endurance_test where rbyteaout1(l) is null;
 select count(*) from endurance_test where rbyteain1(rbyteaout1(l)) is null;
 select count(*) from endurance_test where rbyteaout2(m) is null;
 select count(*) from endurance_test where rbyteain2(rbyteaout2(m)) is null;
-select count(*) from endurance_test where rbyteaout3(y) is null;
-select count(*) from endurance_test where rbyteain3(rbyteaout3(y)) is null;
-select count(*) from endurance_test where rbyteaout4(z) is null;
-select count(*) from endurance_test where rbyteain4(rbyteaout4(z)) is null;
 */
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
