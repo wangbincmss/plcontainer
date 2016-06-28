@@ -219,7 +219,7 @@ def main():
         queries = QUERIES_R
         if options.gpdbgen == '5':
             queries += QUERIES_R_5
-        run(options.dbname, options.time, queries, "R")
+        run(options.dbname, options.username, options.time, queries, "R")
 
 
 if __name__ == '__main__':
