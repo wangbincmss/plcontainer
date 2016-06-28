@@ -22,7 +22,7 @@ cd $TMPDIR/tests
 
 # Test version depends on GPDB release we are running on
 if [ "$GPDBVER" == "gpdb5" ]; then
-    python endurance_test.py -g 5 -t 1 || exit 1
+    python endurance_test.py -g 5 -t 1 -u gpadmin || exit 1
 else
-    python endurance_test.py -g 4 -t 1 || exit 1
+    python endurance_test.py -g 4 -t 1 -u gpadmin || exit 1
 fi
