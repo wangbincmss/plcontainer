@@ -97,6 +97,8 @@ def parseargs():
     parser.add_option('-d', '--dbname', type='string', default='endurance',
                       help = 'Database name to run endurance test. Would be dropped and ' +
                              'recreated by the script. Defaults to "endurance"')
+    parser.add_option('-u', '--username', type='string', default='vagrant',
+                      help='User name used to connect to the database')
     parser.add_option('-t', '--time', type='int', default='60', help='Amount of seconds dedicated for each query. Defaults to 60 seconds')
     parser.add_option('-s', '--sqldir', type='string', default='sql',
                       help='Directory containing SQL scripts plcontainer_install.sql and plcontainer_endurance_gpdb*.sql')
@@ -188,12 +190,12 @@ def prepare(dbname, sqldir, gpdbgen):
     return 0
 
 
-def run(dbname, runtime, queries, type):
+def run(dbname, username, runtime, queries, type):
     logger.info("Running endurance test for '%s' language..." % type)
     dburl = dbconn.DbURL(hostname = '127.0.0.1',
                          port     = 5432,
                          dbname   = dbname,
-                         username = 'vagrant')
+                         username = username)
     logger.info("Single queries...")
     for query in queries:
         if run_test(query, dburl, runtime) < 0:
@@ -212,7 +214,7 @@ def main():
         queries = QUERIES_PYTHON
         if options.gpdbgen == '5':
             queries += QUERIES_PYTHON_5
-        run(options.dbname, options.time, queries, "python")
+        run(options.dbname, options.username, options.time, queries, "python")
     if not options.nor:
         queries = QUERIES_R
         if options.gpdbgen == '5':
