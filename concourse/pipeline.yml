@@ -546,12 +546,11 @@ jobs:
         file: plcontainer_gpdb_test/plcontainer-release.gppkg
 
 - name: plcontainer_endurance_test
-  max_in_flight: 1
+  max_in_flight: 3
   plan:
   - aggregate:
     - get: plcontainer_src
-      #passed: [plcontainer_test]
-      #TODO: temporary remove
+      passed: [plcontainer_test]
     - get: bin_gpdb_centos7
       passed: [plcontainer_test]
     - get: bin_gpdb4git_centos7
