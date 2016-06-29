@@ -49,7 +49,7 @@ PWD=$(shell pwd)
 	rm -rf RPMS BUILD SPECS
 
 gppkg_spec.yml: gppkg_spec.yml.in
-	cat $< | sed "s/#arch/$(ARCH)/g" | sed "s/#os/$(OS)/g" | sed 's/#gpver/$(GP_VERSION_NUM)/g' > $@
+	cat $< | sed "s/#arch/$(ARCH)/g" | sed "s/#os/$(OS)/g" | sed 's/#gpver/$(GP_VERSION_NUM)/g' | sed "s/#plcver/$(PLC_GPPKG_VER)/g"> $@
 
 %.gppkg: gppkg_spec.yml $(MAIN_RPM) $(DEPENDENT_RPMS)
 	mkdir -p gppkg/deps 

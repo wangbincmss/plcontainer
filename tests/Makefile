@@ -1,4 +1,5 @@
-include ../Makefile
+PGXS := $(shell pg_config --pgxs)
+include $(PGXS)
 
 REGRESS_OPTS = --dbname=$(PL_TESTDB)
 REGRESS_GPDB5 = plcontainer_install plcontainer_schema plcontainer_populate \
