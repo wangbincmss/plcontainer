@@ -43,10 +43,10 @@ QUERIES_PYTHON = [
         'select count(*) from endurance_test where plcabytea(x) != pyabytea(x);'
     ]
 QUERIES_PYTHON_5 = [
-        'select count(*) from endurance_test where plcaudt1(y) is null;',
-        'select count(*) from endurance_test where plcaudt2(z) is null;',
-        'select count(*) from (select plcsudt1(y) as y from endurance_test) as q where y is null;',
-        'select count(*) from (select plcsudt2(z) as z from endurance_test) as q where z is null;'
+        'select count(*) from endurance_test where random() < 0.1 and plcaudt1(y) is null;',
+        'select count(*) from endurance_test where random() < 0.1 and plcaudt2(z) is null;',
+        'select count(*) from (select plcsudt1(y) as y from endurance_test where random() < 0.1) as q where y is null;',
+        'select count(*) from (select plcsudt2(z) as z from endurance_test where random() < 0.1) as q where z is null;'
     ]
 
 QUERIES_R = [
@@ -78,14 +78,14 @@ QUERIES_R = [
         'select count(*) from endurance_test where rbyteain2(rbyteaout2(m)) is null;'
     ]
 QUERIES_R_5 = [
-        'select count(*) from endurance_test where raudt1(y) is null;',
-        'select count(*) from endurance_test where raudt2(z) is null;',
-        'select count(*) from (select rsudt1(y) as y from endurance_test) as q where y is null;',
-        'select count(*) from (select rsudt2(z) as z from endurance_test) as q where z is null;',
-        'select count(*) from endurance_test where rbyteaout3(y) is null;',
-        'select count(*) from endurance_test where rbyteain3(rbyteaout3(y)) is null;',
-        'select count(*) from endurance_test where rbyteaout4(z) is null;',
-        'select count(*) from endurance_test where rbyteain4(rbyteaout4(z)) is null;'
+        'select count(*) from endurance_test where random() < 0.1 and raudt1(y) is null;',
+        'select count(*) from endurance_test where random() < 0.1 and raudt2(z) is null;',
+        'select count(*) from (select rsudt1(y) as y from endurance_test where random() < 0.1) as q where y is null;',
+        'select count(*) from (select rsudt2(z) as z from endurance_test where random() < 0.1) as q where z is null;',
+        'select count(*) from endurance_test where random() < 0.1 and rbyteaout3(y) is null;',
+        'select count(*) from endurance_test where random() < 0.1 and rbyteain3(rbyteaout3(y)) is null;',
+        'select count(*) from endurance_test where random() < 0.1 and rbyteaout4(z) is null;',
+        'select count(*) from endurance_test where random() < 0.1 and rbyteain4(rbyteaout4(z)) is null;'
     ]
 
 

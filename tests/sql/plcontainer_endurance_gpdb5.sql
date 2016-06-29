@@ -16,7 +16,7 @@ create type endurance_udt2 as (
     c varchar[]
 );
 
-create table endurance_test (
+create table endurance_test_data (
     a bool,
     b smallint,
     c int,
@@ -44,6 +44,11 @@ create table endurance_test (
     y endurance_udt1[],
     z endurance_udt2[]
 ) distributed randomly;
+
+create view endurance_test as
+    select *
+        from endurance_test_data
+        where random() < 0.1;
 
 create or replace function generate_rows(nrows int) returns setof record as $BODY$
 import random
@@ -106,7 +111,7 @@ return {'a': [random.randint(1,100) for _ in range(random.randint(1,100))],
 $BODY$ language plpythonu volatile;
 
 
-insert into endurance_test
+insert into endurance_test_data
     select * from generate_rows(1000) as tt (
         a bool,
         b smallint,
@@ -133,23 +138,23 @@ insert into endurance_test
         w text[],
         x bytea[]);
 
-update endurance_test as et
+update endurance_test_data as et
     set y = q.y,
         z = q.z
     from (
             select  b,
                     array_agg(generate_udt1()) as y,
                     array_agg(generate_udt2()) as z
-                from endurance_test
+                from endurance_test_data
                 group by b
         ) as q
     where q.b = et.b;
-        
-    insert into endurance_test select * from endurance_test; -- 2000
-    insert into endurance_test select * from endurance_test; -- 4000
-    insert into endurance_test select * from endurance_test; -- 8000
-    insert into endurance_test select * from endurance_test; -- 16000
-    insert into endurance_test select * from endurance_test; -- 32000
+
+insert into endurance_test_data select * from endurance_test_data; -- 2000
+insert into endurance_test_data select * from endurance_test_data; -- 4000
+insert into endurance_test_data select * from endurance_test_data; -- 8000
+insert into endurance_test_data select * from endurance_test_data; -- 16000
+insert into endurance_test_data select * from endurance_test_data; -- 32000
 
 /* ======================================================================== */
 /* PL/Container Python functions */

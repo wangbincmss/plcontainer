@@ -10,6 +10,7 @@ inputs:
   - name: plcontainer_src
   - name: bin_gpdb4git_centos7
   - name: plcontainer_gpdb4git_centos7_build
+  - name: tmp_gpdb4git_gphdfs
 
 run:
   path: plcontainer_src/concourse/scripts/plcontainer_gpdb_endurance_test.sh
