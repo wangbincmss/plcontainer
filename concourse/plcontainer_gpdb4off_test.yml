@@ -11,14 +11,10 @@ inputs:
   - name: bin_gpdb4off_centos7
   - name: plcontainer_gpdb4off_centos7_build
 
-outputs:
-  - name: plcontainer_gpdb4off_test
-
 run:
   path: plcontainer_src/concourse/scripts/plcontainer_gpdb_test.sh
   args:
     - bin_gpdb4off_centos7
     - plcontainer_gpdb4off_centos7_build
-    - plcontainer_gpdb4off_test
     - gpdb4
     - none
