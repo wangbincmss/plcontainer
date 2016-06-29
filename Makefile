@@ -1,12 +1,12 @@
 MODULE_big = plcontainer
-PLC_VER=0.1
-PLC_REL=2
-PLC_CONTAINER_VERSION=1
+
+# Release versions
+include release.mk
 
 ifeq ($(CIBUILD),1)
   IMAGE_TAG=devel
 else
-  IMAGE_TAG=$(PLC_VER).$(PLC_REL)-$(PLC_CONTAINER_VERSION)
+  IMAGE_TAG=$(PLCONTAINER_VERSION).$(PLCONTAINER_RELEASE)-$(PLCONTAINER_IMAGE_VERSION)
 endif
 
 # Directories
@@ -39,7 +39,7 @@ uninstall: uninstall-lib
 	rm -rf '$(PLCONTAINERDIR)'
 
 .PHONY: install-extra
-install-extra:
+install-extra: xmlconfig
 	# Management
 	$(INSTALL_PROGRAM) '$(MGMTDIR)/bin/plcontainer-config'               '$(DESTDIR)$(bindir)/plcontainer-config'
 	$(INSTALL_DATA)    '$(MGMTDIR)/config/plcontainer_configuration.xml' '$(PLCONTAINERDIR)'
@@ -57,6 +57,10 @@ installcheck4:
 clients:
 	$(MAKE) -C $(SRCDIR)/pyclient
 	$(MAKE) -C $(SRCDIR)/rclient
+
+.PHONY: xmlconfig
+xmlconfig:
+	cat $(MGMTDIR)/config/plcontainer_configuration.xml.in | sed "s/IMAGE_TAG/$(IMAGE_TAG)/g" > $(MGMTDIR)/config/plcontainer_configuration.xml
 
 .PHONY: container_r
 container_r:
