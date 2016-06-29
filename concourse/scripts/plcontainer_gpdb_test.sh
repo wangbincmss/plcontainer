@@ -5,9 +5,8 @@ set -x
 WORKDIR=`pwd`
 GPDBTAR=$1
 PLCGPPKG=$2
-OUTPUT=$3
-GPDBVER=$4
-GPHDFS=$5
+GPDBVER=$3
+GPHDFS=$4
 TMPDIR=/tmp/localplccopy
 
 # Put GPDB binaries in place to get pg_config
@@ -61,7 +60,6 @@ if [ $RETCODE -ne 0 ]; then
     cat $TMPDIR/tests/results/plcontainer_test_r.out
 else
     echo "PL/Container test succeeded"
-    cp $PLCGPPKG/plcontainer-concourse.gppkg $OUTPUT/plcontainer-release.gppkg
 fi
 
 stop_docker || exit 1

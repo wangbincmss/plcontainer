@@ -9,6 +9,7 @@ popd
 source /usr/local/greenplum-db/greenplum_path.sh
 
 pushd plcontainer_src
+export CIBUILD=1
 make clean
 pushd package
 make cleanall && make

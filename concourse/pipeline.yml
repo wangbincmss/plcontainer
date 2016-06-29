@@ -534,16 +534,6 @@ jobs:
     - task: plcontainer_gpdb_test
       privileged: true
       file: plcontainer_src/concourse/plcontainer_gpdb_test.yml
-  - aggregate:
-    - put: plcontainer_gpdb4git_centos7_release
-      params:
-        file: plcontainer_gpdb4git_test/plcontainer-release.gppkg
-    - put: plcontainer_gpdb4off_centos7_release
-      params:
-        file: plcontainer_gpdb4off_test/plcontainer-release.gppkg
-    - put: plcontainer_gpdb_centos7_release
-      params:
-        file: plcontainer_gpdb_test/plcontainer-release.gppkg
 
 - name: plcontainer_endurance_test
   max_in_flight: 3
