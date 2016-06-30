@@ -401,13 +401,13 @@ jobs:
   plan:
   - aggregate:
     - get: bin_gpdb_centos7
-      #trigger: true
+      trigger: true
     - get: bin_gpdb4git_centos7
-      #trigger: true
+      trigger: true
     - get: bin_gpdb4off_centos7
-      #trigger: true
+      trigger: true
     - get: plcontainer_src
-      #trigger: true
+      trigger: true
   - aggregate:
     - task: plcontainer_gpdb4git_build
       file: plcontainer_src/concourse/plcontainer_gpdb4git_build.yml
@@ -432,7 +432,7 @@ jobs:
   plan:
   - get: plcontainer_src
     passed: [plcontainer_build]
-    #trigger: true
+    trigger: true
   - get: bin_gpdb4off_centos7
     passed: [plcontainer_build]
   - task: plcontainer_clients_build
@@ -463,8 +463,8 @@ jobs:
   plan:
   - aggregate:
     - get: plcontainer_src
-      #passed: [plcontainer_clients_build]
-      #trigger: true
+      passed: [plcontainer_clients_build]
+      trigger: true
     - get: bin_gpdb_centos7
       passed: [plcontainer_build]
     - get: bin_python26_client
@@ -492,7 +492,7 @@ jobs:
   - aggregate:
     - get: plcontainer_src
       passed: [plcontainer_images_build]
-      #trigger: true
+      trigger: true
     - get: bin_gpdb_centos7
       passed: [plcontainer_build]
     - get: bin_gpdb4git_centos7
@@ -525,7 +525,7 @@ jobs:
   - aggregate:
     - get: plcontainer_src
       passed: [plcontainer_test]
-      #trigger: true
+      trigger: true
     - get: bin_gpdb_centos7
       passed: [plcontainer_test]
     - get: bin_gpdb4git_centos7
