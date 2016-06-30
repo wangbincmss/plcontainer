@@ -103,6 +103,7 @@ select * from pytestudt11();
 select * from rtestudt13( (1,2,'a')::test_type3 );
 select * from pytestudtrecord1() as t(a int, b int, c varchar);
 select * from pytestudtrecord2() as t(a int, b int, c varchar);
+select pyreturnsetofint8(2), pyreturnsetofint8(3);
 select pybadint();
 select pybadfloat8();
 select pybadudt();

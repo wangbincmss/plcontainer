@@ -29,6 +29,12 @@ interpreted as representing official policies, either expressed or implied, of t
 #include "common/messages/messages.h"
 #include "plc_typeio.h"
 
+/* Structure representing function result data */
+typedef struct {
+    plcMsgResult    *resmsg;
+    int              resrow;
+} plcProcResult;
+
 typedef struct {
     /* Greenplum Function Information */
     Oid              funcOid;
@@ -43,8 +49,6 @@ typedef struct {
     int              nargs;
     char           **argnames;
     plcTypeInfo     *argtypes;
-    plcMsgResult    *result;
-    int              resrow;
 } plcProcInfo;
 
 plcProcInfo *get_proc_info(FunctionCallInfo fcinfo);

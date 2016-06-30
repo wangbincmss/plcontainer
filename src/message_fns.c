@@ -88,8 +88,6 @@ plcProcInfo * get_proc_info(FunctionCallInfo fcinfo) {
         pinfo->fn_xmin = HeapTupleHeaderGetXmin(procHeapTup->t_data);
         pinfo->fn_tid  = procHeapTup->t_self;
         pinfo->retset  = fcinfo->flinfo->fn_retset;
-        pinfo->result  = NULL;
-        pinfo->resrow  = 0;
         pinfo->hasChanged = 1;
 
         procTup = (Form_pg_proc)GETSTRUCT(procHeapTup);
