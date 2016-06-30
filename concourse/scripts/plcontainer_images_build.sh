@@ -51,4 +51,8 @@ docker push pivotaldata/plcontainer_r_shared:devel || exit 1
 docker push pivotaldata/plcontainer_python_shared:devel || exit 1
 docker push pivotaldata/plcontainer_anaconda:devel || exit 1
 
+docker save pivotaldata/plcontainer_python:devel pivotaldata/plcontainer_r:devel \
+        pivotaldata/plcontainer_r_shared:devel pivotaldata/plcontainer_python_shared:devel \
+        pivotaldata/plcontainer_anaconda:devel | gzip -c > plcontainer_images_build/plcontainer-devel-images.tar.gz
+
 stop_docker || exit 1
