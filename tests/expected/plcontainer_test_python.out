@@ -23,7 +23,7 @@ select pybool('t');
 (1 row)
 
 select pyint(NULL::int2);
-ERROR:  PL/Container client exception occurred: (plcontainer.c:251)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:281)
 DETAIL:  
  Exception occurred in Python during function execution 
  Traceback (most recent call last):
@@ -428,7 +428,7 @@ select pylogging();
 INFO:  this is the info message
 NOTICE:  this is the notice message
 WARNING:  this is the warning message
-ERROR:  this is the error message (plcontainer.c:221)
+ERROR:  this is the error message (plcontainer.c:236)
 select pylogging2();
 INFO:  this is the info message
 CONTEXT:  SQL statement "select pylogging()"
@@ -436,7 +436,7 @@ NOTICE:  this is the notice message
 CONTEXT:  SQL statement "select pylogging()"
 WARNING:  this is the warning message
 CONTEXT:  SQL statement "select pylogging()"
-ERROR:  this is the error message (plcontainer.c:221)
+ERROR:  this is the error message (plcontainer.c:236)
 CONTEXT:  SQL statement "select pylogging()"
 select pygdset('1','a');
  pygdset 
@@ -629,33 +629,44 @@ select * from pytestudtrecord2() as t(a int, b int, c varchar);
  3 | 4 | bar
 (2 rows)
 
+select pyreturnsetofint8(2), pyreturnsetofint8(3);
+ pyreturnsetofint8 | pyreturnsetofint8 
+-------------------+-------------------
+                 0 |                 0
+                 1 |                 1
+                 0 |                 2
+                 1 |                 0
+                 0 |                 1
+                 1 |                 2
+(6 rows)
+
 select pybadint();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:253)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
 DETAIL:  Exception occurred transforming result object to int4
 select pybadfloat8();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:253)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
 DETAIL:  Exception occurred transforming result object to float4
 select pybadudt();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:253)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
 DETAIL:  Cannot find key 'c' in result dictionary for converting it into UDT
 select pybadudt2();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:253)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
 DETAIL:  Exception occurred transforming result object to float8
 select pybadarr();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:253)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
 DETAIL:  Exception occurred transforming result object to int4
 select pybadarr2();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:253)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
 DETAIL:  Cannot convert non-sequence object to array
 select pyinvalid_function();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:251)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:281)
 DETAIL:  
  Exception occurred in Python during function execution 
  Traceback (most recent call last):
   File "<string>", line 5, in pyinvalid_function
 AttributeError: 'module' object has no attribute 'foobar'
 select pyinvalid_syntax();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:251)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:281)
 DETAIL:  
  Cannot compile function in Python 
  SyntaxError: ('invalid syntax', ('<string>', 7, 1, '\n'))

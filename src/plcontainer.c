@@ -22,10 +22,11 @@ PG_MODULE_MAGIC;
 PG_FUNCTION_INFO_V1(plcontainer_call_handler);
 
 static Datum plcontainer_call_hook(PG_FUNCTION_ARGS);
-static plcMsgResult *plcontainer_get_result(FunctionCallInfo  fcinfo,
-                                            plcProcInfo      *pinfo);
-static Datum plcontainer_process_result(FunctionCallInfo    fcinfo,
-                                        plcProcInfo        *pinfo);
+static plcProcResult *plcontainer_get_result(FunctionCallInfo  fcinfo,
+                                             plcProcInfo      *pinfo);
+static Datum plcontainer_process_result(FunctionCallInfo  fcinfo,
+                                        plcProcInfo      *pinfo,
+                                        plcProcResult    *presult);
 static void plcontainer_process_exception(plcMsgError *msg);
 static void plcontainer_process_sql(plcMsgSQL *msg, plcConn* conn);
 static void plcontainer_process_log(plcMsgLog *log);
@@ -69,6 +70,7 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
     bool                      bFirstTimeCall = true;
     FuncCallContext *volatile funcctx = NULL;
     MemoryContext             oldcontext = NULL;
+    plcProcResult            *presult = NULL;
 
     /* By default we return NULL */
     fcinfo->isnull = true;
@@ -97,39 +99,45 @@ static Datum plcontainer_call_hook(PG_FUNCTION_ARGS) {
 
     /* First time call for SRF or just a call of scalar function */
     if (bFirstTimeCall) {
-        pinfo->resrow = 0;
-        pinfo->result = plcontainer_get_result(fcinfo, pinfo);
+        presult = plcontainer_get_result(fcinfo, pinfo);
+        if (fcinfo->flinfo->fn_retset) {
+            funcctx->user_fctx = (void*)presult;
+        }
+    } else {
+        presult = (plcProcResult*)funcctx->user_fctx;
     }
 
     /* If we processed all the rows or the function returned 0 rows we can return immediately */
-    if (pinfo->resrow >= pinfo->result->rows) {
-        free_result(pinfo->result, false);
+    if (presult->resrow >= presult->resmsg->rows) {
+        free_result(presult->resmsg, false);
+        pfree(presult);
         MemoryContextSwitchTo(oldcontext);
         SRF_RETURN_DONE(funcctx);
     }
 
     /* Process the result message from client */
-    result = plcontainer_process_result(fcinfo, pinfo);
+    result = plcontainer_process_result(fcinfo, pinfo, presult);
 
-    pinfo->resrow += 1;
+    presult->resrow += 1;
     MemoryContextSwitchTo(oldcontext);
 
     if (fcinfo->flinfo->fn_retset) {
         SRF_RETURN_NEXT(funcctx, result);
     } else {
-        free_result(pinfo->result, false);
+        free_result(presult->resmsg, false);
+        pfree(presult);
     }
 
     return result;
 }
 
-static plcMsgResult *plcontainer_get_result(FunctionCallInfo  fcinfo,
-                                            plcProcInfo      *pinfo) {
+static plcProcResult *plcontainer_get_result(FunctionCallInfo  fcinfo,
+                                             plcProcInfo      *pinfo) {
     char          *name;
     plcConn       *conn;
     int            message_type;
     plcMsgCallreq *req    = NULL;
-    plcMsgResult  *result = NULL;
+    plcProcResult *result = NULL;
 
     req = plcontainer_create_call(fcinfo, pinfo);
     name = parse_container_meta(req->proc.src);
@@ -163,7 +171,9 @@ static plcMsgResult *plcontainer_get_result(FunctionCallInfo  fcinfo,
             message_type = answer->msgtype;
             switch (message_type) {
                 case MT_RESULT:
-                    result = (plcMsgResult*)answer;
+                    result = (plcProcResult*)pmalloc(sizeof(plcProcResult));
+                    result->resmsg = (plcMsgResult*)answer;
+                    result->resrow = 0;
                     break;
                 case MT_EXCEPTION:
                     plcontainer_process_exception((plcMsgError*)answer);
@@ -191,9 +201,10 @@ static plcMsgResult *plcontainer_get_result(FunctionCallInfo  fcinfo,
  * Processing client results message
  */
 static Datum plcontainer_process_result(FunctionCallInfo  fcinfo,
-                                        plcProcInfo      *pinfo) {
+                                        plcProcInfo      *pinfo,
+                                        plcProcResult    *presult) {
     Datum         result = (Datum) 0;
-    plcMsgResult *resmsg = pinfo->result;
+    plcMsgResult *resmsg = presult->resmsg;
 
     if (resmsg->cols > 1) {
         elog(ERROR, "Functions returning multiple columns are not supported yet");
@@ -204,15 +215,15 @@ static Datum plcontainer_process_result(FunctionCallInfo  fcinfo,
         return result;
     }
 
-    if (pinfo->resrow >= resmsg->rows) {
+    if (presult->resrow >= resmsg->rows) {
         elog(ERROR, "Trying to access result row %d of the %d-rows result set",
-                    pinfo->resrow, resmsg->rows);
+                    presult->resrow, resmsg->rows);
         return result;
     }
 
-    if (resmsg->data[pinfo->resrow][0].isnull == 0) {
+    if (resmsg->data[presult->resrow][0].isnull == 0) {
         fcinfo->isnull = false;
-        result = pinfo->rettype.infunc(resmsg->data[pinfo->resrow][0].value, &pinfo->rettype);
+        result = pinfo->rettype.infunc(resmsg->data[presult->resrow][0].value, &pinfo->rettype);
     }
 
     return result;
