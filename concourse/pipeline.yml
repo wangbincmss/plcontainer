@@ -305,6 +305,15 @@ resources:
     secret_access_key: ZY/3EDkTRnDEikgPD5qmAA1lBGPxuIYeZCNMDtaq
     versioned_file: gppkgs/gpdb/plcontainer-concourse.gppkg
 
+- name: plcontainer_devel_images
+  type: s3
+  source:
+    bucket: gpdblang-concourse-bucket
+    region_name: us-west-2
+    access_key_id: AKIAIXEOBXAHBKRHJDLQ
+    secret_access_key: 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
+    versioned_file: images/plcontainer-devel-images.tar.gz
+
 - name: tmp_gpdb4git_gphdfs
   type: s3
   source:
@@ -473,6 +482,9 @@ jobs:
   - task: plcontainer_images_build
     privileged: true
     file: plcontainer_src/concourse/plcontainer_images_build.yml
+  - put: plcontainer_devel_images
+    params:
+      file: plcontainer_images_build/plcontainer-devel-images.tar.gz
 
 - name: plcontainer_test
   max_in_flight: 2
@@ -493,6 +505,8 @@ jobs:
       passed: [plcontainer_build]
     - get: plcontainer_gpdb_centos7_build
       passed: [plcontainer_build]
+    - get: plcontainer_devel_images
+      passed: [plcontainer_images_build]
     - get: tmp_gpdb4git_gphdfs
   - aggregate:
     - task: plcontainer_gpdb4git_test
@@ -523,6 +537,8 @@ jobs:
     - get: plcontainer_gpdb4off_centos7_build
       passed: [plcontainer_test]
     - get: plcontainer_gpdb_centos7_build
+      passed: [plcontainer_test]
+    - get: plcontainer_devel_images
       passed: [plcontainer_test]
     - get: tmp_gpdb4git_gphdfs
   - aggregate:
