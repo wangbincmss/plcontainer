@@ -3,15 +3,6 @@
 ################################################################################
 
 groups:
-- name: all
-  jobs:
-  - gpdb_build
-  - gpdb4_build
-  - plcontainer_build
-  - plcontainer_clients_build
-  - plcontainer_images_build
-  - plcontainer_test
-  - plcontainer_endurance_test
 - name: plcontainer
   jobs:
   - gpdb_build
@@ -358,46 +349,6 @@ resources:
   type: time
   source:
     interval: 24h
-
-# Docker images
-
-- name: image_centos_721511
-  type: docker-image
-  source:
-    repository: centos
-    tag: 7.2.1511
-
-- name: image_anaconda_base
-  type: docker-image
-  source:
-    repository: pivotaldata/plcontainer_anaconda_base
-    tag: 0.1
-    username: agrishchenko
-    password: MyDockerPassword9283
-
-- name: image_r_base
-  type: docker-image
-  source:
-    repository: pivotaldata/plcontainer_r_base
-    tag: 0.1
-    username: agrishchenko
-    password: MyDockerPassword9283
-
-- name: image_plcontainer_python
-  type: docker-image
-  source:
-    repository: pivotaldata/plcontainer_python
-    tag: devel
-    username: agrishchenko
-    password: MyDockerPassword9283
-
-- name: image_plcontainer_r
-  type: docker-image
-  source:
-    repository: pivotaldata/plcontainer_python
-    tag: devel
-    username: agrishchenko
-    password: MyDockerPassword9283
 
 ################################################################################
 ##################################### JOBS #####################################
