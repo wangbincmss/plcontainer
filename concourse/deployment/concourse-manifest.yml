@@ -1,0 +1,87 @@
+---
+name: concourse
+
+# replace with `bosh status --uuid`
+director_uuid: a11cc285-658d-4c46-93d9-88860c0fbcd4
+
+releases:
+- name: concourse
+  version: latest
+- name: garden-runc
+  version: latest
+
+stemcells:
+- alias: trusty
+  os: ubuntu-trusty
+  version: latest
+
+instance_groups:
+- name: web
+  instances: 1
+  vm_type: medium
+  vm_extensions: [pub-lbs]
+  stemcell: trusty
+  azs: [z1]
+  networks:
+  - name: private
+    default: [dns, gateway]
+  jobs:
+  - name: atc
+    release: concourse
+    properties:
+      external_url: http://gpdblangu-loadbala-fjvveeavxh6u-1254194387.us-west-2.elb.amazonaws.com
+      basic_auth_username: gpadmin
+      basic_auth_password: gpdblanguages123
+      postgresql_database: &atc_db atc
+  - name: tsa
+    release: concourse
+    properties: {}
+
+- name: db
+  instances: 1
+  vm_type: medium
+  stemcell: trusty
+  persistent_disk_type: large
+  azs: [z1]
+  networks:
+  - name: private
+  jobs:
+  - name: postgresql
+    release: concourse
+    properties:
+      databases:
+      - name: *atc_db
+        role: atcuser
+        password: MySecureAtcPass0102
+
+- name: worker
+  instances: 1
+  vm_type: mediumworker
+  stemcell: trusty
+  azs: [z1]
+  networks:
+  - name: private
+    default: [dns, gateway]
+  # Workers should have elastic IP to have access to internet
+  - name: public
+    static_ips: [52.41.144.167]
+  jobs:
+  - name: groundcrew
+    release: concourse
+    properties: {}
+  - name: baggageclaim
+    release: concourse
+    properties: {}
+  - name: garden
+    release: garden-runc
+    properties:
+      garden:
+        listen_network: tcp
+        listen_address: 0.0.0.0:7777
+
+update:
+  canaries: 1
+  max_in_flight: 1
+  serial: false
+  canary_watch_time: 1000-60000
+  update_watch_time: 1000-60000
