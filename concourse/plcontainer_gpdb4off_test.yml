@@ -10,6 +10,7 @@ inputs:
   - name: plcontainer_src
   - name: bin_gpdb4off_centos7
   - name: plcontainer_gpdb4off_centos7_build
+  - name: plcontainer_devel_images
 
 run:
   path: plcontainer_src/concourse/scripts/plcontainer_gpdb_test.sh

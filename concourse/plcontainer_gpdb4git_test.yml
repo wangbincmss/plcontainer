@@ -11,6 +11,7 @@ inputs:
   - name: bin_gpdb4git_centos7
   - name: plcontainer_gpdb4git_centos7_build
   - name: tmp_gpdb4git_gphdfs
+  - name: plcontainer_devel_images
 
 run:
   path: plcontainer_src/concourse/scripts/plcontainer_gpdb_test.sh

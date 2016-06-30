@@ -33,14 +33,8 @@ runuser gpadmin -c "source /usr/local/greenplum-db/greenplum_path.sh && bash /tm
 # Preparing for Docker and starting it
 source plcontainer_src/concourse/scripts/docker_scripts.sh
 start_docker || exit 1
-echo 'agrishchenko@pivotal.io\n\n' | docker login -u agrishchenko -p MyDockerPassword9283 || exit 1
 
-# Pulling new images from Docker Hub
-docker pull pivotaldata/plcontainer_python:devel || exit 1
-docker pull pivotaldata/plcontainer_r:devel || exit 1
-docker pull pivotaldata/plcontainer_r_shared:devel || exit 1
-docker pull pivotaldata/plcontainer_python_shared:devel || exit 1
-docker pull pivotaldata/plcontainer_anaconda:devel || exit 1
+docker load -i plcontainer_devel_images/plcontainer-devel-images.tar.gz
 
 runuser gpadmin -c "bash /tmp/plcontainer_install_test.sh $WORKDIR $PLCGPPKG $TMPDIR $GPDBVER"
 RETCODE=$?

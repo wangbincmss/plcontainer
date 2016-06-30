@@ -10,6 +10,7 @@ inputs:
   - name: plcontainer_src
   - name: bin_gpdb_centos7
   - name: plcontainer_gpdb_centos7_build
+  - name: plcontainer_devel_images
 
 run:
   path: plcontainer_src/concourse/scripts/plcontainer_gpdb_endurance_test.sh
