@@ -52,5 +52,3 @@ docker push pivotaldata/plcontainer_python_shared:devel || exit 1
 docker push pivotaldata/plcontainer_anaconda:devel || exit 1
 
 stop_docker || exit 1
-
-echo 'OK' > plcontainer_images_build/status.log

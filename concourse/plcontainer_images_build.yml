@@ -16,8 +16,5 @@ inputs:
   - name: bin_r32_client
   - name: bin_r32_clientlib
 
-outputs:
-  - name: plcontainer_images_build
-
 run:
   path: plcontainer_src/concourse/scripts/plcontainer_images_build.sh

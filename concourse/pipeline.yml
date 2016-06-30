@@ -359,16 +359,45 @@ resources:
   source:
     interval: 24h
 
-# Status file to create manual dependency between two jobs
+# Docker images
 
-- name: bin_plc_images_status
-  type: s3
+- name: image_centos_721511
+  type: docker-image
   source:
-    bucket: gpdblang-concourse-bucket
-    region_name: us-west-2
-    access_key_id: AKIAIXEOBXAHBKRHJDLQ
-    secret_access_key: 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
-    versioned_file: images/status.log
+    repository: centos
+    tag: 7.2.1511
+
+- name: image_anaconda_base
+  type: docker-image
+  source:
+    repository: pivotaldata/plcontainer_anaconda_base
+    tag: 0.1
+    username: agrishchenko
+    password: MyDockerPassword9283
+
+- name: image_r_base
+  type: docker-image
+  source:
+    repository: pivotaldata/plcontainer_r_base
+    tag: 0.1
+    username: agrishchenko
+    password: MyDockerPassword9283
+
+- name: image_plcontainer_python
+  type: docker-image
+  source:
+    repository: pivotaldata/plcontainer_python
+    tag: devel
+    username: agrishchenko
+    password: MyDockerPassword9283
+
+- name: image_plcontainer_r
+  type: docker-image
+  source:
+    repository: pivotaldata/plcontainer_python
+    tag: devel
+    username: agrishchenko
+    password: MyDockerPassword9283
 
 ################################################################################
 ##################################### JOBS #####################################
@@ -475,32 +504,24 @@ jobs:
   - aggregate:
     - get: plcontainer_src
       passed: [plcontainer_clients_build]
+      trigger: true
     - get: bin_gpdb_centos7
       passed: [plcontainer_build]
     - get: bin_python26_client
       passed: [plcontainer_clients_build]
-      trigger: true
     - get: bin_python27_client
       passed: [plcontainer_clients_build]
-      trigger: true
     - get: bin_r31_client
       passed: [plcontainer_clients_build]
-      trigger: true
     - get: bin_r31_clientlib
       passed: [plcontainer_clients_build]
-      trigger: true
     - get: bin_r32_client
       passed: [plcontainer_clients_build]
-      trigger: true
     - get: bin_r32_clientlib
       passed: [plcontainer_clients_build]
-      trigger: true
   - task: plcontainer_images_build
     privileged: true
     file: plcontainer_src/concourse/plcontainer_images_build.yml
-  - put: bin_plc_images_status
-    params:
-      file: plcontainer_images_build/status.log
 
 - name: plcontainer_test
   max_in_flight: 2
@@ -508,6 +529,7 @@ jobs:
   - aggregate:
     - get: plcontainer_src
       passed: [plcontainer_images_build]
+      trigger: true
     - get: bin_gpdb_centos7
       passed: [plcontainer_build]
     - get: bin_gpdb4git_centos7
@@ -520,9 +542,6 @@ jobs:
       passed: [plcontainer_build]
     - get: plcontainer_gpdb_centos7_build
       passed: [plcontainer_build]
-    - get: bin_plc_images_status
-      passed: [plcontainer_images_build]
-      trigger: true
     - get: tmp_gpdb4git_gphdfs
   - aggregate:
     - task: plcontainer_gpdb4git_test
@@ -541,6 +560,7 @@ jobs:
   - aggregate:
     - get: plcontainer_src
       passed: [plcontainer_test]
+      trigger: true
     - get: bin_gpdb_centos7
       passed: [plcontainer_test]
     - get: bin_gpdb4git_centos7
@@ -549,13 +569,10 @@ jobs:
       passed: [plcontainer_test]
     - get: plcontainer_gpdb4git_centos7_build
       passed: [plcontainer_test]
-      trigger: true
     - get: plcontainer_gpdb4off_centos7_build
       passed: [plcontainer_test]
-      trigger: true
     - get: plcontainer_gpdb_centos7_build
       passed: [plcontainer_test]
-      trigger: true
     - get: tmp_gpdb4git_gphdfs
   - aggregate:
     - task: plcontainer_gpdb4git_endurance_test
