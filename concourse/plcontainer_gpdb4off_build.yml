@@ -18,3 +18,4 @@ run:
   args:
     - bin_gpdb4off_centos7
     - plcontainer_gpdb4off_build
+    - test

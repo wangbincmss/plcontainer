@@ -7,15 +7,15 @@ image_resource:
     tag: 'latest'
 
 inputs:
-  - name: bin_gpdb_centos7
+  - name: bin_gpdb4git_centos7
   - name: plcontainer_src
 
 outputs:
-  - name: plcontainer_gpdb_build
+  - name: plcontainer_gpdb4git_release
 
 run:
   path: plcontainer_src/concourse/scripts/plcontainer_gpdb_build.sh
   args:
-    - bin_gpdb_centos7
-    - plcontainer_gpdb_build
-    - test
+    - bin_gpdb4git_centos7
+    - plcontainer_gpdb4git_release
+    - release
