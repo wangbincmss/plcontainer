@@ -103,3 +103,22 @@ basecontainers:
 	-docker rmi -f pivotaldata/plcontainer_anaconda_base:0.1
 	docker pull pivotaldata/plcontainer_r_base:0.1
 	docker pull pivotaldata/plcontainer_anaconda_base:0.1
+
+.PHONY: retag
+retag:
+	docker tag pivotaldata/plcontainer_python:devel pivotaldata/plcontainer_python:$(IMAGE_TAG)
+	docker tag pivotaldata/plcontainer_r:devel pivotaldata/plcontainer_r:$(IMAGE_TAG)
+	docker tag pivotaldata/plcontainer_r_shared:devel pivotaldata/plcontainer_r_shared:$(IMAGE_TAG)
+	docker tag pivotaldata/plcontainer_python_shared:devel pivotaldata/plcontainer_python_shared:$(IMAGE_TAG)
+	docker tag pivotaldata/plcontainer_anaconda:devel pivotaldata/plcontainer_anaconda:$(IMAGE_TAG)
+
+.PHONY: push
+push:
+	docker push pivotaldata/plcontainer_python:$(IMAGE_TAG)
+	docker push pivotaldata/plcontainer_r:$(IMAGE_TAG)
+	docker push pivotaldata/plcontainer_r_shared:$(IMAGE_TAG)
+	docker push pivotaldata/plcontainer_python_shared:$(IMAGE_TAG)
+	docker push pivotaldata/plcontainer_anaconda:$(IMAGE_TAG)
+
+.PHONY: pushdevel
+pushdevel: retag push

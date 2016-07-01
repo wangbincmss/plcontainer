@@ -11,11 +11,11 @@ inputs:
   - name: plcontainer_src
 
 outputs:
-  - name: plcontainer_gpdb_build
+  - name: plcontainer_gpdb_release
 
 run:
   path: plcontainer_src/concourse/scripts/plcontainer_gpdb_build.sh
   args:
     - bin_gpdb_centos7
-    - plcontainer_gpdb_build
-    - test
+    - plcontainer_gpdb_release
+    - release

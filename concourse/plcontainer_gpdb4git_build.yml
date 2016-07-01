@@ -18,3 +18,4 @@ run:
   args:
     - bin_gpdb4git_centos7
     - plcontainer_gpdb4git_build
+    - test
