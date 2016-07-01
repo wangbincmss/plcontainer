@@ -333,7 +333,7 @@ resources:
     region_name: us-west-2
     access_key_id: AKIAIXEOBXAHBKRHJDLQ
     secret_access_key: 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
-    regexp: gpdb4git/plcontainer-(.*).gppkg
+    regexp: gpdb4git/plcontainer-([0-9\.]*).*\.gppkg
 
 - name: plcontainer_gpdb4off_centos7_release
   type: s3
@@ -342,7 +342,7 @@ resources:
     region_name: us-west-2
     access_key_id: AKIAIXEOBXAHBKRHJDLQ
     secret_access_key: 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
-    regexp: gpdb4off/plcontainer-(.*).gppkg
+    regexp: gpdb4off/plcontainer-([0-9\.]*).*\.gppkg
 
 - name: plcontainer_gpdb_centos7_release
   type: s3
@@ -351,7 +351,7 @@ resources:
     region_name: us-west-2
     access_key_id: AKIAIXEOBXAHBKRHJDLQ
     secret_access_key: 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
-    regexp: gpdb/plcontainer-(.*).gppkg
+    regexp: gpdb/plcontainer-([0-9\.]*).*\.gppkg
 
 # Timer
 
@@ -559,7 +559,7 @@ jobs:
   plan:
   - aggregate:
     - get: plcontainer_src
-      #passed: [plcontainer_endurance_test]
+      passed: [plcontainer_endurance_test]
       trigger: true
     - get: bin_gpdb_centos7
       passed: [plcontainer_endurance_test]
