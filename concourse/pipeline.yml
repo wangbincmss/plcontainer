@@ -577,6 +577,7 @@ jobs:
     - task: plcontainer_gpdb_release
       file: plcontainer_src/concourse/plcontainer_gpdb_release.yml
     - task: plcontainer_publish_images
+      privileged: true
       file: plcontainer_src/concourse/plcontainer_images_publish.yml
   - aggregate:
     - put: plcontainer_gpdb4git_centos7_release
