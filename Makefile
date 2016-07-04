@@ -82,6 +82,14 @@ container_python_shared:
 container_anaconda:
 	docker build -f dockerfiles/Dockerfile.python.anaconda -t pivotaldata/plcontainer_anaconda:$(IMAGE_TAG) .
 
+.PHONY: container_anaconda_base
+container_anaconda_base:
+	docker build -f dockerfiles/Dockerfile.python.anaconda.base -t pivotaldata/plcontainer_anaconda_base:0.2 .
+
+.PHONY: container_r_base
+container_r_base:
+	docker build -f dockerfiles/Dockerfile.R.base -t pivotaldata/plcontainer_r_base:0.1 .
+
 .PHONY: containersonly
 containersonly: container_r container_python container_r_shared container_python_shared container_anaconda
 
@@ -100,9 +108,9 @@ cleancontainers:
 .PHONY: basecontainers
 basecontainers:
 	-docker rmi -f pivotaldata/plcontainer_r_base:0.1
-	-docker rmi -f pivotaldata/plcontainer_anaconda_base:0.1
+	-docker rmi -f pivotaldata/plcontainer_anaconda_base:0.2
 	docker pull pivotaldata/plcontainer_r_base:0.1
-	docker pull pivotaldata/plcontainer_anaconda_base:0.1
+	docker pull pivotaldata/plcontainer_anaconda_base:0.2
 
 .PHONY: retag
 retag:
