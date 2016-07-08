@@ -29,7 +29,7 @@ instance_groups:
   - name: atc
     release: concourse
     properties:
-      external_url: http://gpdblangu-loadbala-fjvveeavxh6u-1254194387.us-west-2.elb.amazonaws.com
+      external_url: http://ci.0x0fff.com
       basic_auth_username: gpadmin
       basic_auth_password: gpdblanguages123
       postgresql_database: &atc_db atc
