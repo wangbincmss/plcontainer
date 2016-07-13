@@ -9,7 +9,6 @@ image_resource:
 inputs:
   - name: plcontainer_src
   - name: bin_gpdb4off_centos7
-  - name: bin_anaconda3
 
 outputs:
   - name: plcontainer_clients_build
