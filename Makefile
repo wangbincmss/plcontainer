@@ -70,6 +70,10 @@ container_r:
 container_python:
 	docker build -f dockerfiles/Dockerfile.python -t pivotaldata/plcontainer_python:$(IMAGE_TAG) .
 
+.PHONY: container_python3
+container_python3:
+	docker build -f dockerfiles/Dockerfile.python3 -t pivotaldata/plcontainer_python3:$(IMAGE_TAG) .
+
 .PHONY: container_r_shared
 container_r_shared:
 	docker build -f dockerfiles/Dockerfile.R.shared -t pivotaldata/plcontainer_r_shared:$(IMAGE_TAG) .
@@ -85,6 +89,14 @@ container_anaconda:
 .PHONY: container_anaconda_base
 container_anaconda_base:
 	docker build -f dockerfiles/Dockerfile.python.anaconda.base -t pivotaldata/plcontainer_anaconda_base:0.2 .
+
+.PHONY: container_anaconda3
+container_anaconda3:
+	docker build -f dockerfiles/Dockerfile.python.anaconda3 -t pivotaldata/plcontainer_anaconda3:$(IMAGE_TAG) .
+
+.PHONY: container_anaconda3_base
+container_anaconda3_base:
+	docker build -f dockerfiles/Dockerfile.python.anaconda3.base -t pivotaldata/plcontainer_anaconda3_base:0.2 .
 
 .PHONY: container_r_base
 container_r_base:
@@ -115,18 +127,22 @@ basecontainers:
 .PHONY: retag
 retag:
 	docker tag pivotaldata/plcontainer_python:devel pivotaldata/plcontainer_python:$(IMAGE_TAG)
+	docker tag pivotaldata/plcontainer_python3:devel pivotaldata/plcontainer_python3:$(IMAGE_TAG)
 	docker tag pivotaldata/plcontainer_r:devel pivotaldata/plcontainer_r:$(IMAGE_TAG)
 	docker tag pivotaldata/plcontainer_r_shared:devel pivotaldata/plcontainer_r_shared:$(IMAGE_TAG)
 	docker tag pivotaldata/plcontainer_python_shared:devel pivotaldata/plcontainer_python_shared:$(IMAGE_TAG)
 	docker tag pivotaldata/plcontainer_anaconda:devel pivotaldata/plcontainer_anaconda:$(IMAGE_TAG)
+	docker tag pivotaldata/plcontainer_anaconda3:devel pivotaldata/plcontainer_anaconda3:$(IMAGE_TAG)
 
 .PHONY: push
 push:
 	docker push pivotaldata/plcontainer_python:$(IMAGE_TAG)
+	docker push pivotaldata/plcontainer_python3:$(IMAGE_TAG)
 	docker push pivotaldata/plcontainer_r:$(IMAGE_TAG)
 	docker push pivotaldata/plcontainer_r_shared:$(IMAGE_TAG)
 	docker push pivotaldata/plcontainer_python_shared:$(IMAGE_TAG)
 	docker push pivotaldata/plcontainer_anaconda:$(IMAGE_TAG)
+	docker push pivotaldata/plcontainer_anaconda3:$(IMAGE_TAG)
 
 .PHONY: pushdevel
 pushdevel: retag push

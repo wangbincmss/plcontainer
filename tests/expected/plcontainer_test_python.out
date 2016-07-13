@@ -90,21 +90,21 @@ select pytext('');
 (1 row)
 
 select pybytea('123'::bytea);
-   pybytea    
---------------
- <type 'str'>
+ pybytea 
+---------
+ 123
 (1 row)
 
-select pybytea(''::bytea);
-   pybytea    
---------------
- <type 'str'>
+select pybytea(''::bytea) is null;
+ ?column? 
+----------
+ f
 (1 row)
 
-select pybytea(null::bytea);
-      pybytea      
--------------------
- <type 'NoneType'>
+select pybytea(null::bytea) is null;
+ ?column? 
+----------
+ t
 (1 row)
 
 select pybytea2() is null;
@@ -610,7 +610,7 @@ select * from pytestudt11();
  3 | {4,44} | {bar,bar2}
 (2 rows)
 
-select * from rtestudt13( (1,2,'a')::test_type3 );
+select * from pytestudt13( (1,2,'a')::test_type3 );
  a | b | c 
 ---+---+---
  1 | 2 | a
@@ -665,8 +665,3 @@ DETAIL:
  Traceback (most recent call last):
   File "<string>", line 5, in pyinvalid_function
 AttributeError: 'module' object has no attribute 'foobar'
-select pyinvalid_syntax();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:281)
-DETAIL:  
- Cannot compile function in Python 
- SyntaxError: ('invalid syntax', ('<string>', 7, 1, '\n'))

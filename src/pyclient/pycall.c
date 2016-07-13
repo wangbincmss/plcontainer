@@ -12,11 +12,6 @@
 #include "pycache.h"
 
 #include <Python.h>
-/*
-  Resources:
-
-  1. https://docs.python.org/2/c-api/reflection.html
- */
 
 plcConn* plcconn_global = NULL;
 
@@ -46,16 +41,34 @@ static PyMethodDef moddef[] = {
     {NULL, NULL, 0, NULL}
 };
 
+#if PY_MAJOR_VERSION >= 3
+    static PyModuleDef plc_plpy_module = {
+        PyModuleDef_HEAD_INIT,     /* m_base */
+        "plpy",                    /* m_name */
+        NULL,                      /* m_doc */
+        -1,                        /* m_size */
+        moddef,                    /* m_methods */
+        NULL,                      /* m_reload */
+        NULL,                      /* m_traverse */
+        NULL,                      /* m_clear */
+        NULL                       /* m_free */
+    };
+#endif
+
 int python_init() {
     PyObject *plpymod = NULL;
     PyObject *dict = NULL;
     PyObject *gd = NULL;
 
-    Py_SetProgramName("PythonContainer");
+    plc_Py_SetProgramName("PythonContainer");
     Py_Initialize();
 
     /* create the plpy module */
-    plpymod = Py_InitModule("plpy", moddef);
+    #if PY_MAJOR_VERSION >= 3
+        plpymod = PyModule_Create(&plc_plpy_module);
+    #else
+        plpymod = Py_InitModule("plpy", moddef);
+    #endif
 
     /* Initialize the main module */
     PyMainModule = PyImport_ImportModule("__main__");
@@ -402,9 +415,9 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
 }
 
 static int fill_rawdata(rawdata *res, PyObject *retval, plcPyFunction *pyfunc) {
+    res->value  = NULL;
     if (retval == Py_None) {
         res->isnull = 1;
-        res->value  = NULL;
     } else {
         int ret = 0;
         res->isnull = 0;

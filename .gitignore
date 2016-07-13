@@ -48,7 +48,6 @@ build.sh
 
 # Added
 *.swp
-*.out
 *.zip
 
 VERSION

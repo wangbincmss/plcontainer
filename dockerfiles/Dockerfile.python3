@@ -1,0 +1,9 @@
+FROM centos:7.2.1511
+
+RUN yum -y install epel-release
+RUN yum -y install python34 python34-devel
+
+# Running Python client inside of container
+ADD ./src/pyclient/bin /clientdir
+EXPOSE 8080
+WORKDIR /clientdir

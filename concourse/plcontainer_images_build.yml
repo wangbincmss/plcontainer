@@ -11,6 +11,8 @@ inputs:
   - name: bin_gpdb_centos7
   - name: bin_python26_client
   - name: bin_python27_client
+  - name: bin_python34_client
+  - name: bin_python35_client
   - name: bin_r31_client
   - name: bin_r31_clientlib
   - name: bin_r32_client

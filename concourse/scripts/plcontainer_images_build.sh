@@ -39,20 +39,35 @@ chmod 777 plcontainer_src/src/rclient/bin/client
 chmod 777 plcontainer_src/src/rclient/bin/librcall.so
 
 pushd plcontainer_src
-make container_python   || exit 1
-make container_r        || exit 1
-make container_anaconda || exit 1
+make container_python    || exit 1
+make container_r         || exit 1
+make container_anaconda  || exit 1
+popd
+
+# Building Python 3.4
+cp bin_python34_client/client      plcontainer_src/src/pyclient/bin/
+pushd plcontainer_src
+make container_python3   || exit 1
+popd
+
+# Building Anaconda3
+cp bin_python35_client/client      plcontainer_src/src/pyclient/bin/
+pushd plcontainer_src
+make container_anaconda3 || exit 1
 popd
 
 # Publising new images to Docker Hub
 docker push pivotaldata/plcontainer_python:devel || exit 1
+docker push pivotaldata/plcontainer_python3:devel || exit 1
 docker push pivotaldata/plcontainer_r:devel || exit 1
 docker push pivotaldata/plcontainer_r_shared:devel || exit 1
 docker push pivotaldata/plcontainer_python_shared:devel || exit 1
 docker push pivotaldata/plcontainer_anaconda:devel || exit 1
+docker push pivotaldata/plcontainer_anaconda3:devel || exit 1
 
-docker save pivotaldata/plcontainer_python:devel pivotaldata/plcontainer_r:devel \
-        pivotaldata/plcontainer_r_shared:devel pivotaldata/plcontainer_python_shared:devel \
-        pivotaldata/plcontainer_anaconda:devel | gzip -c > plcontainer_images_build/plcontainer-devel-images.tar.gz
+docker save pivotaldata/plcontainer_python:devel pivotaldata/plcontainer_python3:devel \
+        pivotaldata/plcontainer_r:devel pivotaldata/plcontainer_r_shared:devel \
+        pivotaldata/plcontainer_python_shared:devel pivotaldata/plcontainer_anaconda:devel \
+        pivotaldata/plcontainer_anaconda3:devel | gzip -c > plcontainer_images_build/plcontainer-devel-images.tar.gz
 
 stop_docker || exit 1
