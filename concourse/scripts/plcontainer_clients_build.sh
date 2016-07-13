@@ -5,6 +5,8 @@ set -x
 # Clean up and creating target directories
 rm -rf plcontainer_clients_build/python26 && mkdir plcontainer_clients_build/python26
 rm -rf plcontainer_clients_build/python27 && mkdir plcontainer_clients_build/python27
+rm -rf plcontainer_clients_build/python34 && mkdir plcontainer_clients_build/python34
+rm -rf plcontainer_clients_build/python35 && mkdir plcontainer_clients_build/python35
 rm -rf plcontainer_clients_build/r31 && mkdir plcontainer_clients_build/r31
 rm -rf plcontainer_clients_build/r32 && mkdir plcontainer_clients_build/r32
 
