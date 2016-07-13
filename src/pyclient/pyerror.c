@@ -26,29 +26,43 @@ static char *get_python_error() {
 
     if (PyErr_Occurred()) {
         PyErr_Fetch(&type, &value, &traceback);
-
+        PyErr_NormalizeException(&type, &value, &traceback);
         tracebackModule = PyImport_ImportModule("traceback");
         if (tracebackModule != NULL) {
-            PyObject *tbList, *emptyString, *strRetval;
+            PyObject *tbList, *emptyString, *strRetval, *strTbRetval;
 
             tbList = PyObject_CallMethod(
                 tracebackModule,
-                "format_exception",
-                "OOO",
+                "format_exception_only",
+                "OO",
                 type,
-                value == NULL ? Py_None : value,
-                traceback == NULL ? Py_None : traceback);
+                value == NULL ? Py_None : value);
+            if (tbList != NULL) {
+                emptyString = PyString_FromString("");
+                strRetval = PyObject_CallMethod(emptyString, "join", "O", tbList);
+                chrRetval = strdup(PyString_AsString(strRetval));
+                Py_DECREF(tbList);
 
-            emptyString = PyString_FromString("");
-            strRetval = PyObject_CallMethod(emptyString, "join",
-                "O", tbList);
+                if (traceback != NULL && traceback != Py_None) {
+                    char *chrTbRetval = NULL;
+                    char *tmp = NULL;
 
-            chrRetval = strdup(PyString_AsString(strRetval));
+                    tbList = PyObject_CallMethod(tracebackModule, "format_tb", "O", traceback);
+                    strTbRetval = PyObject_CallMethod(emptyString, "join", "O", tbList);
+                    chrTbRetval = PyString_AsString(strTbRetval);
 
-            Py_DECREF(tbList);
-            Py_DECREF(emptyString);
-            Py_DECREF(strRetval);
-            Py_DECREF(tracebackModule);
+                    tmp = malloc(100 + strlen(chrRetval) + strlen(chrTbRetval));
+                    sprintf(tmp, "Traceback (most recent call last):\n%s%s", chrTbRetval, chrRetval);
+                    free(chrRetval);
+                    chrRetval = tmp;
+                    Py_DECREF(tbList);
+                    Py_DECREF(strTbRetval);
+                }
+
+                Py_DECREF(emptyString);
+                Py_DECREF(strRetval);
+                Py_DECREF(tracebackModule);
+            }
         } else {
             PyObject *strRetval;
 

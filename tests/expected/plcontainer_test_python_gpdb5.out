@@ -55,7 +55,7 @@ select unnest(a) from (select pytestudt12() as a) as q;
  (7,"{8,88}","{zzz,zzz2}")
 (4 rows)
 
-select * from unnest(rtestudt14( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] ));
+select * from unnest(pytestudt14( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] ));
  a | b | c 
 ---+---+---
  1 | 1 | a
@@ -63,7 +63,7 @@ select * from unnest(rtestudt14( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_ty
  3 | 3 | c
 (3 rows)
 
-select * from rtestudt15( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] );
+select * from pytestudt15( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] );
  a | b | c 
 ---+---+---
  1 | 1 | a
@@ -72,8 +72,8 @@ select * from rtestudt15( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] )
 (3 rows)
 
 select pybadudtarr();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:253)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
 DETAIL:  Cannot find key 'c' in result dictionary for converting it into UDT
 select pybadudtarr2();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:253)
+ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
 DETAIL:  Exception occurred transforming result object to float8

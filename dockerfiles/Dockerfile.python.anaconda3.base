@@ -1,7 +1,7 @@
 FROM centos:7.2.1511
 
 # Anaconda binary to download and install
-ENV ANACONDA Anaconda2-4.1.1-Linux-x86_64.sh
+ENV ANACONDA Anaconda3-4.1.1-Linux-x86_64.sh
 
 # Installation of Anaconda
 RUN yum -y install wget bzip2 which
@@ -11,4 +11,5 @@ ENV PYTHONHOME=/usr/local/anaconda
 ENV PATH=/usr/local/anaconda/bin:$PATH
 
 # Additional libraries for DS team
-RUN pip install pattern gensim pyldavis lifelines xgboost && easy_install statsmodels && conda install -y spacy
+# pattern (http://www.clips.ua.ac.be/pages/pattern) has no support for Python3
+RUN pip install gensim pyldavis lifelines xgboost && easy_install statsmodels && conda install -y spacy

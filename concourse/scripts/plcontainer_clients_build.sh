@@ -37,3 +37,18 @@ popd
 cp src/pyclient/client     ../plcontainer_clients_build/python26/client
 cp src/rclient/client      ../plcontainer_clients_build/r31/client
 cp src/rclient/librcall.so ../plcontainer_clients_build/r31/librcall.so
+
+# Build Python 3.4 and Python 3.5
+export PYTHON=python3
+pushd src/pyclient
+make clean && make
+popd
+cp src/pyclient/client    ../plcontainer_clients_build/python34/client
+unset PYTHON
+export LD_LIBRARY_PATH=/usr/local/anaconda/lib
+export PYTHONHOME=/usr/local/anaconda
+export PATH=/usr/local/anaconda/bin:$PATH
+pushd src/pyclient
+make clean && make
+popd
+cp src/pyclient/client    ../plcontainer_clients_build/python35/client

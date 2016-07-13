@@ -1,55 +1,108 @@
+/* Creating UDTs */
+CREATE TYPE type_record AS (
+    first text,
+    second int4
+);
+CREATE TYPE test_type AS (
+    a bool,
+    b smallint,
+    c int,
+    d bigint,
+    e float4,
+    f float8,
+    g numeric,
+    h varchar
+);
+CREATE TYPE test_type2 AS (
+    a bool[],
+    b smallint[],
+    c int[],
+    d bigint[],
+    e float4[],
+    f float8[],
+    g numeric[],
+    h varchar[]
+);
+CREATE TYPE test_type3 AS (
+    a int8,
+    b float8,
+    c varchar
+);
+CREATE TYPE test_type4 AS (
+    a int8,
+    b float8[],
+    c varchar[]
+);
+/* Creating Tables */
 CREATE TABLE users (
-	fname text not null,
-	lname text not null,
-	username text,
-	userid serial
-	) ;
+    fname text,
+    lname text,
+    username text,
+    userid serial
+);
 NOTICE:  CREATE TABLE will create implicit sequence "users_userid_seq" for serial column "users.userid"
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'fname' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
 CREATE TABLE taxonomy (
-	id serial,
-	name text
-	) ;
+    id serial,
+    name text
+);
 NOTICE:  CREATE TABLE will create implicit sequence "taxonomy_id_seq" for serial column "taxonomy.id"
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'id' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
 CREATE TABLE entry (
-	accession text not null,
-	eid serial,
-	txid int2 not null
-	) ;
+    accession text,
+    eid serial,
+    txid int2
+);
 NOTICE:  CREATE TABLE will create implicit sequence "entry_eid_seq" for serial column "entry.eid"
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'accession' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
 CREATE TABLE sequences (
-	eid int4 not null,
-	pid serial,
-	product text not null,
-	sequence text not null,
-	multipart bool default 'false'
-	) ;
+    eid int4,
+    pid serial,
+    product text,
+    sequence text,
+    multipart bool default 'false'
+);
 NOTICE:  CREATE TABLE will create implicit sequence "sequences_pid_seq" for serial column "sequences.pid"
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'eid' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
 CREATE TABLE xsequences (
-	pid int4 not null,
-	sequence text not null
-	) ;
+    pid int4,
+    sequence text
+);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'pid' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
 CREATE TABLE unicode_test (
-	testvalue  text NOT NULL
+    testvalue  text
 );
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'testvalue' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
 CREATE TABLE table_record (
-	first text,
-	second int4
-	) ;
+    first text,
+    second int4
+);
 NOTICE:  Table doesn't have 'DISTRIBUTED BY' clause -- Using column named 'first' as the Greenplum Database data distribution key for this table.
 HINT:  The 'DISTRIBUTED BY' clause determines the distribution of data. Make sure column(s) chosen are the optimal data distribution key to minimize skew.
-CREATE TYPE type_record AS (
-	first text,
-	second int4
-	) ;
+/* Inserting some test data */
+INSERT INTO users (fname, lname, username) VALUES ('jane', 'doe', 'j_doe');
+INSERT INTO users (fname, lname, username) VALUES ('john', 'doe', 'johnd');
+INSERT INTO users (fname, lname, username) VALUES ('willem', 'doe', 'w_doe');
+INSERT INTO users (fname, lname, username) VALUES ('rick', 'smith', 'slash');
+INSERT INTO taxonomy (name) VALUES ('HIV I') ;
+INSERT INTO taxonomy (name) VALUES ('HIV II') ;
+INSERT INTO taxonomy (name) VALUES ('HCV') ;
+INSERT INTO entry (accession, txid) VALUES ('A00001', '1') ;
+INSERT INTO entry (accession, txid) VALUES ('A00002', '1') ;
+INSERT INTO entry (accession, txid) VALUES ('A00003', '1') ;
+INSERT INTO entry (accession, txid) VALUES ('A00004', '2') ;
+INSERT INTO entry (accession, txid) VALUES ('A00005', '2') ;
+INSERT INTO entry (accession, txid) VALUES ('A00006', '3') ;
+INSERT INTO sequences (sequence, eid, product, multipart) VALUES ('ABCDEF', 1, 'env', 'true') ;
+INSERT INTO xsequences (sequence, pid) VALUES ('GHIJKL', 1) ;
+INSERT INTO sequences (sequence, eid, product) VALUES ('ABCDEF', 2, 'env') ;
+INSERT INTO sequences (sequence, eid, product) VALUES ('ABCDEF', 3, 'env') ;
+INSERT INTO sequences (sequence, eid, product) VALUES ('ABCDEF', 4, 'gag') ;
+INSERT INTO sequences (sequence, eid, product) VALUES ('ABCDEF', 5, 'env') ;
+INSERT INTO sequences (sequence, eid, product) VALUES ('ABCDEF', 6, 'ns1') ;

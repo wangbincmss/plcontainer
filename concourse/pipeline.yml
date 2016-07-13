@@ -90,6 +90,24 @@ resources:
     secret_access_key: {{aws_secret_access_key}}
     versioned_file: clients/python27/client
 
+- name: bin_python34_client
+  type: s3
+  source:
+    bucket: {{aws_bucket_name}}
+    region_name: {{aws_region_name}}
+    access_key_id: {{aws_access_key_id}}
+    secret_access_key: {{aws_secret_access_key}}
+    versioned_file: clients/python34/client
+
+- name: bin_python35_client
+  type: s3
+  source:
+    bucket: {{aws_bucket_name}}
+    region_name: {{aws_region_name}}
+    access_key_id: {{aws_access_key_id}}
+    secret_access_key: {{aws_secret_access_key}}
+    versioned_file: clients/python35/client
+
 - name: bin_r31_client
   type: s3
   source:
@@ -292,6 +310,12 @@ jobs:
     - put: bin_python27_client
       params:
         file: plcontainer_clients_build/python27/client
+    - put: bin_python34_client
+      params:
+        file: plcontainer_clients_build/python34/client
+    - put: bin_python35_client
+      params:
+        file: plcontainer_clients_build/python35/client
     - put: bin_r31_client
       params:
         file: plcontainer_clients_build/r31/client
@@ -318,6 +342,10 @@ jobs:
     - get: bin_python26_client
       passed: [plcontainer_clients_build]
     - get: bin_python27_client
+      passed: [plcontainer_clients_build]
+    - get: bin_python34_client
+      passed: [plcontainer_clients_build]
+    - get: bin_python35_client
       passed: [plcontainer_clients_build]
     - get: bin_r31_client
       passed: [plcontainer_clients_build]

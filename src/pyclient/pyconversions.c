@@ -475,6 +475,25 @@ static int plc_pyobject_as_bytea(PyObject *input, char **output, plcPyType *type
         return -1;
     }
 
+    #if PY_MAJOR_VERSION >= 3
+        if (PyUnicode_Check(input)) {
+            Py_ssize_t sz = 0;
+            char *str;
+
+            str = PyUnicode_AsUTF8AndSize(input, &sz);
+            if (str == NULL) {
+                raise_execution_error("Failed to get byte representation of unicode string");
+                return -1;
+            }
+
+            res = pmalloc(sz + 4);
+            *((int*)res) = (int)sz;
+            memcpy(res + 4, str, sz);
+            *output = res;
+            return 0;
+        }
+    #endif
+
     plrv_so = PyObject_Bytes(input);
     if (!plrv_so) {
         raise_execution_error("Could not create bytes representation of Python object");

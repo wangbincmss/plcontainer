@@ -29,9 +29,21 @@ instance_groups:
   - name: atc
     release: concourse
     properties:
+      #external_url: https://gpdb-pl.ci.eng.pivotal.io
       external_url: http://ci.0x0fff.com
+
+      # Basic Auth
       basic_auth_username: gpadmin
       basic_auth_password: gpdblanguages123
+
+      # GitHub Auth
+      github_auth:
+        client_id: 1a09505e4f807e2b8efe
+        client_secret: f5ce72a130d6d722fcb4f1cd1cebf4b7ccfa5590
+        authorize:
+          - organization: greenplum-db
+            teams: [GPDB]
+
       postgresql_database: &atc_db atc
   - name: tsa
     release: concourse

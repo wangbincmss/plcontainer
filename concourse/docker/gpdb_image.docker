@@ -20,3 +20,9 @@ RUN yum -y install docker-engine-1.11.0
 # Install runtime dependencies
 RUN yum -y install openssh-server net-tools iproute
 RUN yum -y install java-1.8.0-openjdk java-1.8.0-openjdk-devel
+
+# Install Python3 and Anaconda3
+RUN yum -y install python34 python34-devel
+ENV ANACONDA Anaconda3-4.1.1-Linux-x86_64.sh
+RUN yum -y install bzip2 which
+RUN wget -nv https://repo.continuum.io/archive/$ANACONDA && chmod +x $ANACONDA && ./$ANACONDA -b -p /usr/local/anaconda && rm ./$ANACONDA
