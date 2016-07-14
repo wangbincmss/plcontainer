@@ -103,12 +103,13 @@ def parseargs():
     parser.add_option('-s', '--sqldir', type='string', default='sql',
                       help='Directory containing SQL scripts plcontainer_install.sql and plcontainer_endurance_gpdb*.sql')
     parser.add_option('--nopython', action='store_true', help='Avoid running PL/Container Python test')
+    parser.add_option('--nopython3', action='store_true', help='Avoid running PL/Container Python3 test')
     parser.add_option('--nor', action='store_true', help='Avoid running PL/Container R test')
     parser.add_option('-v', '--verbose', action='store_true', help='Enable verbose logging')
 
     (options, args) = parser.parse_args()
-    if options.nopython and options.nor:
-        logger.error("You can specify either --nopython or --nor, but not both")
+    if options.nopython and options.nor and options.nopython3:
+        logger.error("You cannot specify all --nopython, --nopython3 and --nor at the same time")
         sys.exit(3)
     if not options.gpdbgen or not options.gpdbgen in ['4', '5']:
         logger.error("You must specify --gpdbgen | -g parameter to the GPDB version and it should be either 4 or 5")
@@ -178,7 +179,7 @@ def run_rand_test(dburl, runtime, queries):
 
 
 def prepare(dbname, sqldir, gpdbgen):
-    logger.info("Preparing endurance test database...")
+    logger.info("Preparing endurance test data...")
     if execute_os("psql -d template1 -c 'drop database if exists %s'" % dbname) < 0:
         return -1
     if execute_os("psql -d template1 -c 'create database %s'" % dbname) < 0:
@@ -189,9 +190,19 @@ def prepare(dbname, sqldir, gpdbgen):
         return -1
     return 0
 
+def prepare_funcs(ctype, dbname, sqldir, gpdbgen):
+    logger.info("Preparing endurance test functions for '%s' test..." % ctype)
+    if ctype == 'python3':
+        if execute_os(("sed 's/plc_python/plc_python3/g' %s/plcontainer_endurance_functions_gpdb%s.sql" +
+                      " > /tmp/plcontainer_endurance_functions_gpdb%s.sql") % (sqldir, gpdbgen, gpdbgen)) < 0:
+            return -1
+        sqldir = '/tmp'
+    if execute_os("psql -d %s -f %s/plcontainer_endurance_functions_gpdb%s.sql" % (dbname, sqldir, gpdbgen)) < 0:
+        return -1
+    return 0
 
-def run(dbname, username, runtime, queries, type):
-    logger.info("Running endurance test for '%s' language..." % type)
+def run(dbname, username, runtime, queries, ctype):
+    logger.info("Running endurance test for '%s' language..." % ctype)
     dburl = dbconn.DbURL(hostname = '127.0.0.1',
                          port     = 5432,
                          dbname   = dbname,
@@ -214,11 +225,22 @@ def main():
         queries = QUERIES_PYTHON
         if options.gpdbgen == '5':
             queries += QUERIES_PYTHON_5
+        if prepare_funcs("python", options.dbname, options.sqldir, options.gpdbgen) < 0:
+            return
         run(options.dbname, options.username, options.time, queries, "python")
+    if not options.nopython3:
+        queries = QUERIES_PYTHON
+        if options.gpdbgen == '5':
+            queries += QUERIES_PYTHON_5
+        if prepare_funcs("python3", options.dbname, options.sqldir, options.gpdbgen) < 0:
+            return
+        run(options.dbname, options.username, options.time, queries, "python3")
     if not options.nor:
         queries = QUERIES_R
         if options.gpdbgen == '5':
             queries += QUERIES_R_5
+        if prepare_funcs("R", options.dbname, options.sqldir, options.gpdbgen) < 0:
+            return
         run(options.dbname, options.username, options.time, queries, "R")
 
 
