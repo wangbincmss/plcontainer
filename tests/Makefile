@@ -58,6 +58,7 @@ prepare:
 	cp expected/plcontainer_test_python_gpdb5.out expected/plcontainer_test_python3_gpdb5.out
 	# Then Anaconda
 	cp sql/plcontainer_test_anaconda.sql sql/plcontainer_test_anaconda3.sql
+	cp expected/plcontainer_test_anaconda.out expected/plcontainer_test_anaconda3.out
 
 .PHONY: tests
 tests: prepare
