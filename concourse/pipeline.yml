@@ -443,7 +443,7 @@ jobs:
     - get: bin_gpdb4off_centos7
       passed: [plcontainer_endurance_test]
     - get: plcontainer_devel_images
-      passed: [plcontainer_test]
+      passed: [plcontainer_endurance_test]
   - aggregate:
     - task: plcontainer_gpdb4git_release
       file: plcontainer_src/concourse/plcontainer_gpdb4git_release.yml
