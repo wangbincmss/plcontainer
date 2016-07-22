@@ -43,6 +43,12 @@ struct plcTypeInfo {
     char           *typeName;
 };
 
+typedef struct plcPgArrayPosition {
+    plcTypeInfo    *type;
+    bits8          *bitmap;
+    int             bitmask;
+} plcPgArrayPosition;
+
 void fill_type_info(FunctionCallInfo fcinfo, Oid typeOid, plcTypeInfo *type);
 void copy_type_info(plcType *type, plcTypeInfo *ptype);
 void free_type_info(plcTypeInfo *type);
