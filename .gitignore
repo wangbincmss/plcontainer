@@ -54,3 +54,4 @@ VERSION
 *.rpm
 *.gppkg
 /package/*.yml
+/concourse/secrets/

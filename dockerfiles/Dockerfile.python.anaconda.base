@@ -4,11 +4,11 @@ FROM centos:7.2.1511
 ENV ANACONDA Anaconda2-4.1.1-Linux-x86_64.sh
 
 # Installation of Anaconda
-RUN yum -y install wget bzip2 which
+RUN yum -y install wget bzip2 which gcc gcc-c++ blas blas-devel lapack lapack-devel
 RUN wget -nv https://repo.continuum.io/archive/$ANACONDA && chmod +x $ANACONDA && ./$ANACONDA -b -p /usr/local/anaconda && rm ./$ANACONDA
 ENV LD_LIBRARY_PATH=/usr/local/anaconda/lib
 ENV PYTHONHOME=/usr/local/anaconda
 ENV PATH=/usr/local/anaconda/bin:$PATH
 
 # Additional libraries for DS team
-RUN pip install pattern gensim pyldavis lifelines xgboost && easy_install statsmodels && conda install -y spacy
+RUN conda install -y cvxopt spacy && pip install pattern gensim pyldavis lifelines xgboost cvxpy && easy_install statsmodels

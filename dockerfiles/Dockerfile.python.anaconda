@@ -1,4 +1,4 @@
-FROM pivotaldata/plcontainer_anaconda_base:0.3
+FROM pivotaldata/plcontainer_anaconda_base:0.4
 
 # Running the Python client inside of container
 ADD ./src/pyclient/bin /clientdir
