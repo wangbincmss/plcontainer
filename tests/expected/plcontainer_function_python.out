@@ -68,7 +68,8 @@ def recsum(obj):
         for x in obj:
             s += recsum(x)
     else:
-        s = obj
+        if obj is not None:
+            s = obj
     return s
 
 return recsum(arr)

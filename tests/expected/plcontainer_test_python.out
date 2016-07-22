@@ -122,7 +122,7 @@ select pybytea3() is null;
 select pyintarr(null::int8[]);
  pyintarr 
 ----------
-         
+        0
 (1 row)
 
 select pyintarr('{}'::int8[]);
@@ -143,10 +143,22 @@ select pyintarr(array[1,2,3,4,5]::int8[]);
        15
 (1 row)
 
+select pyintarr(array[null,2,3,null,5]::int8[]);
+ pyintarr 
+----------
+       10
+(1 row)
+
 select pyintarr(array[array[1,2,3,4,5],array[6,7,8,9,10]]::int8[]);
  pyintarr 
 ----------
        55
+(1 row)
+
+select pyintarr(array[array[1,2,3,null,5],array[6,null,8,9,null]]::int8[]);
+ pyintarr 
+----------
+       34
 (1 row)
 
 select pyfloatarr(array[1.1,2.2,3.3]::float8[]);
@@ -203,10 +215,10 @@ select pyintnulls(array[1,2,3,4,5,null]::int8[]);
           1
 (1 row)
 
-select pyintnulls(array[null,null,null]::int8[]);
+select pyintnulls(array[null,1,null]::int8[]);
  pyintnulls 
 ------------
-          3
+          2
 (1 row)
 
 select pyreturnarrint1(5);

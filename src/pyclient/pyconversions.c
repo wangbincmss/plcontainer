@@ -86,9 +86,9 @@ static PyObject *plc_pyobject_from_array_dim(plcArray *arr,
             Py_INCREF(Py_None);
         } else {
             res = type->conv.inputfunc(*pos, type);
-            *ipos += 1;
-            *pos = *pos + vallen;
         }
+        *ipos += 1;
+        *pos = *pos + vallen;
     } else {
         res = PyList_New(arr->meta->dims[dim]);
         for (idx[dim] = 0; idx[dim] < arr->meta->dims[dim]; idx[dim]++) {
