@@ -2,6 +2,7 @@
 #include "postgres.h"
 #include "fmgr.h"
 #include "access/transam.h"
+#include "access/tupmacs.h"
 #include "executor/spi.h"
 #include "parser/parse_type.h"
 #include "utils/array.h"
@@ -332,28 +333,30 @@ static char *plc_datum_as_bytea(Datum input, plcTypeInfo *type) {
 }
 
 static char *plc_datum_as_array(Datum input, plcTypeInfo *type) {
-    ArrayType    *array = DatumGetArrayTypeP(input);
-    plcIterator  *iter;
-    plcArrayMeta *meta;
-    int           i;
+    ArrayType          *array = DatumGetArrayTypeP(input);
+    plcIterator        *iter;
+    plcArrayMeta       *meta;
+    plcPgArrayPosition *pos;
+    int                 i;
 
     iter = (plcIterator*)palloc(sizeof(plcIterator));
     meta = (plcArrayMeta*)palloc(sizeof(plcArrayMeta));
+    pos  = (plcPgArrayPosition*)palloc(sizeof(plcPgArrayPosition));
     iter->meta = meta;
+    iter->position = (char*)pos;
 
     meta->type = type->subTypes[0].type;
     meta->ndims = ARR_NDIM(array);
     meta->dims = (int*)palloc(meta->ndims * sizeof(int));
-    iter->position = (char*)palloc(sizeof(plcTypeInfo*) + sizeof(int) * meta->ndims * 2);
-    ((plcTypeInfo**)iter->position)[0] = type;
+    pos->type = type;
+    pos->bitmap = ARR_NULLBITMAP(array);
+    pos->bitmask = 1;
     meta->size = meta->ndims > 0 ? 1 : 0;
     for (i = 0; i < meta->ndims; i++) {
         meta->dims[i] = ARR_DIMS(array)[i];
         meta->size *= ARR_DIMS(array)[i];
-        ((int*)iter->position)[i + 2] = ARR_LBOUND(array)[i];
-        ((int*)iter->position)[i + meta->ndims + 2] = ARR_LBOUND(array)[i];
     }
-    iter->data = (char*)array;
+    iter->data = ARR_DATA_PTR(array);
     iter->next = plc_backend_array_next;
     iter->cleanup = plc_backend_array_free;
 
@@ -372,44 +375,35 @@ static void plc_backend_array_free(plcIterator *iter) {
 }
 
 static rawdata *plc_backend_array_next(plcIterator *self) {
-    plcArrayMeta *meta;
-    ArrayType    *array;
-    plcTypeInfo  *typ;
-    plcTypeInfo  *subtyp;
-    int          *lbounds;
-    int          *pos;
-    int           dim;
-    bool          isnull = 0;
-    Datum         el;
-    rawdata      *res;
+    plcTypeInfo        *subtyp;
+    rawdata            *res;
+    plcPgArrayPosition *pos;
+    Datum               itemvalue;
 
     res     = palloc(sizeof(rawdata));
-    meta    = (plcArrayMeta*)self->meta;
-    array   = (ArrayType*)self->data;
-    typ     = ((plcTypeInfo**)self->position)[0];
-    subtyp  = &typ->subTypes[0];
-    lbounds = (int*)self->position + 2;
-    pos     = (int*)self->position + 2 + meta->ndims;
+    pos     = (plcPgArrayPosition*)self->position;
+    subtyp  = &pos->type->subTypes[0];
 
-    el = array_ref(array, meta->ndims, pos, typ->typlen,
-                   subtyp->typlen, subtyp->typbyval,
-                   subtyp->typalign, &isnull);
-    if (isnull) {
+    /* Get source element, checking for NULL */
+    if (pos->bitmap && (*(pos->bitmap) & pos->bitmask) == 0) {
         res->isnull = 1;
         res->value  = NULL;
     } else {
         res->isnull = 0;
-        res->value = subtyp->outfunc(el, subtyp);
+        itemvalue = fetch_att(self->data, subtyp->typbyval, subtyp->typlen);
+        res->value = subtyp->outfunc(itemvalue, subtyp);
+
+        self->data = att_addlength_pointer(self->data, subtyp->typlen, self->data);
+        self->data = (char *) att_align_nominal(self->data, subtyp->typalign);
     }
 
-    dim     = meta->ndims - 1;
-    while (dim >= 0 && pos[dim]-lbounds[dim] < meta->dims[dim]) {
-        pos[dim] += 1;
-        if (pos[dim]-lbounds[dim] >= meta->dims[dim]) {
-            pos[dim] = lbounds[dim];
-            dim -= 1;
-        } else {
-            break;
+    /* advance bitmap pointer if any */
+    if (pos->bitmap) {
+        pos->bitmask <<= 1;
+        if (pos->bitmask == 0x100 /* (1<<8) */)
+        {
+            pos->bitmap++;
+            pos->bitmask = 1;
         }
     }
 
