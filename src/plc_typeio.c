@@ -200,6 +200,7 @@ static void fill_type_info_inner(FunctionCallInfo fcinfo, Oid typeOid, plcTypeIn
                 /* Extract the XMIN value to later use it in PLy_procedure_valid */
                 type->typrel_xmin = HeapTupleHeaderGetXmin(relTup->t_data);
                 type->typrel_tid = relTup->t_self;
+                type->typeName = plc_top_strdup(NameStr(typeStruct->typname));
 
                 ReleaseSysCache(relTup);
             }

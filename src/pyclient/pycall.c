@@ -358,13 +358,13 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
         } else {
             PyObject *iter = NULL;
 
-            if (retobj == NULL) {
+            iter = PyObject_GetIter(retval);
+            if (iter == NULL) {
                 raise_execution_error("Cannot get iterator out of the returned object");
                 free_result(res, true);
                 return -1;
             }
 
-            iter = PyObject_GetIter(retval);
             retobj = PyList_New(0);
             obj = PyIter_Next(iter);
             while (obj != NULL && retcode == 0) {
@@ -385,6 +385,7 @@ static int process_call_results(plcConn *conn, PyObject *retval, plcPyFunction *
 
         res->rows = len;
         res->data = malloc(res->rows * sizeof(rawdata*));
+        memset(res->data, 0, res->rows * sizeof(rawdata*));
         for(i = 0; i < len && retcode == 0; i++) {
             res->data[i] = malloc(res->cols * sizeof(rawdata));
             obj = PySequence_GetItem(retobj, i);

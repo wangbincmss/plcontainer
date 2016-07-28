@@ -433,7 +433,7 @@ static int plc_pyobject_as_udt(PyObject *input, char **output, plcPyType *type) 
 
     *output = NULL;
     if (!PyDict_Check(input)) {
-        raise_execution_error("Only 'dict' object can be converted to UDT %s", type->typeName);
+        raise_execution_error("Only 'dict' object can be converted to UDT \"%s\"", type->typeName);
         res = -1;
     } else {
         int i = 0;

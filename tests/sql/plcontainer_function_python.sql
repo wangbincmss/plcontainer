@@ -490,6 +490,11 @@ CREATE OR REPLACE FUNCTION pytestudt13(r test_type3) RETURNS test_type3 AS $$
 return r
 $$ LANGUAGE plcontainer;
 
+CREATE OR REPLACE FUNCTION pytestudt16() RETURNS SETOF test_type3 AS $$
+# container: plc_python
+return {'a': [1,3], 'b': [2,4], 'c': ['foo','bar']}
+$$ LANGUAGE plcontainer;
+
 CREATE OR REPLACE FUNCTION pytestudtrecord1() RETURNS record AS $$
 # container: plc_python
 return {'a': 1, 'b': 2, 'c': 'foo'}
