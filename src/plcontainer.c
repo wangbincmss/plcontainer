@@ -2,6 +2,7 @@
 #include "postgres.h"
 #include "fmgr.h"
 #include "funcapi.h"
+#include "miscadmin.h"
 #include "executor/spi.h"
 #include "commands/trigger.h"
 
@@ -52,7 +53,24 @@ Datum plcontainer_call_handler(PG_FUNCTION_ARGS) {
         elog(ERROR, "[plcontainer] SPI connect error: %d (%s)", ret,
              SPI_result_code_string(ret));
 
-    datumreturn = plcontainer_call_hook(fcinfo);
+    /* We need to cover this in try-catch block to catch the even of user
+     * requesting the query termination. In this case we should forcefully
+     * kill the container and reset its information
+     */
+    PG_TRY();
+    {
+        datumreturn = plcontainer_call_hook(fcinfo);
+    }
+    PG_CATCH();
+    {
+        /* If the reason is Cancel or Termination */
+        if (InterruptPending || QueryCancelPending || QueryFinishPending) {
+            //elog(DEBUG1, "Terminating containers due to user request");
+            stop_containers();
+        }
+        PG_RE_THROW();
+    }
+    PG_END_TRY();
 
     /* Return to old memory context */
     ret = SPI_finish();

@@ -24,7 +24,23 @@ static int plcBufferMaybeResize (plcConn *conn, int bufType, size_t bufAppend);
  *  Read data from the socket
  */
 static ssize_t plcSocketRecv(plcConn *conn, void *ptr, size_t len) {
-    return recv(conn->sock, ptr, len, 0);
+    ssize_t sz = 0;
+
+    while (sz <= 0) {
+        sz = recv(conn->sock, ptr, len, 0);
+
+        /* If receive command is terminated by SIGINT */
+        if (sz < 0 && errno == EINTR) {
+            lprintf(ERROR, "Query and PL/Container connections are terminated by user request");
+        }
+
+        /* If the command is terminated by another reason - standard handler */
+        if ( !(sz == -1 && (errno == EAGAIN || errno == EWOULDBLOCK)) ) {
+            break;
+        }
+    }
+
+    return sz;
 }
 
 /*
@@ -320,6 +336,7 @@ plcConn *plcConnect(int port) {
     struct hostent     *server;
     struct sockaddr_in  raddr; /** Remote address */
     plcConn            *result = NULL;
+    struct timeval      tv;
 
     int sock = socket(AF_INET, SOCK_STREAM, 0);
     if (sock < 0) {
@@ -345,6 +362,11 @@ plcConn *plcConnect(int port) {
         lprintf(DEBUG1, "PLContainer: Failed to connect to %s", ipAddr);
         return result;
     }
+
+    /* Set socker receive timeout to 500ms */
+    tv.tv_sec  = 0;
+    tv.tv_usec = 500000;
+    setsockopt(sock, SOL_SOCKET, SO_RCVTIMEO, (char *)&tv, sizeof(struct timeval));
 
     result = plcConnInit(sock);
 

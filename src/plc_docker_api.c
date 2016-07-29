@@ -414,7 +414,7 @@ static int plc_docker_container_command(int sockfd, char *name, const char *cmd,
     apiendpoint = palloc(20 + strlen(apiendpointtemplate) + strlen(plc_docker_api_version)
                             + strlen(name) + strlen(cmd));
     sprintf(apiendpoint,
-            apiendpointtemplate,       // URL to request
+            apiendpointtemplate,          // URL to request
             plc_docker_api_version,       // Docker API version we use
             name,                         // Container name
             cmd);                         // Command to execute
@@ -520,6 +520,10 @@ int plc_docker_create_container(int sockfd, plcContainer *cont, char **name) {
 
 int plc_docker_start_container(int sockfd, char *name) {
     return plc_docker_container_command(sockfd, name, "start", 0);
+}
+
+int plc_docker_kill_container(int sockfd, char *name) {
+    return plc_docker_container_command(sockfd, name, "kill?signal=KILL", 0);
 }
 
 int plc_docker_inspect_container(int sockfd, char *name, int *port) {

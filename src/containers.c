@@ -18,6 +18,7 @@
 
 typedef struct {
     char    *name;
+    char    *dockerid;
     plcConn *conn;
 } container_t;
 
@@ -25,7 +26,7 @@ typedef struct {
 static int containers_init = 0;
 static container_t *containers;
 
-static void insert_container(char *image, plcConn *conn);
+static void insert_container(char *image, char *dockerid, plcConn *conn);
 static void init_containers();
 static inline bool is_whitespace (const char c);
 
@@ -96,12 +97,16 @@ static void cleanup(char *dockerid) {
 
 #endif /* not CONTAINER_DEBUG */
 
-static void insert_container(char *image, plcConn *conn) {
+static void insert_container(char *image, char *dockerid, plcConn *conn) {
     size_t i;
     for (i = 0; i < CONTAINER_NUMBER; i++) {
         if (containers[i].name == NULL) {
-            containers[i].name = plc_top_strdup(image);
-            containers[i].conn = conn;
+            containers[i].name     = plc_top_strdup(image);
+            containers[i].conn     = conn;
+            containers[i].dockerid = NULL;
+            if (dockerid != NULL) {
+                containers[i].dockerid = plc_top_strdup(dockerid);
+            }
             return;
         }
     }
@@ -135,6 +140,7 @@ plcConn *start_container(plcContainer *cont) {
     unsigned int sleepms = 0;
     plcMsgPing *mping = NULL;
     plcConn *conn = NULL;
+    char *dockerid = NULL;
 
 #ifdef CONTAINER_DEBUG
 
@@ -144,7 +150,6 @@ plcConn *start_container(plcContainer *cont) {
 
     int sockfd;
     int res = 0;
-    char *name;
 
     sockfd = plc_docker_connect();
     if (sockfd < 0) {
@@ -152,19 +157,19 @@ plcConn *start_container(plcContainer *cont) {
         return conn;
     }
 
-    res = plc_docker_create_container(sockfd, cont, &name);
+    res = plc_docker_create_container(sockfd, cont, &dockerid);
     if (res < 0) {
         elog(ERROR, "Cannot create Docker container");
         return conn;
     }
 
-    res = plc_docker_start_container(sockfd, name);
+    res = plc_docker_start_container(sockfd, dockerid);
     if (res < 0) {
         elog(ERROR, "Cannot start Docker container");
         return conn;
     }
 
-    res = plc_docker_inspect_container(sockfd, name, &port);
+    res = plc_docker_inspect_container(sockfd, dockerid, &port);
     if (res < 0) {
         elog(ERROR, "Cannot parse host port exposed by Docker container");
         return conn;
@@ -177,9 +182,7 @@ plcConn *start_container(plcContainer *cont) {
     }
 
     /* Create a process to clean up the container after it finishes */
-    cleanup(name);
-
-    pfree(name);
+    cleanup(dockerid);
 
 #endif // CONTAINER_DEBUG
 
@@ -217,10 +220,47 @@ plcConn *start_container(plcContainer *cont) {
                     CONTAINER_CONNECT_TIMEOUT_MS);
         conn = NULL;
     } else {
-        insert_container(cont->name, conn);
+        insert_container(cont->name, dockerid, conn);
     }
 
+    pfree(dockerid);
+
     return conn;
+}
+
+void stop_containers() {
+    size_t i;
+
+    if (containers_init != 0) {
+        for (i = 0; i < CONTAINER_NUMBER; i++) {
+            if (containers[i].name != NULL) {
+
+                /* Terminate connection to the container */
+                if (containers[i].conn != NULL) {
+                    plcDisconnect(containers[i].conn);
+                }
+
+                /* Terminate container process */
+                if (containers[i].dockerid != NULL) {
+                    int sockfd;
+
+                    sockfd = plc_docker_connect();
+                    if (sockfd > 0) {
+                        plc_docker_kill_container(sockfd, containers[i].dockerid);
+                        plc_docker_disconnect(sockfd);
+                    }
+                    pfree(containers[i].dockerid);
+                }
+
+                /* Set all fields to NULL as part of cleanup */
+                pfree(containers[i].name);
+                containers[i].name = NULL;
+                containers[i].dockerid = NULL;
+                containers[i].conn = NULL;
+            }
+        }
+    }
+    containers_init = 0;
 }
 
 static inline bool is_whitespace (const char c) {
