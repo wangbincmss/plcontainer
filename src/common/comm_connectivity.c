@@ -47,7 +47,14 @@ static ssize_t plcSocketRecv(plcConn *conn, void *ptr, size_t len) {
  *  Write data to the socket
  */
 static ssize_t plcSocketSend(plcConn *conn, const void *ptr, size_t len) {
-    return send(conn->sock, ptr, len, 0);
+    ssize_t sz = send(conn->sock, ptr, len, 0);
+
+    /* If receive command is terminated by SIGINT */
+    if (sz < 0 && errno == EINTR) {
+        lprintf(ERROR, "Query and PL/Container connections are terminated by user request");
+    }
+
+    return sz;
 }
 
 /*
