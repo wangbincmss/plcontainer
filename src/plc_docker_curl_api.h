@@ -3,7 +3,20 @@
 
 #include "plc_configuration.h"
 
-#ifndef CURL_DOCKER_API
+typedef enum {
+    PLC_CALL_HTTPGET = 0,
+    PLC_CALL_POST,
+    PLC_CALL_DELETE
+} plcCurlCallType;
+
+typedef struct {
+    char   *data;
+    size_t  bufsize;
+    size_t  size;
+    int     status;
+} plcCurlBuffer;
+
+#ifdef CURL_DOCKER_API
     int plc_docker_connect(void);
     int plc_docker_create_container(int sockfd, plcContainer *cont, char **name);
     int plc_docker_start_container(int sockfd, char *name);

@@ -311,3 +311,46 @@ plcContainer *plc_get_container_config(char *name) {
 
     return result;
 }
+
+char *get_sharing_options(plcContainer *cont) {
+    char *res = NULL;
+
+    if (cont->nSharedDirs > 0) {
+        char **volumes = NULL;
+        int totallen = 0;
+        char *pos;
+        int i;
+
+        volumes = palloc(cont->nSharedDirs * sizeof(char*));
+        for (i = 0; i < cont->nSharedDirs; i++) {
+            volumes[i] = palloc(10 + strlen(cont->sharedDirs[i].host) +
+                                 strlen(cont->sharedDirs[i].container));
+            if (cont->sharedDirs[i].mode == PLC_ACCESS_READONLY) {
+                sprintf(volumes[i], "\"%s:%s:ro\"", cont->sharedDirs[i].host,
+                        cont->sharedDirs[i].container);
+            } else if (cont->sharedDirs[i].mode == PLC_ACCESS_READWRITE) {
+                sprintf(volumes[i], "\"%s:%s:rw\"", cont->sharedDirs[i].host,
+                        cont->sharedDirs[i].container);
+            } else {
+                elog(ERROR, "Cannot determine directory sharing mode");
+            }
+            totallen += strlen(volumes[i]);
+        }
+
+        res = palloc(totallen + 2*cont->nSharedDirs);
+        pos = res;
+        for (i = 0; i < cont->nSharedDirs; i++) {
+            memcpy(pos, volumes[i], strlen(volumes[i]));
+            pos += strlen(volumes[i]);
+            *pos = ' ';
+            pos += 1;
+            pfree(volumes[i]);
+        }
+        *pos = '\0';
+        pfree(volumes);
+    } else {
+        res = palloc(1);
+        res[0] = '\0';
+    }
+    return res;
+}

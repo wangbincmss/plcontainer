@@ -13,8 +13,13 @@
 #include "common/comm_channel.h"
 #include "common/messages/messages.h"
 #include "plc_configuration.h"
-#include "plc_docker_api.h"
 #include "containers.h"
+
+#ifdef CURL_DOCKER_API
+    #include "plc_docker_curl_api.h"
+#else
+    #include "plc_docker_api.h"
+#endif
 
 typedef struct {
     char    *name;

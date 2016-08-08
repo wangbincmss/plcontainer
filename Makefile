@@ -23,6 +23,22 @@ OBJS = $(foreach FILE,$(FILES),$(subst .c,.o,$(FILE)))
 PGXS := $(shell pg_config --pgxs)
 include $(PGXS)
 
+# Curl
+CURL_CONFIG = $(shell type -p curl-config || echo no)
+ifneq ($(CURL_CONFIG),no)
+  CURL_VERSION  = $(shell $(CURL_CONFIG) --version | cut -d" " -f2)
+  VERSION_CHECK = $(shell expr $(CURL_VERSION) \>\= 7.40.0)
+ifeq ($(VERSION_CHECK),1)
+  override CFLAGS += -DCURL_DOCKER_API $(shell $(CURL_CONFIG) --cflags)
+  SHLIB_LINK = $(shell $(CURL_CONFIG) --libs)
+  $(info curl version is >= 7.40, building with Curl Docker API interface)
+else
+  $(info curl version is < 7.40, falling back to default Docker API interface)
+endif
+else
+  $(info curl-config is not found, building with default Docker API interface)
+endif
+
 PLCONTAINERDIR = $(DESTDIR)$(datadir)/plcontainer
 
 all: all-lib

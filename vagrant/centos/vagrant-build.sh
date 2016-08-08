@@ -1,5 +1,8 @@
 #!/bin/bash
 
+export PATH=/usr/local/curl/bin:$PATH
+export LD_LIBRARY_PATH=/usr/local/curl/lib:$LD_LIBRARY_PATH
+
 # Prepare target directory for GPDB installation
 sudo rm -rf /usr/local/greenplum-db-4.3.99.0dev
 sudo mkdir /usr/local/greenplum-db-4.3.99.0dev
@@ -17,7 +20,5 @@ git clone https://github.com/greenplum-db/gpdb.git /gpdb
 cd /gpdb
 export BLD_ARCH=rhel5_x86_64
 ./configure --prefix=/usr/local/greenplum-db --enable-depend --enable-debug --with-python --with-libxml || exit 1
-sudo make || exit 1
-sudo make install || exit 1
-sudo chown -R vagrant:vagrant /usr/local/greenplum-db
-sudo chown -R vagrant:vagrant /usr/local/greenplum-db-4.3.99.0dev
+make || exit 1
+make install || exit 1

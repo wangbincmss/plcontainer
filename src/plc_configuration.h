@@ -31,5 +31,6 @@ typedef struct plcContainer {
 Datum read_plcontainer_config(PG_FUNCTION_ARGS);
 int plc_read_container_config(bool verbose);
 plcContainer *plc_get_container_config(char *name);
+char *get_sharing_options(plcContainer *cont);
 
 #endif /* PLC_CONFIGURATION_H */

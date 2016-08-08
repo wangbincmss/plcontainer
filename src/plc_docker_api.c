@@ -1,3 +1,5 @@
+#ifndef CURL_DOCKER_API
+
 #include <unistd.h>
 #include <sys/socket.h>
 #include <sys/un.h>
@@ -51,14 +53,6 @@ static char *plc_docker_create_request =
         "    }\n"
         "}\n";
 
-// Regular expression for parsing "create" call JSON response
-static char *plc_docker_containerid_regex =
-        "\\{\\s*\"[Ii][Dd]\\s*\"\\:\\s*\"(\\w+)\"\\s*,\\s*\"[Ww]arnings\"\\s*\\:([^\\}]*)\\s*\\}";
-
-// Regular expression for parsing container inspection JSON response
-static char *plc_docker_port_regex =
-        "\"8080\\/tcp\"\\s*\\:\\s*\\[.*\"HostPort\"\\s*\\:\\s*\"([0-9]*)\".*\\]";
-
 // Request for deleting the container
 static char *plc_docker_delete_request =
         "DELETE /%s/containers/%s HTTP/1.1\r\n\r\n";
@@ -66,7 +60,6 @@ static char *plc_docker_delete_request =
 /* End of templates */
 
 /* Static functions of the Docker API module */
-static char *get_sharing_options(plcContainer *cont);
 static int docker_parse_container_id(char* response, char **name);
 static int docker_parse_port_mapping(char* response, int *port);
 static int get_content_length(char *msg, int *len);
@@ -76,50 +69,11 @@ static int recv_port_mapping(int sockfd, int *port);
 static int docker_call(int sockfd, char *request, char **response, int silent);
 static int plc_docker_container_command(int sockfd, char *name, const char *cmd, int silent);
 
-static char *get_sharing_options(plcContainer *cont) {
-    char *res = NULL;
-
-    if (cont->nSharedDirs > 0) {
-        char **volumes = NULL;
-        int totallen = 0;
-        char *pos;
-        int i;
-
-        volumes = palloc(cont->nSharedDirs * sizeof(char*));
-        for (i = 0; i < cont->nSharedDirs; i++) {
-            volumes[i] = palloc(10 + strlen(cont->sharedDirs[i].host) +
-                                 strlen(cont->sharedDirs[i].container));
-            if (cont->sharedDirs[i].mode == PLC_ACCESS_READONLY) {
-                sprintf(volumes[i], "\"%s:%s:ro\"", cont->sharedDirs[i].host,
-                        cont->sharedDirs[i].container);
-            } else if (cont->sharedDirs[i].mode == PLC_ACCESS_READWRITE) {
-                sprintf(volumes[i], "\"%s:%s:rw\"", cont->sharedDirs[i].host,
-                        cont->sharedDirs[i].container);
-            } else {
-                elog(ERROR, "Cannot determine directory sharing mode");
-            }
-            totallen += strlen(volumes[i]);
-        }
-
-        res = palloc(totallen + 2*cont->nSharedDirs);
-        pos = res;
-        for (i = 0; i < cont->nSharedDirs; i++) {
-            memcpy(pos, volumes[i], strlen(volumes[i]));
-            pos += strlen(volumes[i]);
-            *pos = ' ';
-            pos += 1;
-            pfree(volumes[i]);
-        }
-        *pos = '\0';
-        pfree(volumes);
-    } else {
-        res = palloc(1);
-        res[0] = '\0';
-    }
-    return res;
-}
-
+/* Parse container ID out of JSON response */
 static int docker_parse_container_id(char* response, char **name) {
+    // Regular expression for parsing "create" call JSON response
+    char *plc_docker_containerid_regex =
+            "\\{\\s*\"[Ii][Dd]\\s*\"\\:\\s*\"(\\w+)\"\\s*,\\s*\"[Ww]arnings\"\\s*\\:([^\\}]*)\\s*\\}";
     regex_t     preg;
     regmatch_t  pmatch[3];
     int         res = 0;
@@ -182,6 +136,9 @@ static int docker_parse_container_id(char* response, char **name) {
 }
 
 static int docker_parse_port_mapping(char* response, int *port) {
+    // Regular expression for parsing container inspection JSON response
+    char *plc_docker_port_regex =
+            "\"8080\\/tcp\"\\s*\\:\\s*\\[.*\"HostPort\"\\s*\\:\\s*\"([0-9]*)\".*\\]";
     regex_t     preg;
     regmatch_t  pmatch[2];
     int         res = 0;
@@ -585,3 +542,5 @@ int plc_docker_delete_container(int sockfd, char *name) {
 int plc_docker_disconnect(int sockfd) {
     return close(sockfd);
 }
+
+#endif

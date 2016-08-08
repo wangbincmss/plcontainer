@@ -7,7 +7,6 @@ sudo yum -y groupinstall "Development tools"
 sudo yum -y install ed
 sudo yum -y install readline-devel
 sudo yum -y install zlib-devel
-sudo yum -y install curl-devel
 sudo yum -y install bzip2-devel
 sudo yum -y install python-devel
 sudo yum -y install apr-devel
@@ -35,3 +34,13 @@ sudo usermod -aG docker vagrant
 
 # Misc
 sudo yum -y install vim mc psmisc
+
+# Curl
+cd /tmp
+wget https://github.com/curl/curl/archive/curl-7_49_1.tar.gz --output-document=curl-7_49_1.tar.gz
+tar zxvf curl-7_49_1.tar.gz
+cd curl-curl-7_49_1
+./buildconf
+./configure --prefix=/usr/local/curl
+make
+sudo make install
