@@ -1,0 +1,16 @@
+FROM agrishchenko/plc_gpdb_centos7:latest
+
+# Install Curl 7.49
+RUN cd /tmp && \
+    wget https://github.com/curl/curl/archive/curl-7_49_1.tar.gz --output-document=curl-7_49_1.tar.gz && \
+    tar zxvf curl-7_49_1.tar.gz && \
+    cd curl-curl-7_49_1 && \
+    alias gcc=gcc44 && \
+    ./buildconf && \
+    ./configure --prefix=/usr/local/curl && \
+    make && \
+    make install && \
+    rm -rf /tmp/curl-curl-7_49_1
+
+ENV PATH=/usr/local/curl/bin:$PATH
+ENV LD_LIBRARY_PATH=/usr/local/curl/lib:$LD_LIBRARY_PATH
