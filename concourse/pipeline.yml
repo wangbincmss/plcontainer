@@ -27,21 +27,21 @@ resources:
   source:
     branch: 4.3_STABLE
     uri: git@github.com:greenplum-db/gpdb4.git
-    private_key: {{gpdblanguages_private_key}}
+    private_key: {{gpdb-git-key}}
 
 - name: gpdb_src
   type: git
   source:
     branch: master
     uri: git@github.com:greenplum-db/gpdb.git
-    private_key: {{gpdblanguages_private_key}}
+    private_key: {{gpdb-git-key}}
 
 - name: plcontainer_src
   type: git
   source:
     branch: master
     uri: git@github.com:greenplum-db/plcontainer.git
-    private_key: {{gpdblanguages_private_key}}
+    private_key: {{gpdb-git-key}}
 
 # S3 Input and intermediate binaries
 
