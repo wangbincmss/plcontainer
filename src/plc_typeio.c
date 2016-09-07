@@ -5,6 +5,7 @@
 #include "access/tupmacs.h"
 #include "executor/spi.h"
 #include "parser/parse_type.h"
+#include "utils/fmgroids.h"
 #include "utils/array.h"
 #include "utils/lsyscache.h"
 #include "utils/typcache.h"
@@ -138,7 +139,7 @@ static void fill_type_info_inner(FunctionCallInfo fcinfo, Oid typeOid, plcTypeIn
     }
 
     /* Processing arrays here */
-    if (!isArrayElement && typeStruct->typelem != 0 && typeStruct->typoutput == ARRAY_OUT_OID) {
+    if (!isArrayElement && typeStruct->typelem != 0 && typeStruct->typoutput == F_ARRAY_OUT) {
         type->type = PLC_DATA_ARRAY;
         type->outfunc = plc_datum_as_array;
         type->infunc = plc_datum_from_array;
