@@ -1,4 +1,4 @@
-FROM agrishchenko/plc_gpdb_centos7:latest
+FROM pivotaldata/plc_gpdb_centos7:latest
 
 # Install Curl 7.49
 RUN cd /tmp && \
