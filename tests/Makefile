@@ -1,7 +1,7 @@
 PGXS := $(shell pg_config --pgxs)
 include $(PGXS)
 
-REGRESS_OPTS = --dbname=$(PL_TESTDB)
+REGRESS_OPTS = --dbname=$(PL_TESTDB) --init-file=./init_file
 
 # R Regression Tests
 REGRESS_R = plcontainer_function_r plcontainer_function_r_gpdb5 \

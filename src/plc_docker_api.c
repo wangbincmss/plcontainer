@@ -22,19 +22,23 @@ static char *plc_docker_socket = "/var/run/docker.sock";
 // Post message template. Used by "create" call
 static char *plc_docker_post_message_json =
         "POST %s HTTP/1.1\r\n"
+        "Host: http\r\n"
+        "Content-Type: application/json\r\n"
         "Content-Length: %d\r\n"
-        "Content-Type: application/json\r\n\r\n"
+        "\r\n"
         "%s";
 
 // Post message with text content. Used by "start" and "wait" calls
 static char *plc_docker_post_message_text =
         "POST %s HTTP/1.1\r\n"
+        "Host: http\r\n"
+        "Content-Type: text/plain\r\n"
         "Content-Length: %d\r\n"
-        "Content-Type: text/plain\r\n\r\n"
+        "\r\n"
         "%s";
 
 static char *plc_docker_get_message =
-        "GET /%s/containers/%s/json HTTP/1.1\r\n\r\n";
+        "GET /%s/containers/%s/json HTTP/1.1\r\nHost: http\r\n\r\n";
 
 // JSON body of the "create" call with container creation parameters
 static char *plc_docker_create_request =
@@ -190,6 +194,18 @@ static int docker_parse_port_mapping(char* response, int *port) {
     return 0;
 }
 
+static int get_return_status( char * msg )
+{
+    // look for 200 to tell us the request was OK
+    char * http11 = strstr(msg, "HTTP/1.1");
+    long http_status = 0;
+    char *tailptr;
+
+    if (http11 != NULL ){
+        http_status = strtol(&msg[8], &tailptr, 10);
+    }
+    return http_status;
+}
 static int get_content_length(char *msg, int *len) {
     char *contentlen = NULL;
     char *content = NULL;
@@ -241,6 +257,7 @@ static int recv_message(int sockfd, char **response) {
     int   len = 0;
     char *buf;
     int   buflen = 8192;
+    int   status = 0;
 
     buf = palloc(buflen);
     memset(buf, 0, buflen);
@@ -250,13 +267,24 @@ static int recv_message(int sockfd, char **response) {
 
         bytes = recv(sockfd, buf + received, buflen - received, 0);
         if (bytes < 0) {
-            elog(ERROR, "Error reading response from Docker API socket");
+            ereport(ERROR,
+                    (errcode(ERRCODE_CONNECTION_FAILURE),
+                    errmsg("Error reading response from Docker API socket")));
             return -1;
         }
         received += bytes;
 
         if (len == 0) {
-            /* Parse the message to fing Content-Length */
+            status =  get_return_status(buf);
+
+            if (status >= 300){
+                ereport(ERROR,
+                        (errcode(ERRCODE_CONNECTION_FAILURE),
+                        errmsg("Error from docker api response code %d", status)));
+                *response = buf;
+                return status;
+            }
+            /* Parse the message to find Content-Length */
             get_content_length(buf, &len);
 
             /* If the message will not fit into buffer - reallocate it */
@@ -455,7 +483,7 @@ int plc_docker_create_container(int sockfd, plcContainer *cont, char **name) {
             strlen(message_body),         // Content-length
             message_body);                // POST message JSON content
 
-    docker_call(sockfd, message, &response, 0);
+    docker_call(sockfd, message, &response, 1);
 
     pfree(apiendpoint);
     pfree(sharing);

@@ -234,8 +234,10 @@ static Datum plcontainer_process_result(FunctionCallInfo  fcinfo,
     }
 
     if (presult->resrow >= resmsg->rows) {
-        elog(ERROR, "Trying to access result row %d of the %d-rows result set",
-                    presult->resrow, resmsg->rows);
+        ereport(ERROR,
+             (errcode(ERRCODE_CARDINALITY_VIOLATION),
+             errmsg( "Trying to access result row %d of the %d-rows result set",
+                     presult->resrow, resmsg->rows)));
         return result;
     }
 
@@ -251,7 +253,9 @@ static Datum plcontainer_process_result(FunctionCallInfo  fcinfo,
  * Processing client log message
  */
 static void plcontainer_process_log(plcMsgLog *log) {
-    elog(log->level, "%s", log->message);
+    ereport(log->level,
+            (errcode(ERRCODE_NO_DATA),
+                    errmsg("%s", log->message)));
 }
 
 /*
@@ -277,7 +281,9 @@ static void plcontainer_process_sql(plcMsgSQL *msg, plcConn* conn) {
                 free_callreq((plcMsgCallreq*)res, true, true);
                 break;
             default:
-                elog(ERROR, "Returning message type '%c' from SPI call is not implemented", res->msgtype);
+                ereport(ERROR,
+                      (errcode(ERRCODE_RAISE_EXCEPTION),
+                      errmsg( "Returning message type '%c' from SPI call is not implemented", res->msgtype)));
         }
     }
 
@@ -296,9 +302,13 @@ static void plcontainer_process_sql(plcMsgSQL *msg, plcConn* conn) {
  */
 static void plcontainer_process_exception(plcMsgError *msg) {
     if (msg->stacktrace != NULL) {
-        elog(ERROR, "PL/Container client exception occurred: \n %s \n %s", msg->message, msg->stacktrace);
+        ereport(ERROR,
+                (errcode(ERRCODE_RAISE_EXCEPTION),
+                 errmsg("PL/Container client exception occurred: \n %s \n %s", msg->message, msg->stacktrace)));
     } else {
-        elog(ERROR, "PL/Container client exception occurred: \n %s", msg->message);
+        ereport(ERROR,
+                (errcode(ERRCODE_RAISE_EXCEPTION),
+                 errmsg("PL/Container client exception occurred: \n %s", msg->message)));
     }
     free_error(msg);
 }

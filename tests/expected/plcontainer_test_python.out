@@ -1,4 +1,5 @@
 select pylog100();
+WARNING:  Docker API 'create' call returned warning message: '["Your kernel does not support swap limit capabilities, memory limited without swap."]'
  pylog100 
 ----------
         2
@@ -23,7 +24,7 @@ select pybool('t');
 (1 row)
 
 select pyint(NULL::int2);
-ERROR:  PL/Container client exception occurred: (plcontainer.c:281)
+ERROR:  PL/Container client exception occurred:
 DETAIL:  
  Exception occurred in Python during function execution 
  Traceback (most recent call last):
@@ -396,8 +397,10 @@ select pywriteFile();
 (1 row)
 
 \! ls -l /tmp/foo
-ls: cannot access /tmp/foo: No such file or directory
+ls: cannot access '/tmp/foo': No such file or directory
 select pyconcat(fname, lname) from users order by 1;
+WARNING:  Docker API 'create' call returned warning message: '["Your kernel does not support swap limit capabilities, memory limited without swap."]'  (seg0 slice1 127.0.1.1:25435 pid=9419)
+WARNING:  Docker API 'create' call returned warning message: '["Your kernel does not support swap limit capabilities, memory limited without swap."]'  (seg1 slice1 127.0.1.1:25436 pid=9420)
  pyconcat  
 -----------
  janedoe
@@ -440,7 +443,7 @@ select pylogging();
 INFO:  this is the info message
 NOTICE:  this is the notice message
 WARNING:  this is the warning message
-ERROR:  this is the error message (plcontainer.c:236)
+ERROR:  this is the error message
 select pylogging2();
 INFO:  this is the info message
 CONTEXT:  SQL statement "select pylogging()"
@@ -448,7 +451,7 @@ NOTICE:  this is the notice message
 CONTEXT:  SQL statement "select pylogging()"
 WARNING:  this is the warning message
 CONTEXT:  SQL statement "select pylogging()"
-ERROR:  this is the error message (plcontainer.c:236)
+ERROR:  this is the error message
 CONTEXT:  SQL statement "select pylogging()"
 select pygdset('1','a');
  pygdset 
@@ -629,7 +632,7 @@ select * from pytestudt13( (1,2,'a')::test_type3 );
 (1 row)
 
 select pytestudt16();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
+ERROR:  PL/Container client exception occurred:
 DETAIL:  Only 'dict' object can be converted to UDT "test_type3"
 select * from pytestudtrecord1() as t(a int, b int, c varchar);
  a | b |  c  
@@ -656,25 +659,25 @@ select pyreturnsetofint8(2), pyreturnsetofint8(3);
 (6 rows)
 
 select pybadint();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
+ERROR:  PL/Container client exception occurred:
 DETAIL:  Exception occurred transforming result object to int4
 select pybadfloat8();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
+ERROR:  PL/Container client exception occurred:
 DETAIL:  Exception occurred transforming result object to float4
 select pybadudt();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
+ERROR:  PL/Container client exception occurred:
 DETAIL:  Cannot find key 'c' in result dictionary for converting it into UDT
 select pybadudt2();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
+ERROR:  PL/Container client exception occurred:
 DETAIL:  Exception occurred transforming result object to float8
 select pybadarr();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
+ERROR:  PL/Container client exception occurred:
 DETAIL:  Exception occurred transforming result object to int4
 select pybadarr2();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
+ERROR:  PL/Container client exception occurred:
 DETAIL:  Cannot convert non-sequence object to array
 select pyinvalid_function();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:281)
+ERROR:  PL/Container client exception occurred:
 DETAIL:  
  Exception occurred in Python during function execution 
  Traceback (most recent call last):

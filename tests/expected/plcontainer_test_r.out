@@ -1,6 +1,7 @@
 set datestyle='ISO,MDY';
 select rshouldnotparse();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:253)
+WARNING:  Docker API 'create' call returned warning message: '["Your kernel does not support swap limit capabilities, memory limited without swap."]'
+ERROR:  PL/Container client exception occurred:
 DETAIL:  
  Parse Error
 rshouldnotparse <- function(args) {
@@ -360,7 +361,7 @@ select rlogging();
 INFO:  this is the info message
 NOTICE:  this is the notice message
 WARNING:  this is the warning message
-ERROR:  this is the error message (plcontainer.c:221)
+ERROR:  this is the error message
 select rlogging2();
 INFO:  this is the info message
 CONTEXT:  SQL statement "select rlogging()"
@@ -368,7 +369,7 @@ NOTICE:  this is the notice message
 CONTEXT:  SQL statement "select rlogging()"
 WARNING:  this is the warning message
 CONTEXT:  SQL statement "select rlogging()"
-ERROR:  this is the error message (plcontainer.c:221)
+ERROR:  this is the error message
 CONTEXT:  SQL statement "select rlogging()"
 select rsetofint4();
  rsetofint4 

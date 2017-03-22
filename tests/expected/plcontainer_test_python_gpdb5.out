@@ -1,4 +1,5 @@
 select pytestudt3( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] );
+WARNING:  Docker API 'create' call returned warning message: '["Your kernel does not support swap limit capabilities, memory limited without swap."]'
         pytestudt3        
 --------------------------
  #1|1.0|a#2|2.0|b#3|3.0|c
@@ -72,8 +73,8 @@ select * from pytestudt15( array[(1,1,'a'), (2,2,'b'), (3,3,'c')]::test_type3[] 
 (3 rows)
 
 select pybadudtarr();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
+ERROR:  PL/Container client exception occurred:
 DETAIL:  Cannot find key 'c' in result dictionary for converting it into UDT
 select pybadudtarr2();
-ERROR:  PL/Container client exception occurred: (plcontainer.c:283)
+ERROR:  PL/Container client exception occurred:
 DETAIL:  Exception occurred transforming result object to float8
