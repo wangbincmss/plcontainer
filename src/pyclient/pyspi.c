@@ -6,6 +6,8 @@
 
 #include <Python.h>
 
+PyObject *plpy_execute(PyObject *self UNUSED, PyObject *pyquery);
+
 static plcMsgResult *receive_from_backend();
 
 static plcMsgResult *receive_from_backend() {

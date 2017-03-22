@@ -80,6 +80,8 @@ static char *get_python_error() {
     return chrRetval;
 }
 
+#pragma GCC diagnostic ignored "-Wformat-security"
+
 void raise_execution_error (const char *format, ...) {
     char *msg   = NULL;
     char *stack = NULL;
@@ -143,3 +145,4 @@ void *plc_error_callback() {
     plcLastErrMessage = NULL;
     return (void*)msg;
 }
+
