@@ -7,3 +7,7 @@
 m/^WARNING:  Docker API.*/
 
 -- end_matchignore
+-- start_matchsubs
+m/ls: cannot access '.*'.*/
+s/ls: cannot access '(.*)'(.*)/ls: cannot access $1$2/
+-- end_matchsubs
