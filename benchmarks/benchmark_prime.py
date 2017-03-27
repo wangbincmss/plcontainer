@@ -1,3 +1,9 @@
+#------------------------------------------------------------------------------
+#
+# 
+# Copyright (c) 2016, Pivotal.
+#
+#------------------------------------------------------------------------------
 import datetime as dt
 from gppylib.db import dbconn
 from pygresql.pg import DatabaseError

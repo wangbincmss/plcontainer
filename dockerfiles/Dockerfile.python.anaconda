@@ -1,3 +1,9 @@
+#------------------------------------------------------------------------------
+#
+# 
+# Copyright (c) 2016, Pivotal.
+#
+#------------------------------------------------------------------------------
 FROM pivotaldata/plcontainer_anaconda_base:0.4
 
 # Running the Python client inside of container

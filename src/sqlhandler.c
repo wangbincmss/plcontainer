@@ -1,6 +1,12 @@
+
+
 /**
  * SQL message handler implementation.
  *
+ *
+ * Copyright (c) 2016, Pivotal.
+ *
+ *------------------------------------------------------------------------------
  */
 
 #include "postgres.h"
