@@ -45,6 +45,15 @@ else
   $(info curl-config is not found, building with default Docker API interface)
 endif
 
+#libxml
+LIBXML_CONFIG = $(shell which xml2-config || echo no)
+ifneq ($(LIBXML_CONFIG),no)
+  override CFLAGS += $(shell xml2-config --cflags)
+  override SHLIB_LINK += $(shell xml2-config --libs)
+else
+  $(error xml2-config is missing. Have you installed libxml?)
+endif
+
 PLCONTAINERDIR = $(DESTDIR)$(datadir)/plcontainer
 
 all: all-lib
