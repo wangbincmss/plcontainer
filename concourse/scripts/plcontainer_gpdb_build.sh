@@ -12,7 +12,6 @@ tar zxvf bin_gpdb.tar.gz
 popd
 source /usr/local/greenplum-db-devel/greenplum_path.sh
 
-export CUSTOM_CC=gcc
 if [ "$MODE" == "test" ]; then
     export CIBUILD=1
 fi
