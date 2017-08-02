@@ -5,13 +5,14 @@ set -x
 GPDBBIN=$1
 OUTPUT=$2
 MODE=$3
-
-cp $GPDBBIN/$GPDBBIN.tar.gz /usr/local
-pushd /usr/local
+mkdir /usr/local/greenplum-db-devel
+cp $GPDBBIN/$GPDBBIN.tar.gz /usr/local/greenplum-db-devel/
+pushd /usr/local/greenplum-db-devel/
 tar zxvf $GPDBBIN.tar.gz
 popd
-source /usr/local/greenplum-db/greenplum_path.sh
+source /usr/local/greenplum-db-devel/greenplum_path.sh
 
+export CUSTOM_CC=gcc
 if [ "$MODE" == "test" ]; then
     export CIBUILD=1
 fi
