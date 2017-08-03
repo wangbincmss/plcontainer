@@ -251,5 +251,5 @@ const char *plc_get_type_name(plcDatatype dt) {
                             "PLC_DATA_UDT",
                             "PLC_DATA_BYTEA",
                             "PLC_DATA_INVALID"};
-    return (dt >= 0 && dt <= 10) ? types[dt] : "UNKNOWN";
+    return (dt <= 10) ? types[dt] : "UNKNOWN";
 }
