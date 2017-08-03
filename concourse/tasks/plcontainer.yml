@@ -4,6 +4,13 @@ image_resource:
 inputs:
   - name: gpdb_src
   - name: plc_src
+  - name: gpdb_binary
+  - name: ccp_src
+  - name: plcontainer_gpdb_build
+  - name: bin_python26_client
+  - name: bin_python27_client
+  - name: bin_r32_client
+  - name: bin_r32_clientlib
 outputs:
 params:
 run:
