@@ -3,7 +3,7 @@ image_resource:
   type: docker-image
 inputs:
   - name: gpdb_src
-  - name: plc_src
+  - name: plcontainer_src
   - name: gpdb_binary
   - name: ccp_src
   - name: plcontainer_gpdb_build
@@ -14,4 +14,4 @@ inputs:
 outputs:
 params:
 run:
-  path: plc_src/concourse/scripts/plcontainer.sh
+  path: plcontainer_src/concourse/scripts/plcontainer.sh
