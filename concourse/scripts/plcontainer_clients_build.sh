@@ -9,7 +9,6 @@ yum -y install R R-devel R-core
 rm -rf plcontainer_clients_build/python26 && mkdir plcontainer_clients_build/python26
 rm -rf plcontainer_clients_build/python27 && mkdir plcontainer_clients_build/python27
 rm -rf plcontainer_clients_build/r32 && mkdir plcontainer_clients_build/r32
-rm -rf plcontainer_clients_build/r31 && mkdir plcontainer_clients_build/r31
 
 # Build Python 2.7 and R 3.2 - default ones
 cd plcontainer_src
