@@ -1,0 +1,12 @@
+#------------------------------------------------------------------------------
+#
+# 
+# Copyright (c) 2016, Pivotal.
+#
+#------------------------------------------------------------------------------
+FROM centos:6
+
+# Running Python client inside of container
+ADD ./src/pyclient/bin /clientdir
+EXPOSE 8080
+WORKDIR /clientdir

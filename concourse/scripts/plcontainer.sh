@@ -8,4 +8,3 @@ plcontainer_src/concourse/script/docker_build.sh
 plcontainer_src/concourse/script/run_plcontainer.sh
 
 
-exit 1
