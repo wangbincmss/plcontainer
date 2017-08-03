@@ -11,6 +11,7 @@ inputs:
   - name: bin_python27_client
   - name: bin_r32_client
   - name: bin_r32_clientlib
+  - name: cluster_env_files
 outputs:
 params:
 run:
