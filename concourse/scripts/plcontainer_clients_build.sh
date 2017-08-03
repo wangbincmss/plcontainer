@@ -28,7 +28,7 @@ unset R_HOME
 mkdir /usr/local/greenplum-db
 cp bin_gpdb/bin_gpdb.tar.gz /usr/local/greenplum-db/
 pushd /usr/local/greenplum-db/
-tar zxvf $1.tar.gz
+tar zxvf bin_gpdb.tar.gz
 popd
 source /usr/local/greenplum-db/greenplum_path.sh
 pushd src/pyclient
