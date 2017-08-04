@@ -13,6 +13,7 @@ inputs:
   - name: bin_r32_clientlib
   - name: cluster_env_files
 outputs:
+  - name: plcontainer_perf_result
 params:
 run:
   path: plcontainer_src/concourse/scripts/plcontainer.sh
