@@ -7,4 +7,3 @@ plcontainer_src/concourse/scripts/docker_install.sh
 plcontainer_src/concourse/scripts/docker_build.sh
 plcontainer_src/concourse/scripts/run_plcontainer.sh
 
-exit 1
