@@ -4,4 +4,8 @@ import math
 return math.log10(100)                                                          
 $$ LANGUAGE plcontainer;
 
-select pylog100();
+CREATE LANGUAGE plpythonu;
+CREATE OR REPLACE FUNCTION pylog100_py() RETURNS double precision AS $$
+import math
+return math.log10(100)
+$$ LANGUAGE plpythonu;
