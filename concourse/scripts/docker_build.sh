@@ -4,8 +4,8 @@ set -ex
 
 docker_build() {
 	local node=$1
-	scp -r bin_python26_client node:~/
-	scp -r bin_python27_client node:~/
+	scp -r bin_python26_client $node:~/
+	scp -r bin_python27_client $node:~/
 	scp -r plcontainer_gpdb_build $node:~/
 	scp -r plcontainer_src $node:~/
 
